@@ -36,7 +36,7 @@ print(f"Added carriers: {new_carriers}")
 print(f"Added conversion technologies: {new_conversion_technologies}")
 
 # update the model with desired changes
-model.name = "Crystal_Ball_HG_v1.0"
+model.name = "Crystal_Ball_HG_v1_0"
 model.output_folder = output_path
 
 # save the new model
