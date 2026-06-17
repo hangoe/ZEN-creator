@@ -10,15 +10,16 @@ model = Model.from_existing(data_path)
 
 # add new elements to the model and overwrite them with the data from EUROSTAT
 path_to_eurostat_data = Path("../ZEN-europe-process-heat")
+path_to_zenindustryheat_data = Path("../ZEN-industry-heat-eu/outputs/model/industry_heat_eu")
 
 # discover all carriers and conversion technologies present in the dataset
 new_carriers = sorted(
-    p.name for p in (path_to_eurostat_data / "set_carriers").iterdir() if p.is_dir()
+    p.name for p in (path_to_zenindustryheat_data / "set_carriers").iterdir() if p.is_dir()
 )
 new_conversion_technologies = sorted(
     p.name
     for p in (
-        path_to_eurostat_data / "set_technologies" / "set_conversion_technologies"
+        path_to_zenindustryheat_data / "set_technologies" / "set_conversion_technologies"
     ).iterdir()
     if p.is_dir()
 )
@@ -26,17 +27,17 @@ new_conversion_technologies = sorted(
 # add carriers first, since conversion technologies reference them on validation
 for carrier_name in new_carriers:
     model.add_element_by_name(carrier_name, generic="carrier")
-    model.elements[carrier_name].overwrite_from_existing_model(path_to_eurostat_data)
+    model.elements[carrier_name].overwrite_from_existing_model(path_to_zenindustryheat_data)
 
 for tech_name in new_conversion_technologies:
     model.add_element_by_name(tech_name, generic="conversion_technology")
-    model.elements[tech_name].overwrite_from_existing_model(path_to_eurostat_data)
+    model.elements[tech_name].overwrite_from_existing_model(path_to_zenindustryheat_data)
 
 print(f"Added carriers: {new_carriers}")
 print(f"Added conversion technologies: {new_conversion_technologies}")
 
 # update the model with desired changes
-model.name = "Crystal_Ball_HG_v1_0"
+model.name = "Crystal_Ball_HG_v2_0"
 model.output_folder = output_path
 
 # save the new model
