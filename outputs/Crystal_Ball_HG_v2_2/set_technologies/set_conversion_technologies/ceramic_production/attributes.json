@@ -28,15 +28,15 @@
         "unit": "1"
     },
     "opex_specific_variable": {
-        "default_value": 20.0,
+        "default_value": 59.34,
         "unit": "Euro/tonproduct"
     },
     "opex_specific_fixed": {
-        "default_value": 0.0,
+        "default_value": 166351.72,
         "unit": "Euro/(tonproduct/h)"
     },
     "carbon_intensity_technology": {
-        "default_value": 0.2,
+        "default_value": 0.0,
         "unit": "ton/tonproduct"
     },
     "construction_time": {
@@ -61,7 +61,7 @@
         ]
     },
     "capex_specific_conversion": {
-        "default_value": 1363718918.918919,
+        "default_value": 2183366.39,
         "unit": "Euro/(tonproduct/h)"
     },
     "input_carrier": {

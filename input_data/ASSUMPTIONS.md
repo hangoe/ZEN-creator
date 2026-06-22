@@ -74,6 +74,9 @@ their own sources in their `source`/`comment` columns.
   opex_variable ≈ 59.34 EUR/t (2019 prices), lifetime = 28 yr
   (0.6×30 + 0.3×25 + 0.1×25, rounded). Derivation block written to README
   sheet of `process_parametrization.xlsx` by `write_sector_cost_params`.
+- **`carbon_intensity_technology = 0.1`** (orange cell in
+  `process_parametrization.xlsx`): raw-material decomposition emissions
+  (AIDRES electricity-route direct emissions), manually entered.
 
 ## Ceramic
 
@@ -81,11 +84,16 @@ their own sources in their `source`/`comment` columns.
   EU28+3 activity (`activity_weights(REHFELDT2017_CERAMIC)`); AIDRES does not
   cover ceramics, so energy and temperature distribution come entirely from
   Rehfeldt.
-- **Cost parameters** set manually in `process_parametrization.xlsx`. JRC-EU-TIMES
-  only contains generic "Other Non-Metallic Minerals" process-heat boiler
-  technologies (`INMPRCxxx`, `INMSTMxxx`), which represent heat-supply
-  equipment costs, not ceramic kiln / product-line capex — no appropriate
-  JRC-EU-TIMES proxy available.
+- **Cost parameters** set manually in `process_parametrization.xlsx` (orange
+  cells). JRC-EU-TIMES only contains generic "Other Non-Metallic Minerals"
+  process-heat boiler technologies (`INMPRCxxx`, `INMSTMxxx`), which represent
+  heat-supply equipment costs, not ceramic kiln / product-line capex — no
+  appropriate JRC-EU-TIMES proxy available. Values used (same as glass, see
+  glass section for derivation): capex = 2,183,366.39 EUR/(t/h),
+  opex_fixed = 166,351.72 EUR/(t/h)/yr, opex_variable = 59.34 EUR/t,
+  lifetime = 20 yr.
+- **`carbon_intensity_technology = 0`** (orange cell): set to zero; ceramic
+  process emissions (calcination CO2) are not included in this parametrization.
 
 ## Paper
 

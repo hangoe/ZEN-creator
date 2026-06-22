@@ -36,7 +36,7 @@
         "unit": "Euro/(tonproduct/h)"
     },
     "carbon_intensity_technology": {
-        "default_value": 0.2,
+        "default_value": 0.1,
         "unit": "ton/tonproduct"
     },
     "construction_time": {
