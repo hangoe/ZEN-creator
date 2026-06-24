@@ -8,14 +8,12 @@ from zen_creator.elements.industry_heat.carriers import (
     Paper,
 )
 from zen_creator.elements.industry_heat.heat_techs import (
-    BiomassBoilerIndustry0100,
-    BiomassBoilerIndustry100200,
-    ElectrodeBoilerIndustry0100,
-    ElectrodeBoilerIndustry100200,
+    BiomassBoilerIndustry,
+    ElectrodeBoilerIndustry,
+    HeatIndustryTempConversion,
     HeatPumpIndustry0100,
     HeatPumpIndustry100200,
-    NaturalGasBoilerIndustry0100,
-    NaturalGasBoilerIndustry100200,
+    NaturalGasBoilerIndustry,
 )
 from zen_creator.elements.industry_heat.production_techs import (
     CeramicProduction,
@@ -36,12 +34,10 @@ __all__ = [
     "CeramicProduction",
     "PaperProduction",
     "FoodProduction",
-    "BiomassBoilerIndustry0100",
-    "BiomassBoilerIndustry100200",
-    "ElectrodeBoilerIndustry0100",
-    "ElectrodeBoilerIndustry100200",
+    "BiomassBoilerIndustry",
+    "ElectrodeBoilerIndustry",
     "HeatPumpIndustry0100",
     "HeatPumpIndustry100200",
-    "NaturalGasBoilerIndustry0100",
-    "NaturalGasBoilerIndustry100200",
+    "NaturalGasBoilerIndustry",
+    "HeatIndustryTempConversion",
 ]

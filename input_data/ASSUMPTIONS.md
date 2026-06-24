@@ -285,28 +285,39 @@ their own sources in their `source`/`comment` columns.
   boiler capacity for `biomass_boiler_industry` and
   `natural_gas_boiler_industry`.
 
-## Heat technology temperature-level split
+## Heat technology temperature-level structure (v2.3+)
 
-Each heat supply technology (heat pump, electrode boiler, natural gas boiler,
-biomass boiler) is split into two independent single-output variants — one
-producing `heat_industry_0_100` (suffix `_0_100`) and one producing
-`heat_industry_100_200` (suffix `_100_200`). This allows the optimizer to
-invest in and dispatch heat supply at each temperature level independently.
+Heat supply is modeled with an asymmetric structure reflecting the
+thermodynamic advantage of heat pumps at low temperatures:
 
-- **Capacity split**: each technology's total `capacity_existing` (from
-  David2017 for heat pumps, Eurostat for boilers — see above) is allocated
-  between the two variants proportionally to the **demand-weighted
-  temperature share** across all four production sectors. The share is
-  computed as:
-  ```
-  share_0_100 = Σ_s (demand_s × cf_lt_0_100_s) / Σ_s (demand_s × (cf_lt_0_100_s + cf_lt_100_200_s))
-  ```
-  where `demand_s` is the total product demand (sum over all nodes, in
-  tonproduct/h) and `cf_lt_*_s` the sector's low-temperature conversion
-  factor (GW per tonproduct/h). This yields approximately **29.5% for
-  0–100 °C** and **70.5% for 100–200 °C** (driven mainly by paper's large
-  100–200 °C heat demand).
-- **Output directory cleanup**: `compute_params.py` deletes the entire
-  `set_carriers/` and `set_conversion_technologies/` directories before
-  writing, ensuring stale carriers (e.g. the former `heat_low_temp_industry`)
-  and old technology variants do not persist across runs.
+- **Heat pumps** are split into two variants (`heat_pump_industry_0_100` and
+  `heat_pump_industry_100_200`), each producing a single temperature level.
+  HP 0_100 has a slightly higher COP than HP 100_200 (base COP + 0.01;
+  placeholder value, to be calibrated). This ensures the optimizer prefers
+  the dedicated low-temp heat pump for 0–100 °C demand.
+- **Boilers** (`biomass_boiler_industry`, `electrode_boiler_industry`,
+  `natural_gas_boiler_industry`) produce only `heat_industry_100_200`.
+  Their full `capacity_existing` is assigned (no temperature split).
+- **Temperature conversion** (`heat_industry_temp_conversion`) converts
+  `heat_industry_100_200` → `heat_industry_0_100` with a conversion factor
+  of 1.0 (lossless; placeholder value, to be calibrated). This allows
+  boiler-produced 100–200 °C heat to supply 0–100 °C demand when needed.
+  No capex or existing capacity — the optimizer can freely build this
+  bridge technology.
+
+### Heat pump capacity split
+
+Heat pump `capacity_existing` (from David2017) is still allocated between
+the two HP variants proportionally to the **demand-weighted temperature
+share** across all four production sectors:
+```
+share_0_100 = Σ_s (demand_s × cf_lt_0_100_s) / Σ_s (demand_s × (cf_lt_0_100_s + cf_lt_100_200_s))
+```
+This yields approximately **29.5% for 0–100 °C** and **70.5% for 100–200 °C**
+(driven mainly by paper's large 100–200 °C heat demand).
+
+### Previous structure (v2.2)
+
+In v2.2, all four heat supply technologies (heat pumps + 3 boilers) were each
+split into two variants (`_0_100` and `_100_200`), totaling 8 technologies.
+Capacity was split by the same demand-weighted temperature share for all techs.
