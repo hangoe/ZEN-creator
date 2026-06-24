@@ -21,15 +21,12 @@ def apply_attrs_dict(element: Element, data: dict) -> None:
     attributes (conversion_factor, reference_carrier, input_carrier,
     output_carrier) are handled correctly.
     """
-    LIST_ATTRS = {"conversion_factor", "reference_carrier", "input_carrier", "output_carrier"}
+    # These are set by _set_* methods during build() and must not be
+    # pre-populated here (the setters reject changes to non-empty values).
+    SKIP_ATTRS = {"reference_carrier", "input_carrier", "output_carrier", "conversion_factor"}
 
     for key, entry in data.items():
-        if key in LIST_ATTRS:
-            if not hasattr(element, key):
-                continue
-            attr = getattr(element, key)
-            if isinstance(attr, Attribute):
-                attr._default_value = entry.get("default_value", entry) if isinstance(entry, dict) else entry
+        if key in SKIP_ATTRS:
             continue
 
         if not hasattr(element, key):

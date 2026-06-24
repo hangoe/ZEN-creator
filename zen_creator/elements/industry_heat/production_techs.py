@@ -23,8 +23,11 @@ from zen_creator.elements.industry_heat._params import (
     BAT_PAPER_CSV,
     CAPACITY_YEAR,
     FEC_YEAR,
+    HEAT_CARRIER_NAMES,
+    HEAT_TEMP_LEVELS,
     fuel_mix_shares,
     process_tech_overrides,
+    sector_heat_cfs,
     sector_params,
 )
 from zen_creator.industry_heat_eu.capacity_and_demand import (
@@ -40,16 +43,22 @@ def _index_capacity_df(df: pd.DataFrame) -> pd.DataFrame:
     return df.set_index(["node", "year_construction"])
 
 
-def _build_production_tech_dict(sector: str, product: str, tech_name: str) -> dict:
-    """Build the final attributes dict, matching compute_params.write_production_tech.
+def _active_heat_carriers(sector: str) -> list[str]:
+    """Return only heat carriers with non-zero conversion factor for this sector."""
+    cfs = sector_heat_cfs()[sector]
+    return [HEAT_CARRIER_NAMES[l] for l in HEAT_TEMP_LEVELS if cfs[l] > 0]
 
-    Cost parameters (capex, opex, lifetime, carbon_intensity) are NOT applied
-    here — they come from process_parametrization.xlsx via apply_excel_overrides,
-    which is the source of truth (compute_params.py writes cost values into the
-    Excel before reading them back).
+
+def _build_production_tech_dict(sector: str, product: str, tech_name: str) -> dict:
+    """Build the final attributes dict with 3 temperature levels.
+
+    Uses build_conversion_tech for the base structure, then replaces the
+    2-level heat carriers with 3 levels (0-100, 100-150, 150-200) using
+    Wolf2017-based splits.
     """
     params = sector_params()[sector]
     shares = fuel_mix_shares()[sector]
+    cfs = sector_heat_cfs()[sector]
 
     opex_var = {"glass": 15.0, "ceramic": 10.0, "paper": 0.0, "food": 0.0}
 
@@ -60,10 +69,24 @@ def _build_production_tech_dict(sector: str, product: str, tech_name: str) -> di
         opex_specific_variable=opex_var.get(sector, 0.0),
     )
 
+    # Only include heat carriers with non-zero conversion factor
+    active_heat_levels = [l for l in HEAT_TEMP_LEVELS if cfs[l] > 0]
+    active_heat_carriers = [HEAT_CARRIER_NAMES[l] for l in active_heat_levels]
+    data["input_carrier"]["default_value"] = [*shares.keys(), *active_heat_carriers, "electricity"]
+
+    new_cf = [entry for entry in data["conversion_factor"]
+              if not any(k.startswith("heat_industry") for k in entry)]
+    for level in active_heat_levels:
+        carrier = HEAT_CARRIER_NAMES[level]
+        new_cf.append({carrier: {
+            "default_value": round(cfs[level], 12),
+            "unit": "GW/(tonproduct/hour)",
+        }})
+    data["conversion_factor"] = new_cf
+
     conversion_factor_map = {
         **{f"conversion_factor:{carrier}": carrier for carrier in shares},
-        "conversion_factor:heat_industry_0_100": "heat_industry_0_100",
-        "conversion_factor:heat_industry_100_200": "heat_industry_100_200",
+        **{f"conversion_factor:{HEAT_CARRIER_NAMES[l]}": HEAT_CARRIER_NAMES[l] for l in HEAT_TEMP_LEVELS},
         "conversion_factor:electricity": "electricity",
     }
 
@@ -83,7 +106,7 @@ class GlassProduction(ConversionTechnology):
 
     def _set_input_carrier(self) -> Attribute:
         shares = fuel_mix_shares()["glass"]
-        return Attribute("input_carrier", default_value=[*shares.keys(), "heat_industry_0_100", "heat_industry_100_200", "electricity"], element=self)
+        return Attribute("input_carrier", default_value=[*shares.keys(), *_active_heat_carriers("glass"), "electricity"], element=self)
 
     def _set_output_carrier(self) -> Attribute:
         return Attribute("output_carrier", default_value=["glass"], element=self)
@@ -114,7 +137,7 @@ class CeramicProduction(ConversionTechnology):
 
     def _set_input_carrier(self) -> Attribute:
         shares = fuel_mix_shares()["ceramic"]
-        return Attribute("input_carrier", default_value=[*shares.keys(), "heat_industry_0_100", "heat_industry_100_200", "electricity"], element=self)
+        return Attribute("input_carrier", default_value=[*shares.keys(), *_active_heat_carriers("ceramic"), "electricity"], element=self)
 
     def _set_output_carrier(self) -> Attribute:
         return Attribute("output_carrier", default_value=["ceramic"], element=self)
@@ -145,7 +168,7 @@ class PaperProduction(ConversionTechnology):
 
     def _set_input_carrier(self) -> Attribute:
         shares = fuel_mix_shares()["paper"]
-        return Attribute("input_carrier", default_value=[*shares.keys(), "heat_industry_0_100", "heat_industry_100_200", "electricity"], element=self)
+        return Attribute("input_carrier", default_value=[*shares.keys(), *_active_heat_carriers("paper"), "electricity"], element=self)
 
     def _set_output_carrier(self) -> Attribute:
         return Attribute("output_carrier", default_value=["paper"], element=self)
@@ -182,7 +205,7 @@ class FoodProduction(ConversionTechnology):
 
     def _set_input_carrier(self) -> Attribute:
         shares = fuel_mix_shares()["food"]
-        return Attribute("input_carrier", default_value=[*shares.keys(), "heat_industry_0_100", "heat_industry_100_200", "electricity"], element=self)
+        return Attribute("input_carrier", default_value=[*shares.keys(), *_active_heat_carriers("food"), "electricity"], element=self)
 
     def _set_output_carrier(self) -> Attribute:
         return Attribute("output_carrier", default_value=["food"], element=self)

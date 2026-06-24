@@ -4,6 +4,7 @@ All expensive computations (Excel reads, FAOSTAT queries) happen once on
 first access and are cached for subsequent use by the Element subclasses.
 """
 
+import csv
 import copy
 import functools
 import pathlib
@@ -64,6 +65,23 @@ CARRIER_SHEET = "carriers"
 HEAT_XLSX = INPUT_DATA / "Parametrization" / "heat_tech_parametrization.xlsx"
 HEAT_SHEET = "heat_techs"
 BAT_PAPER_CSV = INPUT_DATA / "JRC-BAT" / "JRC_BAT_Paper2014_Table1_2.csv"
+WOLF_CSV = INPUT_DATA / "Wolf2017" / "Wolf2017_Tabelle4_7.csv"
+
+# Mapping from our sector names to Wolf2017 Industriezweig rows.
+SECTOR_TO_WOLF = {
+    "food": "Nahrung",
+    "paper": "Papier",
+    "glass": "Nichtmetall",
+    "ceramic": "Nichtmetall",
+}
+
+# Three temperature levels for heat carriers.
+HEAT_TEMP_LEVELS = ("0_100", "100_150", "150_200")
+HEAT_CARRIER_NAMES = {
+    "0_100": "heat_industry_0_100",
+    "100_150": "heat_industry_100_150",
+    "150_200": "heat_industry_150_200",
+}
 
 
 @functools.cache
@@ -79,6 +97,54 @@ def sector_params():
     food_w = activity_weights(REHFELDT2017_FOOD)
     food = compute_sector_params(REHFELDT2017_FOOD, REHFELDT2017_FOOD, food_w)
     return {"glass": glass, "ceramic": ceramic, "paper": paper, "food": food}
+
+
+@functools.cache
+def wolf_100_200_split() -> dict[str, tuple[float, float]]:
+    """Read Wolf2017 and compute the 100-150 / 150-200 ratio per sector.
+
+    Returns {sector: (ratio_100_150, ratio_150_200)} where the two ratios
+    sum to 1.0.  Based on Wolf2017 Tabelle 4-7, columns PW_bis_150C
+    (100-150 degC) and PW_bis_200C (150-200 degC).
+    """
+    with open(WOLF_CSV) as f:
+        reader = csv.DictReader(f)
+        wolf = {row["industriezweig"]: row for row in reader}
+
+    result = {}
+    for sector, wolf_name in SECTOR_TO_WOLF.items():
+        row = wolf[wolf_name]
+        s_100_150 = float(row["PW_bis_150C"].strip("%")) / 100
+        s_150_200 = float(row["PW_bis_200C"].strip("%")) / 100
+        total = s_100_150 + s_150_200
+        if total > 0:
+            result[sector] = (s_100_150 / total, s_150_200 / total)
+        else:
+            result[sector] = (0.5, 0.5)
+    return result
+
+
+@functools.cache
+def sector_heat_cfs() -> dict[str, dict[str, float]]:
+    """Compute per-sector conversion factors for 3 temperature levels.
+
+    Splits the Rehfeldt cf_lt_100_200 into cf_lt_100_150 and cf_lt_150_200
+    using Wolf2017 ratios.
+
+    Returns {sector: {"0_100": cf, "100_150": cf, "150_200": cf}}.
+    """
+    params = sector_params()
+    wolf = wolf_100_200_split()
+    result = {}
+    for sector in ["glass", "ceramic", "paper", "food"]:
+        p = params[sector]
+        r_100_150, r_150_200 = wolf[sector]
+        result[sector] = {
+            "0_100": p.cf_lt_0_100,
+            "100_150": p.cf_lt_100_200 * r_100_150,
+            "150_200": p.cf_lt_100_200 * r_150_200,
+        }
+    return result
 
 
 @functools.cache
@@ -117,18 +183,20 @@ def heat_tech_names() -> list[str]:
 
 @functools.cache
 def heat_capacity_split() -> dict[str, float]:
-    """Compute the demand-weighted temperature-level capacity split."""
+    """Compute the demand-weighted 3-level temperature capacity split."""
     params = sector_params()
+    cfs = sector_heat_cfs()
     demand_volumes = {
         "glass": industry_demand_df("glass", FEC_YEAR)["demand"].sum(),
         "ceramic": industry_demand_df("ceramic", FEC_YEAR)["demand"].sum(),
         "paper": industry_demand_df("paper", FEC_YEAR)["demand"].sum(),
         "food": food_demand_df(FEC_YEAR)["demand"].sum(),
     }
-    total_0_100 = sum(demand_volumes[s] * params[s].cf_lt_0_100 for s in demand_volumes)
-    total_100_200 = sum(demand_volumes[s] * params[s].cf_lt_100_200 for s in demand_volumes)
-    total = total_0_100 + total_100_200
-    return {"0_100": total_0_100 / total, "100_200": total_100_200 / total}
+    totals = {}
+    for level in HEAT_TEMP_LEVELS:
+        totals[level] = sum(demand_volumes[s] * cfs[s][level] for s in demand_volumes)
+    grand_total = sum(totals.values())
+    return {level: totals[level] / grand_total for level in HEAT_TEMP_LEVELS}
 
 
 @functools.cache

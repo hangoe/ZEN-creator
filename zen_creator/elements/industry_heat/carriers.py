@@ -114,8 +114,16 @@ class HeatIndustry0100(Carrier):
         apply_attrs_dict(self, _build_carrier_dict("heat_industry_0_100", ENERGY_CARRIER_TEMPLATE))
 
 
-class HeatIndustry100200(Carrier):
-    name = "heat_industry_100_200"
+class HeatIndustry100150(Carrier):
+    name = "heat_industry_100_150"
+
+    def __init__(self, model: Model):
+        super().__init__(model=model, power_unit="GW")
+        apply_attrs_dict(self, _build_carrier_dict("heat_industry_100_200", ENERGY_CARRIER_TEMPLATE))
+
+
+class HeatIndustry150200(Carrier):
+    name = "heat_industry_150_200"
 
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
