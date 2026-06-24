@@ -290,37 +290,18 @@ def food_demand_df(year: int) -> pd.DataFrame:
 
 
 def heat_pump_capacity_existing_df() -> pd.DataFrame:
-    """Build a capacity_existing.csv DataFrame (columns node, year_construction,
-    capacity_existing) for heat_pump_industry from
-    `input_data/David2017/David2017_heat_pumps.csv`, one row per node with
-    heat pump plants.
+    """Build a capacity_existing.csv DataFrame for heat_pump_industry.
 
-    Each plant's `output_capacity_MW` is mapped to a `MODEL_NODES` node via
-    `DAVID2017_COUNTRY_TO_NODE` (the Netherlands entry is dropped - "NL" is
-    not in MODEL_NODES) and converted from MW to GW (capacity_existing's unit
-    for heat_pump_industry). All plants of a node are summed into a single
-    row, with `year_construction` set to the capacity-weighted average of
-    the plants' `est_year` (or `DAVID2017_DEFAULT_YEAR` if missing), rounded
-    to the nearest year. Nodes without any heat pump plants get no row
-    (capacity_existing defaults to 0 in attributes.json).
+    Returns zero capacity for all nodes — there are currently no industrial
+    heat pumps deployed in Europe for process heat. The David2017 dataset
+    (large-scale HP installations in district heating) is not relevant for
+    industrial process heat applications.
     """
-    plants = pd.read_csv(INPUT_DATA / "David2017" / "David2017_heat_pumps.csv")
-    plants = plants[plants["country"].isin(DAVID2017_COUNTRY_TO_NODE)]
-
-    node = plants["country"].map(DAVID2017_COUNTRY_TO_NODE)
-    year_construction = plants["est_year"].fillna(DAVID2017_DEFAULT_YEAR).astype(int)
-    capacity_existing = plants["output_capacity_MW"] / 1000
-
-    df = pd.DataFrame({"node": node, "year_construction": year_construction, "capacity_existing": capacity_existing})
-
-    def aggregate(group: pd.DataFrame) -> pd.Series:
-        total_capacity = group["capacity_existing"].sum()
-        weighted_year = (group["year_construction"] * group["capacity_existing"]).sum() / total_capacity
-        return pd.Series({"year_construction": int(round(weighted_year)), "capacity_existing": total_capacity})
-
-    result = df.groupby("node", as_index=False).apply(aggregate)
-    result["year_construction"] = result["year_construction"].astype(int)
-    return result
+    rows = [
+        {"node": node, "year_construction": 2022, "capacity_existing": 0.0}
+        for node in MODEL_NODES
+    ]
+    return pd.DataFrame(rows)
 
 
 def eurostat_gross_heat_gwh(sheet: str, year: int) -> dict[str, float]:
@@ -386,29 +367,11 @@ def natural_gas_boiler_capacity_existing_df(year: int, year_construction: int | 
 def electrode_boiler_capacity_existing_df(year: int, year_construction: int | None = None) -> pd.DataFrame:
     """capacity_existing.csv DataFrame for electrode_boiler_industry, from
     Eurostat's "Gross heat production" of "Electricity"
-    (see `boiler_capacity_existing_df`), minus each node's
-    `heat_pump_capacity_existing_df` capacity.
+    (see `boiler_capacity_existing_df`).
 
-    ASSUMPTION: Eurostat's "Electricity" gross heat production includes heat
-    from electric heat pumps as well as electrode (resistance) boilers; the
-    David2017-based heat pump capacity (`heat_pump_capacity_existing_df`,
-    converted to the same `year_construction`) is subtracted out per node to
-    avoid double-counting. If this would make a node's capacity_existing
-    negative, a warning is issued and it is set to 0 instead.
+    No heat-pump deduction is applied — industrial heat pump capacity is
+    assumed to be zero (David2017 covers district heating, not industrial
+    process heat), so the full Eurostat "Electricity" heat production is
+    attributed to electrode boilers.
     """
-    df = boiler_capacity_existing_df(EUROSTAT_ELECTRICITY_HEAT_SHEET, year, year_construction)
-    heat_pump_capacity = heat_pump_capacity_existing_df().set_index("node")["capacity_existing"]
-
-    def subtract_heat_pump(row):
-        capacity = row["capacity_existing"] - heat_pump_capacity.get(row["node"], 0.0)
-        if capacity < 0:
-            warnings.warn(
-                f"electrode_boiler_capacity_existing_df: node {row['node']} capacity_existing "
-                f"({row['capacity_existing']}) minus heat pump capacity_existing "
-                f"({heat_pump_capacity.get(row['node'], 0.0)}) is negative; setting to 0."
-            )
-            return 0.0
-        return capacity
-
-    df["capacity_existing"] = df.apply(subtract_heat_pump, axis=1)
-    return df
+    return boiler_capacity_existing_df(EUROSTAT_ELECTRICITY_HEAT_SHEET, year, year_construction)
