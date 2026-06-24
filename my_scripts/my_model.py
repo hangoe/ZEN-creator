@@ -6,7 +6,7 @@ from zen_creator.model import Model
 import zen_creator.elements.industry_heat  # noqa: F401
 
 data_path = "/Users/hannegoericke/ZEN-models/data/Crystal_Ball"
-output_path = Path("./outputs")
+output_path = Path(__file__).parent.parent / "outputs"
 
 model = Model.from_existing(data_path)
 
