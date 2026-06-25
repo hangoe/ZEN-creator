@@ -363,11 +363,42 @@ parametrized from Mayer et al. (2024), Table 3:
   technology unit convention (`power_unit = MW`).
 - **`capacity_existing`**: set to 0 (default). There is essentially no
   deployed industrial TES capacity in Europe at present.
-- **Reference carriers**: `industry_TES_water` → `heat_industry_0_100`;
-  `industry_TES_steam` → `heat_industry_100_150`. The assignment reflects
-  the typical operating temperature range: water tanks are suitable for
-  low-temperature heat (<100 °C), steam accumulators for medium-temperature
-  heat (100–150 °C).
+- **Reference carriers**: each TES variant is assigned to one temperature
+  level. Water tanks serve 0–100 °C and 100–150 °C; steam accumulators
+  serve 100–150 °C and 150–200 °C:
+  - `industry_TES_water_0_100` → `heat_industry_0_100`
+  - `industry_TES_water_100_150` → `heat_industry_100_150`
+  - `industry_TES_steam_100_150` → `heat_industry_100_150`
+  - `industry_TES_steam_150_200` → `heat_industry_150_200`
+
+## Industry demand-side management (v4.0+)
+
+Four demand-side management (DSM) storage technologies allow the optimizer
+to shift production in time for each industry product carrier:
+
+- **`glass_DSM`** — reference carrier: `glass`
+- **`ceramic_DSM`** — reference carrier: `ceramic`
+- **`paper_DSM`** — reference carrier: `paper`
+- **`food_DSM`** — reference carrier: `food`
+
+### Parametrization
+
+DSM storages are modeled as perfect storages with no losses:
+
+| Parameter                         | Value                       |
+|-----------------------------------|-----------------------------|
+| `efficiency_charge`               | 1.0 (default)               |
+| `efficiency_discharge`            | 1.0 (default)               |
+| `self_discharge`                  | 0.0 (default)               |
+| `capex_specific_storage_energy`   | 0.01 EUR/(tonproduct/hour·h)|
+| `lifetime`                        | 50 years                    |
+
+- **Minimal capex**: a small but non-zero energy capex of 0.01 prevents the
+  optimizer from building DSM capacity without economic justification.
+- **No losses**: efficiency = 1.0 and self_discharge = 0.0, representing
+  an idealized ability to reschedule production within a planning period.
+- **Power unit**: `tonproduct/hour`, matching the production technology
+  capacity units.
 
 ## Code restructuring (v5.0)
 

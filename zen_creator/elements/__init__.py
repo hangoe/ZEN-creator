@@ -34,6 +34,12 @@ from .conversion_technologies.retrofitting_technology import (
 )
 from .element import Element
 from .energy_systems.energy_system import EnergySystem, GenericEnergySystem
+from .storage_technologies.industry_DSM import (
+    CeramicDSM,
+    FoodDSM,
+    GlassDSM,
+    PaperDSM,
+)
 from .storage_technologies.industry_TES import (
     IndustryTESSteam100150,
     IndustryTESSteam150200,
@@ -80,6 +86,10 @@ __all__ = [
     "HeatIndustryTempConversion100",
     "StorageTechnology",
     "GenericStorageTechnology",
+    "GlassDSM",
+    "CeramicDSM",
+    "PaperDSM",
+    "FoodDSM",
     "IndustryTESWater0100",
     "IndustryTESWater100150",
     "IndustryTESSteam100150",
