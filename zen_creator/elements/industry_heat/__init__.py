@@ -24,7 +24,6 @@ from zen_creator.elements.industry_heat.production_techs import (
     GlassProduction,
     PaperProduction,
 )
-
 __all__ = [
     "IndustryHeat",
     "Glass", "Ceramic", "Paper", "Food",

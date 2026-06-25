@@ -285,39 +285,86 @@ their own sources in their `source`/`comment` columns.
   boiler capacity for `biomass_boiler_industry` and
   `natural_gas_boiler_industry`.
 
-## Heat technology temperature-level structure (v2.3+)
+## Heat technology temperature-level structure (v3.0+)
 
-Heat supply is modeled with an asymmetric structure reflecting the
-thermodynamic advantage of heat pumps at low temperatures:
+Heat supply is modeled with three temperature levels (`heat_industry_0_100`,
+`heat_industry_100_150`, `heat_industry_150_200`) and an asymmetric structure
+reflecting the thermodynamic advantage of heat pumps at low temperatures:
 
-- **Heat pumps** are split into two variants (`heat_pump_industry_0_100` and
-  `heat_pump_industry_100_200`), each producing a single temperature level.
-  HP 0_100 has a slightly higher COP than HP 100_200 (base COP + 0.01;
-  placeholder value, to be calibrated). This ensures the optimizer prefers
-  the dedicated low-temp heat pump for 0–100 °C demand.
+- **Heat pumps** are split into three variants
+  (`heat_pump_industry_0_100`, `heat_pump_industry_100_150`,
+  `heat_pump_industry_150_200`), each producing a single temperature level.
+  HP 0_100 has the highest COP (base COP + 0.02), HP 100_150 intermediate
+  (base COP + 0.01), HP 150_200 the base COP. This ensures the optimizer
+  prefers the dedicated low-temp heat pump for lower-temperature demand.
 - **Boilers** (`biomass_boiler_industry`, `electrode_boiler_industry`,
-  `natural_gas_boiler_industry`) produce only `heat_industry_100_200`.
+  `natural_gas_boiler_industry`) produce only `heat_industry_150_200`.
   Their full `capacity_existing` is assigned (no temperature split).
-- **Temperature conversion** (`heat_industry_temp_conversion`) converts
-  `heat_industry_100_200` → `heat_industry_0_100` with a conversion factor
-  of 1.0 (lossless; placeholder value, to be calibrated). This allows
-  boiler-produced 100–200 °C heat to supply 0–100 °C demand when needed.
-  No capex or existing capacity — the optimizer can freely build this
-  bridge technology.
+- **Temperature conversion cascade** — two conversion technologies allow
+  higher-temperature heat to supply lower-temperature demand:
+  - `heat_industry_temp_conversion_150_100`: converts
+    `heat_industry_150_200` → `heat_industry_100_150` (conversion factor
+    1.0, lossless; placeholder, to be calibrated).
+  - `heat_industry_temp_conversion_100_0`: converts
+    `heat_industry_100_150` → `heat_industry_0_100` (conversion factor
+    1.0, lossless; placeholder, to be calibrated).
+  No capex or existing capacity — the optimizer can freely build these
+  bridge technologies.
 
 ### Heat pump capacity split
 
-Heat pump `capacity_existing` (from David2017) is still allocated between
-the two HP variants proportionally to the **demand-weighted temperature
-share** across all four production sectors:
-```
-share_0_100 = Σ_s (demand_s × cf_lt_0_100_s) / Σ_s (demand_s × (cf_lt_0_100_s + cf_lt_100_200_s))
-```
-This yields approximately **29.5% for 0–100 °C** and **70.5% for 100–200 °C**
-(driven mainly by paper's large 100–200 °C heat demand).
+Heat pump `capacity_existing` (from David2017) is allocated between
+the three HP variants proportionally to the **demand-weighted temperature
+share** across all four production sectors at the three temperature levels.
+
+### Previous structure (v2.3)
+
+In v2.3, heat supply used two temperature levels (`heat_industry_0_100`,
+`heat_industry_100_200`). Heat pumps were split into two variants, boilers
+produced `heat_industry_100_200` only, and a single temperature conversion
+(`heat_industry_100_200` → `heat_industry_0_100`) allowed boiler heat to
+supply low-temp demand.
 
 ### Previous structure (v2.2)
 
 In v2.2, all four heat supply technologies (heat pumps + 3 boilers) were each
 split into two variants (`_0_100` and `_100_200`), totaling 8 technologies.
 Capacity was split by the same demand-weighted temperature share for all techs.
+
+## Industry thermal energy storage (v4.0+)
+
+Two thermal energy storage (TES) technologies are added for industry heat,
+parametrized from Mayer et al. (2024), Table 3:
+
+- **`industry_TES_water`** (water tank): stores heat at the
+  `heat_industry_0_100` temperature level. Water tanks are the lowest-cost
+  TES option; Mayer2024 reports zero investment cost and low fixed O&M.
+- **`industry_TES_steam`** (steam accumulator): stores heat at the
+  `heat_industry_100_150` temperature level.
+
+### Parametrization (from Mayer2024 Table 3)
+
+| Parameter                       | Water tank        | Steam accumulator |
+|---------------------------------|-------------------|-------------------|
+| Round-trip efficiency           | 0.97              | 0.97              |
+| → `efficiency_charge`           | √0.97 ≈ 0.985    | √0.97 ≈ 0.985    |
+| → `efficiency_discharge`        | √0.97 ≈ 0.985    | √0.97 ≈ 0.985    |
+| Investment cost (source)        | 0 EUR/kWh         | 117 EUR/kWh       |
+| → `capex_specific_storage_energy` | 0 EUR/MWh       | 117,000 EUR/MWh   |
+| Fixed O&M cost (source)         | 0.17 EUR/kWh      | 4.7 EUR/kWh       |
+| → `opex_specific_fixed_energy`  | 170 EUR/MWh       | 4,700 EUR/MWh     |
+| Lifetime                        | 40 years          | 25 years          |
+
+- **Efficiency split**: the round-trip efficiency from the source is split
+  symmetrically between charge and discharge: `η_charge = η_discharge =
+  √η_roundtrip`.
+- **Unit conversion**: costs in the CSV are in EUR/kWh (energy capacity);
+  these are converted to EUR/MWh (×1000) to match the ZEN-garden storage
+  technology unit convention (`power_unit = MW`).
+- **`capacity_existing`**: set to 0 (default). There is essentially no
+  deployed industrial TES capacity in Europe at present.
+- **Reference carriers**: `industry_TES_water` → `heat_industry_0_100`;
+  `industry_TES_steam` → `heat_industry_100_150`. The assignment reflects
+  the typical operating temperature range: water tanks are suitable for
+  low-temperature heat (<100 °C), steam accumulators for medium-temperature
+  heat (100–150 °C).

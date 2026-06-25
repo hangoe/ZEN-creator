@@ -9,6 +9,7 @@ from .conversion_technologies.retrofitting_technology import (
 )
 from .element import Element
 from .energy_systems.energy_system import EnergySystem, GenericEnergySystem
+from .storage_technologies.industry_TES import IndustryTESSteam, IndustryTESWater
 from .storage_technologies.storage_technology import (
     GenericStorageTechnology,
     StorageTechnology,
@@ -30,6 +31,8 @@ __all__ = [
     "GenericConversionTechnology",
     "StorageTechnology",
     "GenericStorageTechnology",
+    "IndustryTESWater",
+    "IndustryTESSteam",
     "TransportTechnology",
     "GenericTransportTechnology",
     "RetrofittingTechnology",
