@@ -196,7 +196,7 @@ NODE_TO_AREA = {
     "CZ": "Czechia", "DE": "Germany", "DK": "Denmark", "EE": "Estonia",
     "EL": "Greece", "ES": "Spain", "FI": "Finland", "FR": "France",
     "HR": "Croatia", "HU": "Hungary", "IE": "Ireland", "IT": "Italy",
-    "LT": "Lithuania", "LU": "Luxembourg", "LV": "Latvia", "NL": "Netherlands",
+    "LT": "Lithuania", "LU": "Luxembourg", "LV": "Latvia", "NL": "Netherlands (Kingdom of the)",
     "NO": "Norway", "PL": "Poland", "PT": "Portugal", "RO": "Romania",
     "SE": "Sweden", "SI": "Slovenia", "SK": "Slovakia",
     "UK": "United Kingdom of Great Britain and Northern Ireland",
@@ -626,7 +626,15 @@ def capacity_existing_df(sector, year, year_construction=None):
         else:
             capacity = installed_capacity_kt(node, sector, year) * 1000 / OPERATING_HOURS
         rows.append({"node": node, "year_construction": year_construction or year, "capacity_existing": capacity})
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    if sector in ("glass", "ceramic"):
+        at_cap = float(df.loc[df["node"] == "AT", "capacity_existing"].values[0])
+        fi_cap = float(df.loc[df["node"] == "FI", "capacity_existing"].values[0])
+        de_cap = float(df.loc[df["node"] == "DE", "capacity_existing"].values[0])
+        df.loc[df["node"] == "CH", "capacity_existing"] = at_cap
+        df.loc[df["node"] == "NO", "capacity_existing"] = fi_cap
+        df.loc[df["node"] == "UK", "capacity_existing"] = de_cap * (69.9 / 83.5)
+    return df
 
 
 def industry_demand_df(sector, year):
@@ -637,7 +645,18 @@ def industry_demand_df(sector, year):
         else:
             demand = physical_output_kt(node, sector, year) * 1000 / HOURS_PER_YEAR
         rows.append({"node": node, "demand": demand})
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    if sector in ("glass", "ceramic"):
+        at_demand = float(df.loc[df["node"] == "AT", "demand"].values[0])
+        fi_demand = float(df.loc[df["node"] == "FI", "demand"].values[0])
+        de_demand = float(df.loc[df["node"] == "DE", "demand"].values[0])
+        # CH: use AT values (9.1M vs 9.2M — nearly identical population)
+        df.loc[df["node"] == "CH", "demand"] = at_demand
+        # NO: use FI values (5.6M vs 5.6M — same population)
+        df.loc[df["node"] == "NO", "demand"] = fi_demand
+        # UK: scale from DE by population ratio (69.9M / 83.5M)
+        df.loc[df["node"] == "UK", "demand"] = de_demand * (69.9 / 83.5)
+    return df
 
 
 def food_capacity_existing_df(year, year_construction=None):

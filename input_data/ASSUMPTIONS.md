@@ -183,6 +183,22 @@ their own sources in their `source`/`comment` columns.
   `kt × 1000 / 8760`; `capacity_existing` is set assuming demand equals
   existing capacity (`kt × 1000 / 8000`). Glass and ceramic remain at 0 for
   these three nodes (no equivalent non-IDEES source available).
+- **Glass/ceramic demand for CH, NO, UK** (population-scaled from reference
+  countries): since JRC-IDEES does not cover these nodes and no equivalent
+  source is available, glass and ceramic demand is derived from reference
+  countries with comparable population:
+  - **CH** (9.1M) → uses **AT** (9.2M) values directly (nearly identical
+    population, same values assumed).
+  - **NO** (5.6M) → uses **FI** (5.6M) values directly (identical population).
+  - **UK** (69.9M) → scaled from **DE** (83.5M) by population ratio
+    69.9/83.5 ≈ 0.837.
+  Both demand and `capacity_existing` are scaled using the same
+  reference-country logic so that existing capacity covers demand and the
+  optimizer does not need to build additional capacity.
+- **NL food demand/capacity** (FAOSTAT area name fix): FAOSTAT lists the
+  Netherlands as "Netherlands (Kingdom of the)". The `NODE_TO_AREA` mapping
+  uses this full name so that NL food demand and capacity are read directly
+  from the FAOSTAT data.
 - **`industry_demand_df` (glass/ceramic/paper demand)**: national demand is
   approximated by national JRC-IDEES-2023 "Physical output (kt)" for the
   given year, i.e. national production is assumed to equal national
@@ -262,7 +278,12 @@ their own sources in their `source`/`comment` columns.
   `heat_low_temp_industry`, Eurostat's heat *output* maps directly to
   `capacity_existing` (no `conversion_factor` applied).
 - **Switzerland ("CH")** has no entry in this Eurostat extract and gets
-  `capacity_existing = 0` for all three boilers. 
+  `capacity_existing = 0` for all three boilers (e-boiler, biomass boiler,
+  NG boiler). This means CH has no existing heating technology capacity in
+  the model — all heat supply must be built by the optimizer. This is a data
+  gap, not a modeling choice; CH is not the only country with 0 values for
+  individual boiler types, but it is the only country with 0 across all
+  three heating technologies.
 - **United Kingdom**: this extract has no 2023 (or later) value for the UK
   in any of the three sheets (Eurostat coverage ends after 2019
   post-Brexit); the latest available year (2019) is used instead (Natural
