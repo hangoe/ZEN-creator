@@ -31,12 +31,19 @@ DIAGRAM = r"""%%{init: {
 
 flowchart TB
 
-  %% ===== DATA SOURCES =====
+  %% ===== DATA SOURCES (two rows) =====
   subgraph DATA["Data Sources"]
-    direction LR
-    R2017[("Rehfeldt2017")] ~~~ A2023[("AIDRES2023")] ~~~ W2017[("Wolf2017")] ~~~ PROC_XL[("process_param.xlsx")] ~~~ JRC_ET[("JRC-EU-TIMES")]
-    HEAT_XL[("heat_tech_param.xlsx")] ~~~ CARR_XL[("industry_carriers.xlsx")] ~~~ IDEES[("JRC-IDEES-2023")] ~~~ FAO[("FAOSTAT")] ~~~ EURO[("Eurostat")] ~~~ M2024[("Mayer2024")]
+    subgraph SROW1[" "]
+      direction LR
+      R2017[("Rehfeldt2017")] ~~~ A2023[("AIDRES2023")] ~~~ W2017[("Wolf2017")] ~~~ PROC_XL[("process_param.xlsx")] ~~~ JRC_ET[("JRC-EU-TIMES")] ~~~ HEAT_XL[("heat_tech_param.xlsx")]
+    end
+    subgraph SROW2[" "]
+      direction LR
+      CARR_XL[("industry_carriers.xlsx")] ~~~ IDEES[("JRC-IDEES-2023")] ~~~ FAO[("FAOSTAT")] ~~~ EURO[("Eurostat")] ~~~ M2024[("Mayer2024")]
+    end
   end
+  style SROW1 fill:none,stroke:none
+  style SROW2 fill:none,stroke:none
 
   %% ===== DATASET CLASSES =====
   subgraph DS["Dataset Classes"]
@@ -50,9 +57,8 @@ flowchart TB
     M24["<b>Mayer2024</b><br/><i>TES<br/>params</i>"]
   end
 
-  %% ===== ELEMENT CLASSES =====
+  %% ===== ELEMENT CLASSES (two rows of groups) =====
   subgraph ELEM["IndustryHeat Sector — 27 Elements"]
-    direction LR
 
     subgraph CARR["Carriers"]
       direction TB
@@ -100,6 +106,13 @@ flowchart TB
       D3["paper"]
       D4["food"]
     end
+
+    %% Force row 1: Carriers, Production, Heat Supply side by side
+    CARR ~~~ PROD ~~~ HEAT
+    %% Force row 2: TES, DSM side by side, below row 1
+    TES ~~~ DSM
+    %% Vertical link between rows
+    P_FO ~~~ TW1
   end
 
   %% ===== DATA → DATASETS =====
