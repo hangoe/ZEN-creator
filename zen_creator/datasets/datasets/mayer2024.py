@@ -113,7 +113,7 @@ class Mayer2024Dataset(Dataset[pd.DataFrame]):
         attr = Attribute("lifetime", element=element)
         attr.set_data(
             default_value=lifetime,
-            unit="years",
+            unit="1",
             source=self._source_info("Lifetime from Mayer2024 Table 3."),
         )
         return attr

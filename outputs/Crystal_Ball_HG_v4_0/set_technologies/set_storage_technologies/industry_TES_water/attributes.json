@@ -53,7 +53,7 @@
     },
     "lifetime": {
         "default_value": 40.0,
-        "unit": "years"
+        "unit": "1"
     },
     "reference_carrier": {
         "default_value": [
