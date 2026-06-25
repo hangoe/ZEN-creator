@@ -9,6 +9,8 @@ from zen_creator.utils.attribute import Attribute
 from .dataset import Dataset
 from .metadata import MetaData, SourceInformation
 
+_INPUT_DATA = Path(__file__).resolve().parents[3] / "input_data"
+
 TECH_NAME_MAP = {
     "industry_TES_water": "water tank",
     "industry_TES_steam": "steam accumulator",
@@ -35,9 +37,11 @@ class Mayer2024Dataset(Dataset[pd.DataFrame]):
         )
 
     def _set_path(self) -> Path | None:
-        if self.source_path is None:
-            return None
-        return self.source_path / "Mayer2024" / "Mayer2024_Table3.csv"
+        if self.source_path is not None:
+            p = Path(self.source_path) / "Mayer2024" / "Mayer2024_Table3.csv"
+            if p.exists():
+                return p
+        return _INPUT_DATA / "Mayer2024" / "Mayer2024_Table3.csv"
 
     def _set_data(self) -> pd.DataFrame:
         return pd.read_csv(self.path, index_col="technology")

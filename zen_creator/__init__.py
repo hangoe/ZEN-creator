@@ -18,7 +18,7 @@ from .elements import (
     TransportTechnology,
 )
 from .model import Model
-from .sectors import Sector
+from .sectors import Sector  # noqa: F811 — now a package
 from .utils.attribute import Attribute
 from .utils.compare_trees import compare_trees
 from .utils.default_config import Config

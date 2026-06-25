@@ -368,3 +368,51 @@ parametrized from Mayer et al. (2024), Table 3:
   the typical operating temperature range: water tanks are suitable for
   low-temperature heat (<100 °C), steam accumulators for medium-temperature
   heat (100–150 °C).
+
+## Code restructuring (v5.0)
+
+In v5.0, the industry heat codebase was restructured to follow the
+zen-creator template pattern consistently across all element types:
+
+- **Carriers** (`Glass`, `Ceramic`, `Paper`, `Food`, `HeatIndustry0100`,
+  `HeatIndustry100150`, `HeatIndustry150200`) were moved from
+  `zen_creator/elements/industry_heat/carriers.py` to
+  `zen_creator/elements/carriers/industry_carriers.py`.
+- **Production technologies** (`GlassProduction`, `CeramicProduction`,
+  `PaperProduction`, `FoodProduction`) were moved from
+  `zen_creator/elements/industry_heat/production_techs.py` to
+  `zen_creator/elements/conversion_technologies/industry_production.py`.
+- **Heat supply technologies** (3 heat pumps, 3 boilers, 2 temperature
+  conversions) were moved from
+  `zen_creator/elements/industry_heat/heat_techs.py` to
+  `zen_creator/elements/conversion_technologies/industry_heat_supply.py`.
+- **Storage technologies** (`IndustryTESWater`, `IndustryTESSteam`) remain
+  in `zen_creator/elements/storage_technologies/industry_TES.py` (added in
+  v4.0).
+
+All data processing logic previously in `zen_creator/industry_heat_eu/` was
+absorbed into Dataset classes under `zen_creator/datasets/datasets/`:
+
+- `ProcessParametrizationDataset` — sector parameters, conversion factors,
+  fuel shares, and cost data (from `process_parametrization.xlsx`,
+  Rehfeldt2017, AIDRES2023, Wolf2017, JRC-EU-TIMES, and JRC-IDEES FEC).
+- `HeatTechParametrizationDataset` — heat technology parameters (from
+  `heat_tech_parametrization.xlsx`).
+- `IndustryCarrierDataset` — carrier attributes (from
+  `industry_carriers.xlsx`).
+- `JrcIdeesIndustryDataset` — industry capacity and demand (from
+  JRC-IDEES-2023).
+- `FaostatFoodDataset` — food capacity and demand (from FAOSTAT).
+- `EurostatBoilerDataset` — boiler capacity (from Eurostat).
+
+The `IndustryHeat` sector class was moved from
+`zen_creator/elements/industry_heat/sector.py` to
+`zen_creator/sectors/industry_heat.py`. The legacy
+`zen_creator/industry_heat_eu/` module and `scripts/compute_params.py` were
+deleted — their logic now lives entirely within the Dataset classes.
+
+Element classes no longer use `apply_attrs_dict()` in their constructors.
+Instead, all attributes are set through `_set_<attribute>()` methods that
+delegate to the appropriate Dataset's `get_<attribute>()` method, following
+the zen-creator template pattern. This change is structural only — the
+computed parameter values and model output are unchanged.
