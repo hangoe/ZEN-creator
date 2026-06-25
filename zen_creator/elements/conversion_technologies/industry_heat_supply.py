@@ -282,8 +282,8 @@ class NaturalGasBoilerIndustry(ConversionTechnology):
 
 # -- Temperature conversion cascade ------------------------------------------
 
-class HeatIndustryTempConversion150to100(ConversionTechnology):
-    name = "heat_industry_temp_conversion_150_100"
+class HeatIndustryTempConversion150(ConversionTechnology):
+    name = "heat_industry_temp_conversion_150"
 
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
@@ -304,8 +304,8 @@ class HeatIndustryTempConversion150to100(ConversionTechnology):
         return Attribute("lifetime", default_value=30, unit="1", element=self)
 
 
-class HeatIndustryTempConversion100to0(ConversionTechnology):
-    name = "heat_industry_temp_conversion_100_0"
+class HeatIndustryTempConversion100(ConversionTechnology):
+    name = "heat_industry_temp_conversion_100"
 
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")

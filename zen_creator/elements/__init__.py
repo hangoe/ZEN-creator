@@ -15,8 +15,8 @@ from .conversion_technologies.conversion_technology import (
 from .conversion_technologies.industry_heat_supply import (
     BiomassBoilerIndustry,
     ElectrodeBoilerIndustry,
-    HeatIndustryTempConversion100to0,
-    HeatIndustryTempConversion150to100,
+    HeatIndustryTempConversion100,
+    HeatIndustryTempConversion150,
     HeatPumpIndustry0100,
     HeatPumpIndustry100150,
     HeatPumpIndustry150200,
@@ -34,7 +34,12 @@ from .conversion_technologies.retrofitting_technology import (
 )
 from .element import Element
 from .energy_systems.energy_system import EnergySystem, GenericEnergySystem
-from .storage_technologies.industry_TES import IndustryTESSteam, IndustryTESWater
+from .storage_technologies.industry_TES import (
+    IndustryTESSteam100150,
+    IndustryTESSteam150200,
+    IndustryTESWater0100,
+    IndustryTESWater100150,
+)
 from .storage_technologies.storage_technology import (
     GenericStorageTechnology,
     StorageTechnology,
@@ -71,12 +76,14 @@ __all__ = [
     "BiomassBoilerIndustry",
     "ElectrodeBoilerIndustry",
     "NaturalGasBoilerIndustry",
-    "HeatIndustryTempConversion150to100",
-    "HeatIndustryTempConversion100to0",
+    "HeatIndustryTempConversion150",
+    "HeatIndustryTempConversion100",
     "StorageTechnology",
     "GenericStorageTechnology",
-    "IndustryTESWater",
-    "IndustryTESSteam",
+    "IndustryTESWater0100",
+    "IndustryTESWater100150",
+    "IndustryTESSteam100150",
+    "IndustryTESSteam150200",
     "TransportTechnology",
     "GenericTransportTechnology",
     "RetrofittingTechnology",

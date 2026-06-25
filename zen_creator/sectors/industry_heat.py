@@ -20,12 +20,18 @@ from zen_creator.elements.conversion_technologies.industry_production import (
 from zen_creator.elements.conversion_technologies.industry_heat_supply import (
     BiomassBoilerIndustry,
     ElectrodeBoilerIndustry,
-    HeatIndustryTempConversion100to0,
-    HeatIndustryTempConversion150to100,
+    HeatIndustryTempConversion100,
+    HeatIndustryTempConversion150,
     HeatPumpIndustry0100,
     HeatPumpIndustry100150,
     HeatPumpIndustry150200,
     NaturalGasBoilerIndustry,
+)
+from zen_creator.elements.storage_technologies.industry_TES import (
+    IndustryTESSteam100150,
+    IndustryTESSteam150200,
+    IndustryTESWater0100,
+    IndustryTESWater100150,
 )
 
 
@@ -45,6 +51,9 @@ class IndustryHeat(Sector):
             # boilers (150-200 only)
             BiomassBoilerIndustry, ElectrodeBoilerIndustry, NaturalGasBoilerIndustry,
             # temperature downgrade cascade
-            HeatIndustryTempConversion150to100,
-            HeatIndustryTempConversion100to0,
+            HeatIndustryTempConversion150,
+            HeatIndustryTempConversion100,
+            # thermal energy storage
+            IndustryTESWater0100, IndustryTESWater100150,
+            IndustryTESSteam100150, IndustryTESSteam150200,
         ]

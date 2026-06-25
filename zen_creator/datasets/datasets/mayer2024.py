@@ -12,8 +12,10 @@ from .metadata import MetaData, SourceInformation
 _INPUT_DATA = Path(__file__).resolve().parents[3] / "input_data"
 
 TECH_NAME_MAP = {
-    "industry_TES_water": "water tank",
-    "industry_TES_steam": "steam accumulator",
+    "industry_TES_water_0_100": "water tank",
+    "industry_TES_water_100_150": "water tank",
+    "industry_TES_steam_100_150": "steam accumulator",
+    "industry_TES_steam_150_200": "steam accumulator",
 }
 
 
