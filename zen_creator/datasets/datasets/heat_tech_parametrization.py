@@ -29,7 +29,12 @@ HEAT_CARRIER_NAMES = {
     "150_200": "heat_industry_150_200",
 }
 
-HP_COP_BONUS = {"0_100": 0.02, "100_150": 0.01, "150_200": 0.0}
+# Carnot COP × 50% efficiency, T_cold=20°C, T_hot = midpoint of each level
+HP_COP = {
+    "0_100": round(0.5 * 348.15 / 55.0, 4),    # T_hot=75°C  → 3.165
+    "100_150": round(0.5 * 398.15 / 105.0, 4),  # T_hot=125°C → 1.896
+    "150_200": round(0.5 * 448.15 / 155.0, 4),  # T_hot=175°C → 1.446
+}
 
 
 class HeatTechParametrizationDataset(Dataset[pd.DataFrame]):
@@ -77,14 +82,12 @@ class HeatTechParametrizationDataset(Dataset[pd.DataFrame]):
             val = np.inf
         return float(val), entry.get("unit")
 
-    def get_conversion_factor(self, element: Element, base_tech: str, temp_level: str, cop_bonus: float = 0.0) -> Attribute:
+    def get_conversion_factor(self, element: Element, base_tech: str, temp_level: str, cop_override: float | None = None) -> Attribute:
         data = self.get_heat_tech_dict(base_tech, temp_level)
-        if cop_bonus != 0.0:
+        if cop_override is not None:
             for entry in data["conversion_factor"]:
                 carrier = next(iter(entry))
-                cf_base = entry[carrier]["default_value"]
-                cop_base = 1.0 / cf_base
-                entry[carrier]["default_value"] = round(1.0 / (cop_base + cop_bonus), 12)
+                entry[carrier]["default_value"] = round(1.0 / cop_override, 12)
         return Attribute("conversion_factor", default_value=data["conversion_factor"], element=element)
 
     def get_lifetime(self, element: Element, base_tech: str) -> Attribute:

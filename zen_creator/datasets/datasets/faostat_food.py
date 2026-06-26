@@ -56,6 +56,17 @@ class FaostatFoodDataset(Dataset[pd.DataFrame]):
         )
         return attr
 
+    def get_food_demand_as_capacity_existing(self, element: Element, year: int) -> Attribute:
+        """Return food demand equal to capacity_existing values (v4.2+ assumption)."""
+        df = food_capacity_existing_df(year)
+        demand_df = df[["node", "capacity_existing"]].rename(columns={"capacity_existing": "demand"})
+        attr = Attribute("demand", default_value=0.0, unit="tonproduct/hour", element=element)
+        attr.set_data(
+            df=demand_df.set_index("node")["demand"],
+            source=self._source_info("Food demand set equal to capacity_existing (v4.2 assumption)."),
+        )
+        return attr
+
     def get_food_demand(self, element: Element, year: int) -> Attribute:
         df = food_demand_df(year)
         attr = Attribute("demand", default_value=0.0, unit="tonproduct/hour", element=element)

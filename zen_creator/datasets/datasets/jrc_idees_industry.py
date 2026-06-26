@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
 from zen_creator.datasets.datasets._industry_heat_utils import (
     INPUT_DATA,
+    OPERATING_HOURS,
     capacity_existing_df,
     industry_demand_df,
 )
@@ -63,6 +64,24 @@ class JrcIdeesIndustryDataset(Dataset[pd.DataFrame]):
         attr.set_data(
             df=df.set_index(["node", "year_construction"]),
             source=self._source_info(f"Capacity existing for {sector} from JRC-IDEES-2023."),
+        )
+        return attr
+
+    def get_demand_as_capacity_existing(self, element: Element, sector: str, year: int) -> Attribute:
+        """Return demand equal to capacity_existing values (v4.2+ assumption)."""
+        df = capacity_existing_df(sector, year)
+        demand_df = df[["node", "capacity_existing"]].rename(columns={"capacity_existing": "demand"})
+        if sector == "paper":
+            bat = pd.read_csv(_BAT_PAPER_CSV)
+            bat_nodes = {"Switzerland": "CH", "Norway": "NO", "United Kingdom": "UK"}
+            bat = bat[bat["country"].isin(bat_nodes)]
+            for _, row in bat.iterrows():
+                node = bat_nodes[row["country"]]
+                demand_df.loc[demand_df["node"] == node, "demand"] = row["consumption_1000t_2008"] * 1000 / OPERATING_HOURS
+        attr = Attribute("demand", default_value=0.0, unit="tonproduct/hour", element=element)
+        attr.set_data(
+            df=demand_df.set_index("node")["demand"],
+            source=self._source_info(f"Demand for {sector} set equal to capacity_existing (v4.2 assumption)."),
         )
         return attr
 

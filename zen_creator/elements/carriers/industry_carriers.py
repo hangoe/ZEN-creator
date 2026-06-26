@@ -47,7 +47,7 @@ class Glass(Carrier):
         super().__init__(model=model, power_unit="tonproduct/hour")
 
     def _set_demand(self) -> Attribute:
-        return JrcIdeesIndustryDataset().get_demand(self, "glass", FEC_YEAR)
+        return JrcIdeesIndustryDataset().get_demand_as_capacity_existing(self, "glass", FEC_YEAR)
 
 
 _add_carrier_setters(Glass, "glass")
@@ -60,7 +60,7 @@ class Ceramic(Carrier):
         super().__init__(model=model, power_unit="tonproduct/hour")
 
     def _set_demand(self) -> Attribute:
-        return JrcIdeesIndustryDataset().get_demand(self, "ceramic", FEC_YEAR)
+        return JrcIdeesIndustryDataset().get_demand_as_capacity_existing(self, "ceramic", FEC_YEAR)
 
 
 _add_carrier_setters(Ceramic, "ceramic")
@@ -73,7 +73,7 @@ class Paper(Carrier):
         super().__init__(model=model, power_unit="tonproduct/hour")
 
     def _set_demand(self) -> Attribute:
-        return JrcIdeesIndustryDataset().get_demand(self, "paper", FEC_YEAR)
+        return JrcIdeesIndustryDataset().get_demand_as_capacity_existing(self, "paper", FEC_YEAR)
 
 
 _add_carrier_setters(Paper, "paper")
@@ -86,7 +86,7 @@ class Food(Carrier):
         super().__init__(model=model, power_unit="tonproduct/hour")
 
     def _set_demand(self) -> Attribute:
-        return FaostatFoodDataset().get_food_demand(self, FEC_YEAR)
+        return FaostatFoodDataset().get_food_demand_as_capacity_existing(self, FEC_YEAR)
 
 
 _add_carrier_setters(Food, "food")

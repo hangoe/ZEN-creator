@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 from zen_creator.datasets.datasets.eurostat_boiler import EurostatBoilerDataset
 from zen_creator.datasets.datasets.heat_tech_parametrization import (
-    HP_COP_BONUS,
+    HP_COP,
     HeatTechParametrizationDataset,
 )
 from zen_creator.datasets.datasets.process_parametrization import (
@@ -54,7 +54,7 @@ class HeatPumpIndustry0100(ConversionTechnology):
         return Attribute("output_carrier", default_value=["heat_industry_0_100"], element=self)
 
     def _set_conversion_factor(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_conversion_factor(self, "heat_pump_industry", "0_100", cop_bonus=HP_COP_BONUS["0_100"])
+        return HeatTechParametrizationDataset().get_conversion_factor(self, "heat_pump_industry", "0_100", cop_override=HP_COP["0_100"])
 
     def _set_lifetime(self) -> Attribute:
         return HeatTechParametrizationDataset().get_lifetime(self, "heat_pump_industry")
@@ -94,7 +94,7 @@ class HeatPumpIndustry100150(ConversionTechnology):
         return Attribute("output_carrier", default_value=["heat_industry_100_150"], element=self)
 
     def _set_conversion_factor(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_conversion_factor(self, "heat_pump_industry", "100_150", cop_bonus=HP_COP_BONUS["100_150"])
+        return HeatTechParametrizationDataset().get_conversion_factor(self, "heat_pump_industry", "100_150", cop_override=HP_COP["100_150"])
 
     def _set_lifetime(self) -> Attribute:
         return HeatTechParametrizationDataset().get_lifetime(self, "heat_pump_industry")
@@ -134,7 +134,7 @@ class HeatPumpIndustry150200(ConversionTechnology):
         return Attribute("output_carrier", default_value=["heat_industry_150_200"], element=self)
 
     def _set_conversion_factor(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_conversion_factor(self, "heat_pump_industry", "150_200", cop_bonus=HP_COP_BONUS["150_200"])
+        return HeatTechParametrizationDataset().get_conversion_factor(self, "heat_pump_industry", "150_200", cop_override=HP_COP["150_200"])
 
     def _set_lifetime(self) -> Attribute:
         return HeatTechParametrizationDataset().get_lifetime(self, "heat_pump_industry")

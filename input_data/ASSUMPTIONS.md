@@ -306,6 +306,27 @@ their own sources in their `source`/`comment` columns.
   boiler capacity for `biomass_boiler_industry` and
   `natural_gas_boiler_industry`.
 
+## Heat pump COP parametrization (v4.2+)
+
+The three industry heat pump variants are parametrized using temperature-level-specific
+COPs derived from the Carnot efficiency, replacing the previous approach of applying
+small additive bonuses (±0.01–0.02) to a single base COP of ~3.03 from Crystal_Ball.
+The old base COP was physically inconsistent: at the 150–200°C level its value
+exceeded the Carnot COP of 2.89, violating the second law.
+
+**Method**: COP = 0.50 × COP_Carnot, where COP_Carnot = T_hot / (T_hot − T_cold),
+T_cold = 20°C (293.15 K), T_hot = midpoint of the supply temperature range.
+50% of Carnot is a representative practical efficiency for industrial water heat pumps.
+
+| HP variant | T_hot (mid) | COP_Carnot | COP (50%) | conv. factor (1/COP) |
+|---|---|---|---|---|
+| `heat_pump_industry_0_100` | 75°C = 348.15 K | 6.330 | **3.165** | 0.3160 |
+| `heat_pump_industry_100_150` | 125°C = 398.15 K | 3.792 | **1.896** | 0.5274 |
+| `heat_pump_industry_150_200` | 175°C = 448.15 K | 2.891 | **1.446** | 0.6917 |
+
+Implemented via `HP_COP` dict in `heat_tech_parametrization.py` and the
+`cop_override` parameter of `HeatTechParametrizationDataset.get_conversion_factor`.
+
 ## Heat technology temperature-level structure (v3.0+)
 
 Heat supply is modeled with three temperature levels (`heat_industry_0_100`,
@@ -420,6 +441,40 @@ DSM storages are modeled as perfect storages with no losses:
   an idealized ability to reschedule production within a planning period.
 - **Power unit**: `tonproduct/hour`, matching the production technology
   capacity units.
+
+## Product carrier demand = capacity_existing (v4.2+)
+
+From v4.2 onwards, the demand for all four product carriers (glass, ceramic,
+paper, food) is set equal to the corresponding `capacity_existing` value,
+rather than the previously used physical-output or feed-based proxies.
+This change is implemented by patching the carrier `_set_demand` methods in
+`my_scripts/my_model_v4_2.py` via `JrcIdeesIndustryDataset.get_demand_as_capacity_existing`
+and `FaostatFoodDataset.get_food_demand_as_capacity_existing`.
+
+**Rationale**: The mismatch between capacity and demand in v4.1 arose from
+two sources: (1) `capacity_existing` used JRC-IDEES "Installed capacity (kt)"
+divided by 8000 operating hours, while demand used "Physical output (kt)"
+divided by 8760 total hours — effectively encoding a sector-specific
+utilization rate that is better left to the optimizer; and (2) for food,
+capacity was derived from FAOSTAT production activity while demand used
+FAOSTAT feed quantities — two fundamentally different data series. Setting
+demand = capacity_existing removes this inconsistency and ensures the
+optimizer starts from a state where existing capacity exactly meets demand,
+with no implicit overcapacity or underutilization assumption.
+
+**Unit**: `tonproduct/hour` (unchanged).
+
+**Per-sector detail**:
+
+- **Glass, ceramic** (JRC-IDEES nodes): demand = installed capacity (kt) × 1000
+  / 8000 h. CH/NO/UK nodes retain the same population-proxy logic as
+  `capacity_existing` (AT values for CH, FI values for NO, DE×69.9/83.5 for UK).
+- **Paper** (JRC-IDEES nodes): demand = installed capacity (kt) × 1000 / 8000 h.
+  CH/NO/UK nodes use JRC-BAT 2014 consumption (kt) × 1000 / 8000 h (same as
+  `capacity_existing`; previously demand used /8760 h for these nodes).
+- **Food**: demand = FAOSTAT production-weighted Rehfeldt activity (Mt) × 1e6
+  / 8000 h — identical to `food_capacity_existing_df`. The previous food demand
+  (FAOSTAT feed quantities / 8760 h) is no longer used.
 
 ## Code restructuring (v5.0)
 
