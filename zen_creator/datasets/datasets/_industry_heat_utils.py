@@ -542,6 +542,7 @@ MODEL_NODES = (
 NODES_WITHOUT_IDEES = ("CH", "NO", "UK")
 OPERATING_HOURS = 8000
 HOURS_PER_YEAR = 8760
+KTOE_TO_GJ = 41868.0  # 1 ktoe = 1000 toe × 41.868 GJ/toe
 
 INSTALLED_CAPACITY_HEADER = "Installed capacity (kt production)"
 PHYSICAL_OUTPUT_HEADER = "Physical output (kt)"
@@ -656,6 +657,38 @@ def industry_demand_df(sector, year):
         df.loc[df["node"] == "NO", "demand"] = fi_demand
         # UK: scale from DE by population ratio (69.9M / 83.5M)
         df.loc[df["node"] == "UK", "demand"] = de_demand * (69.9 / 83.5)
+    return df
+
+
+def ceramic_demand_from_fec_df(year: int) -> pd.DataFrame:
+    """Derive ceramic production (kt/yr) from JRC-IDEES thermal FEC ÷ Rehfeldt specific energy.
+
+    JRC-IDEES 'Ceramics & other NMM (kt bricks eq.)' is dominated by bricks (~1-2 GJ/t),
+    which are not covered by Rehfeldt2017 (tiles/technical/houseware, ~8 GJ/t weighted avg).
+    Using thermal FEC from NMM_fec kiln/furnace rows (the same rows used for fuel shares)
+    divided by Rehfeldt's weighted specific energy gives a production volume consistent
+    with Rehfeldt's energy intensity.
+
+    Returns a DataFrame with columns ['node', 'kt_yr'].
+    """
+    ceramic_w = activity_weights(REHFELDT2017_CERAMIC)
+    rehfeldt_fuel_GJ_t = weighted_average(REHFELDT2017_CERAMIC, ceramic_w, "fuels_GJ_t")
+    rows = []
+    for node in MODEL_NODES:
+        if node in NODES_WITHOUT_IDEES:
+            kt_yr = 0.0
+        else:
+            fec = read_sector_thermal_fec(node, "ceramic", year)
+            kt_yr = sum(fec.values()) * KTOE_TO_GJ / (rehfeldt_fuel_GJ_t * 1000)
+        rows.append({"node": node, "kt_yr": kt_yr})
+    df = pd.DataFrame(rows)
+    # Population-based scaling for nodes without JRC-IDEES coverage
+    at_kt = float(df.loc[df["node"] == "AT", "kt_yr"].values[0])
+    fi_kt = float(df.loc[df["node"] == "FI", "kt_yr"].values[0])
+    de_kt = float(df.loc[df["node"] == "DE", "kt_yr"].values[0])
+    df.loc[df["node"] == "CH", "kt_yr"] = at_kt
+    df.loc[df["node"] == "NO", "kt_yr"] = fi_kt
+    df.loc[df["node"] == "UK", "kt_yr"] = de_kt * (69.9 / 83.5)
     return df
 
 

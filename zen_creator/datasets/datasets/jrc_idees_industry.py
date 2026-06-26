@@ -12,8 +12,10 @@ if TYPE_CHECKING:
 
 from zen_creator.datasets.datasets._industry_heat_utils import (
     INPUT_DATA,
+    HOURS_PER_YEAR,
     OPERATING_HOURS,
     capacity_existing_df,
+    ceramic_demand_from_fec_df,
     industry_demand_df,
 )
 from zen_creator.datasets.datasets.dataset import Dataset
@@ -98,5 +100,36 @@ class JrcIdeesIndustryDataset(Dataset[pd.DataFrame]):
         attr.set_data(
             df=df.set_index("node")["demand"],
             source=self._source_info(f"Demand for {sector} from JRC-IDEES-2023 physical output."),
+        )
+        return attr
+
+    def get_ceramic_demand_from_fec(self, element: Element, year: int) -> Attribute:
+        """Ceramic demand from JRC-IDEES thermal FEC ÷ Rehfeldt weighted specific energy (v4.3)."""
+        df = ceramic_demand_from_fec_df(year)
+        demand_series = df.set_index("node")["kt_yr"] * 1000 / HOURS_PER_YEAR
+        attr = Attribute("demand", default_value=0.0, unit="tonproduct/hour", element=element)
+        attr.set_data(
+            df=demand_series,
+            source=self._source_info(
+                "Ceramic demand from JRC-IDEES-2023 NMM_fec thermal FEC "
+                "(kiln/furnace rows) ÷ Rehfeldt-2017 weighted specific energy; "
+                "resolves kt-bricks-eq. volume mismatch (v4.3)."
+            ),
+        )
+        return attr
+
+    def get_ceramic_capacity_from_fec(self, element: Element, year: int, year_construction: int) -> Attribute:
+        """Ceramic capacity_existing from JRC-IDEES thermal FEC ÷ Rehfeldt weighted specific energy (v4.3)."""
+        df = ceramic_demand_from_fec_df(year)
+        df["capacity_existing"] = df["kt_yr"] * 1000 / OPERATING_HOURS
+        df["year_construction"] = year_construction
+        attr = Attribute("capacity_existing", default_value=0.0, unit="tonproduct/hour", element=element)
+        attr.set_data(
+            df=df.set_index(["node", "year_construction"])["capacity_existing"],
+            source=self._source_info(
+                "Ceramic capacity_existing from JRC-IDEES-2023 NMM_fec thermal FEC "
+                "(kiln/furnace rows) ÷ Rehfeldt-2017 weighted specific energy; "
+                "capacity set equal to FEC-derived production volume (v4.3)."
+            ),
         )
         return attr

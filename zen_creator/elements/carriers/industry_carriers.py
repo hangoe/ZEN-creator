@@ -60,7 +60,7 @@ class Ceramic(Carrier):
         super().__init__(model=model, power_unit="tonproduct/hour")
 
     def _set_demand(self) -> Attribute:
-        return JrcIdeesIndustryDataset().get_demand_as_capacity_existing(self, "ceramic", FEC_YEAR)
+        return JrcIdeesIndustryDataset().get_ceramic_demand_from_fec(self, FEC_YEAR)
 
 
 _add_carrier_setters(Ceramic, "ceramic")

@@ -84,6 +84,30 @@ their own sources in their `source`/`comment` columns.
   EU28+3 activity (`activity_weights(REHFELDT2017_CERAMIC)`); AIDRES does not
   cover ceramics, so energy and temperature distribution come entirely from
   Rehfeldt.
+- **Demand and capacity (v4.3)** (`ceramic_demand_from_fec_df`,
+  `get_ceramic_demand_from_fec`, `get_ceramic_capacity_from_fec`): The
+  JRC-IDEES physical output row "Ceramics & other NMM (kt bricks eq.)" is
+  dominated by brick production (~1–2 GJ/t), which is not covered by Rehfeldt
+  2017 (tiles 5.46 GJ/t, technical 12.11 GJ/t, houseware 24.24 GJ/t;
+  activity-weighted average ≈ 8.04 GJ/t). Applying Rehfeldt's specific energy
+  to the full bricks-equivalent volume inflated ceramic demand by ~4×. From
+  v4.3, demand and capacity are instead derived from the JRC-IDEES thermal FEC
+  of the ceramic kiln/furnace processes in the NMM_fec sheet (the same rows
+  used for fuel shares: "Ceramics: Thermal drying and sintering", "Ceramics:
+  Steam drying and sintering", "Ceramics: Thermal kiln", "Ceramics: Thermal
+  furnace"), divided by Rehfeldt's activity-weighted specific fuel energy:
+
+    demand [t/hr] = Σ thermal_FEC_ktoe × 41 868 GJ/ktoe
+                    ÷ (rehfeldt_fuel_GJ_t × 1 000 t/kt)
+                    ÷ 8 760 h/yr
+
+    capacity_existing [t/hr] = same kt/yr ÷ 8 000 h/yr
+
+  This is self-consistent: the thermal FEC represents energy consumed by
+  high-fired ceramic kilns, and dividing by Rehfeldt's specific energy returns
+  the equivalent production volume for the same sub-processes. CH/NO/UK nodes
+  (without JRC-IDEES coverage) retain the same population-based scaling as
+  glass: CH ← AT, NO ← FI, UK ← DE × (69.9/83.5).
 - **Cost parameters** set manually in `process_parametrization.xlsx` (orange
   cells). JRC-EU-TIMES only contains generic "Other Non-Metallic Minerals"
   process-heat boiler technologies (`INMPRCxxx`, `INMSTMxxx`), which represent

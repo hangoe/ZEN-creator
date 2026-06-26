@@ -97,7 +97,7 @@ class CeramicProduction(ConversionTechnology):
         return ProcessParametrizationDataset().get_max_diffusion_rate(self, "ceramic")
 
     def _set_capacity_existing(self) -> Attribute:
-        return JrcIdeesIndustryDataset().get_capacity_existing(self, "ceramic", FEC_YEAR, CAPACITY_YEAR)
+        return JrcIdeesIndustryDataset().get_ceramic_capacity_from_fec(self, FEC_YEAR, CAPACITY_YEAR)
 
 
 class PaperProduction(ConversionTechnology):
