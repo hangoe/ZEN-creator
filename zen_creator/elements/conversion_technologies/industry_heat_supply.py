@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 from zen_creator.datasets.datasets.eurostat_boiler import EurostatBoilerDataset
 from zen_creator.datasets.datasets.heat_tech_parametrization import (
     HP_COP_WASTE_HEAT,
-    HP_COP_WASTE_WATER,
+    HP_COP_WATER,
     HeatTechParametrizationDataset,
 )
 from zen_creator.datasets.datasets.process_parametrization import (
@@ -32,16 +32,20 @@ def _hp_capacity(element, temp_level: str) -> Attribute:
     split = ProcessParametrizationDataset().get_heat_capacity_split()
     if base_attr.df is not None:
         df = base_attr.df.copy()
-        # divide by 2: existing capacity split equally between waste-heat and waste-water variants
+        # divide by 2: existing capacity split equally between waste-heat and water variants
         df["capacity_existing"] = df["capacity_existing"] * split[temp_level] / 2
         base_attr.df = df
     return base_attr
 
 
+def _hp_waste_heat_limit(element, temp_level: str) -> Attribute:
+    return ProcessParametrizationDataset().get_waste_heat_capacity_limit(element, temp_level)
+
+
 # -- Heat pumps ---------------------------------------------------------------
 # Two variants per temperature level:
-#   _waste_heat: source = waste heat at 50°C (Bever2024, Agora_IGE2023)
-#   _waste_water: source = (waste) water at 15°C (Agora_IGE2023)
+#   _waste_heat: source = waste heat at 50°C (Bever2024, Agora_IGE2023); capacity limited
+#   _water:      source = water at 15°C (Agora_IGE2023); unconstrained
 
 def _hp_methods(base_tech: str, temp_level: str, cop: float):
     """Return a dict of _set_* methods shared across all HP variants."""
@@ -92,9 +96,12 @@ class HeatPumpIndustry0100WasteHeat(_hp_methods("heat_pump_industry", "0_100", H
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
 
+    def _set_capacity_addition_max(self) -> Attribute:
+        return _hp_waste_heat_limit(self, "0_100")
 
-class HeatPumpIndustry0100WasteWater(_hp_methods("heat_pump_industry", "0_100", HP_COP_WASTE_WATER["0_100"]), ConversionTechnology):
-    name = "heat_pump_industry_0_100_waste_water"
+
+class HeatPumpIndustry0100Water(_hp_methods("heat_pump_industry", "0_100", HP_COP_WATER["0_100"]), ConversionTechnology):
+    name = "heat_pump_industry_0_100_water"
 
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
@@ -108,9 +115,12 @@ class HeatPumpIndustry100150WasteHeat(_hp_methods("heat_pump_industry", "100_150
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
 
+    def _set_capacity_addition_max(self) -> Attribute:
+        return _hp_waste_heat_limit(self, "100_150")
 
-class HeatPumpIndustry100150WasteWater(_hp_methods("heat_pump_industry", "100_150", HP_COP_WASTE_WATER["100_150"]), ConversionTechnology):
-    name = "heat_pump_industry_100_150_waste_water"
+
+class HeatPumpIndustry100150Water(_hp_methods("heat_pump_industry", "100_150", HP_COP_WATER["100_150"]), ConversionTechnology):
+    name = "heat_pump_industry_100_150_water"
 
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
@@ -124,9 +134,12 @@ class HeatPumpIndustry150200WasteHeat(_hp_methods("heat_pump_industry", "150_200
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
 
+    def _set_capacity_addition_max(self) -> Attribute:
+        return _hp_waste_heat_limit(self, "150_200")
 
-class HeatPumpIndustry150200WasteWater(_hp_methods("heat_pump_industry", "150_200", HP_COP_WASTE_WATER["150_200"]), ConversionTechnology):
-    name = "heat_pump_industry_150_200_waste_water"
+
+class HeatPumpIndustry150200Water(_hp_methods("heat_pump_industry", "150_200", HP_COP_WATER["150_200"]), ConversionTechnology):
+    name = "heat_pump_industry_150_200_water"
 
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")

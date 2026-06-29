@@ -36,8 +36,8 @@ HP_COP_WASTE_HEAT = {
     "100_150": round(0.5 * 398.15 / (398.15 - 323.15), 4),  # T_hot=125°C → 2.654
     "150_200": round(0.5 * 448.15 / (448.15 - 323.15), 4),  # T_hot=175°C → 1.793
 }
-# Source ii: (waste) water at T_cold = 15°C (Agora_IGE2023)
-HP_COP_WASTE_WATER = {
+# Source ii: water (rivers, groundwater, seawater) at T_cold = 15°C (Agora_IGE2023)
+HP_COP_WATER = {
     "0_100":   round(0.5 * 348.15 / (348.15 - 288.15), 4),  # T_hot=75°C  → 2.901
     "100_150": round(0.5 * 398.15 / (398.15 - 288.15), 4),  # T_hot=125°C → 1.810
     "150_200": round(0.5 * 448.15 / (448.15 - 288.15), 4),  # T_hot=175°C → 1.400

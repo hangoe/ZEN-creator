@@ -338,8 +338,9 @@ by their heat source temperature:
 - **Waste-heat source** (`_waste_heat`): T_cold = 50°C (323.15 K).
   Represents waste heat recovery from industrial processes at 50°C
   (Bever2024, Agora_IGE2023: waste heat at 20–80°C, mid ≈ 50°C assumed).
-- **Waste-water source** (`_waste_water`): T_cold = 15°C (288.15 K).
-  Represents (waste) water or low-grade ambient sources at 15°C (Agora_IGE2023).
+- **Water source** (`_water`): T_cold = 15°C (288.15 K).
+  Represents rivers, groundwater, or seawater at 15°C (Agora_IGE2023).
+  Unconstrained — ambient water bodies are assumed practically unlimited.
 
 **Method**: COP = 0.50 × COP_Carnot (Agora_IGE2023), where
 COP_Carnot = T_hot / (T_hot − T_cold), with T_hot = midpoint of the supply
@@ -353,13 +354,13 @@ temperature range (sink) and T_cold = source temperature as above.
 | `heat_pump_industry_100_150_waste_heat` | 125°C = 398.15 K | 5.309  | **2.654** | 0.3768 |
 | `heat_pump_industry_150_200_waste_heat` | 175°C = 448.15 K | 3.585  | **1.793** | 0.5578 |
 
-**Waste-water source (T_cold = 15°C = 288.15 K):**
+**Water source (T_cold = 15°C = 288.15 K):**
 
 | HP variant | T_hot (mid) | COP_Carnot | COP (50%) | conv. factor (1/COP) |
 |---|---|---|---|---|
-| `heat_pump_industry_0_100_waste_water`   | 75°C = 348.15 K | 5.803 | **2.901** | 0.3447 |
-| `heat_pump_industry_100_150_waste_water` | 125°C = 398.15 K | 3.620 | **1.810** | 0.5525 |
-| `heat_pump_industry_150_200_waste_water` | 175°C = 448.15 K | 2.801 | **1.400** | 0.7143 |
+| `heat_pump_industry_0_100_water`   | 75°C = 348.15 K | 5.803 | **2.901** | 0.3447 |
+| `heat_pump_industry_100_150_water` | 125°C = 398.15 K | 3.620 | **1.810** | 0.5525 |
+| `heat_pump_industry_150_200_water` | 175°C = 448.15 K | 2.801 | **1.400** | 0.7143 |
 
 **Costs**: identical for both source types — same `heat_pump_industry` row from
 `heat_tech_parametrization.xlsx` (assumption: cost data not yet differentiated
@@ -369,9 +370,47 @@ by source type).
 (demand-weighted shares) and then divided equally (50/50) between the two source
 variants at each level.
 
-Implemented via `HP_COP_WASTE_HEAT` and `HP_COP_WASTE_WATER` dicts in
+Implemented via `HP_COP_WASTE_HEAT` and `HP_COP_WATER` dicts in
 `heat_tech_parametrization.py` and the `cop_override` parameter of
 `HeatTechParametrizationDataset.get_conversion_factor`.
+
+### Waste-heat HP capacity limit (v4.5+)
+
+The waste-heat HP variants (`_waste_heat`) are physically constrained by the amount of
+high-temperature (>200°C) process exhaust heat available in the co-located industrial plants.
+This is implemented via `capacity_addition_max` (GW of heat output, per node).
+
+**Waste-heat availability per sector** (in GW thermal, per node):
+
+    WH[s, n] = demand[s, n]  [tonproduct/hr]  ×  cf_fuel[s]  [GW / (tonproduct/hr)]
+
+where `cf_fuel[s]` is the high-temperature fraction of the sector's fuel demand
+(i.e. `SectorParams.fuel_GJ_t / 3600`), derived from Rehfeldt2017 temperature distributions
+weighted by sub-process activity:
+
+| Sector | High-temp fraction (>200°C) | Ratio to low-temp demand |
+|---|---|---|
+| Glass | ~79% | ≈ 4× |
+| Ceramic | ~65–82% (sub-process weighted) | ≈ 2–5× |
+| Paper | ~0–7% | negligible |
+| Food | ~0–5% (weighted avg.) | negligible |
+
+**Distribution to temperature levels**: the waste heat from each sector is apportioned
+to each temperature level (0–100, 100–150, 150–200°C) proportionally to that sector's
+low-temp heat demand share at that level:
+
+    share[s, level] = cf_heat[s, level] / Σ_l cf_heat[s, l]
+
+**Capacity limit** (`capacity_addition_max`, in GW of heat output):
+
+    capacity_addition_max[level, n] = Σ_s  WH[s, n] × share[s, level]
+
+This sets the waste heat input (GW) as the capacity limit. The physically correct bound
+on HP heat output is `WH × COP/(COP-1)` (1.17–2.26× larger, depending on temperature
+level), so this assumption is conservative by up to a factor of ~2.3 at the 150–200°C level.
+
+Implemented in `ProcessParametrizationDataset.get_waste_heat_capacity_limit()` and
+called via `_set_capacity_addition_max()` in each `WasteHeat` HP class.
 
 ### Previous parametrization (v4.2–v4.4, now superseded)
 
@@ -391,10 +430,11 @@ reflecting the thermodynamic advantage of heat pumps at low temperatures:
 
 - **Heat pumps** are split into six variants — two per temperature level,
   distinguished by heat source: waste heat at 50°C (`_waste_heat`) and
-  (waste) water at 15°C (`_waste_water`). The waste-heat variant achieves
-  a higher COP at each level because its source temperature is closer to
-  the sink temperature. This ensures the optimizer can choose the most
-  cost-effective source type for each temperature level independently.
+  water at 15°C (`_water`). The waste-heat variant achieves a higher COP
+  at each level because its source temperature is closer to the sink
+  temperature, but its buildable capacity is limited by the high-temp
+  process heat available in co-located glass and ceramic plants (see
+  "Waste-heat HP capacity limit" below). The water-source HPs are unconstrained.
 - **Boilers** (`biomass_boiler_industry`, `electrode_boiler_industry`,
   `natural_gas_boiler_industry`) produce only `heat_industry_150_200`.
   Their full `capacity_existing` is assigned (no temperature split).
