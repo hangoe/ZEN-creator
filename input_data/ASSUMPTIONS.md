@@ -466,6 +466,43 @@ DSM storages are modeled as perfect storages with no losses:
 - **Power unit**: `tonproduct/hour`, matching the production technology
   capacity units.
 
+## Existing capacity spread over vintage cohorts (v4.4+)
+
+From v4.4 onwards, `capacity_existing` for all production and heat supply technologies
+is spread uniformly across `lifetime` vintage cohorts instead of assigning all observed
+capacity to a single `year_construction`.
+
+**Motivation**: assigning all capacity to one year means all existing stock retires
+simultaneously at `year_construction + lifetime`, creating an artificial investment
+cliff. Spreading over the full lifetime distributes retirement gradually, one cohort
+per year, which better reflects a real capital stock that was accumulated over decades.
+
+**Method** (per node, per technology):
+
+    cap_per_vintage_year = total_capacity_existing / lifetime
+    year_construction ∈ {reference_year − lifetime + 1, …, reference_year}
+
+Each vintage cohort contributes `cap_per_vintage_year` to the total and retires
+`lifetime` years after its construction year, so at the reference year the cumulative
+existing capacity equals the observed total.
+
+**Reference year** = `CAPACITY_YEAR = 2022` (unchanged).
+**Lifetimes used** (from `SECTOR_LIFETIMES` / `BOILER_LIFETIMES` in `_industry_heat_utils.py`):
+
+| Technology              | Lifetime (yr) | Source                                  |
+|-------------------------|---------------|-----------------------------------------|
+| glass_production        | 28            | JRC-EU-TIMES, activity-weighted         |
+| ceramic_production      | 20            | Manual (see Ceramic section above)      |
+| paper_production        | 25            | JRC-EU-TIMES                            |
+| food_production         | 20            | JRC-EU-TIMES cluster average            |
+| biomass_boiler_industry | 20            | Crystal Ball / heat_tech_parametrization.xlsx |
+| natural_gas_boiler_industry | 21        | Crystal Ball / heat_tech_parametrization.xlsx |
+| electrode_boiler_industry | 30          | Crystal Ball / heat_tech_parametrization.xlsx |
+
+Heat pumps retain their actual commissioning-year structure (David2017 data) and are
+not affected by this change. TES and DSM technologies have `capacity_existing = 0`
+and are also unaffected.
+
 ## Product carrier demand = capacity_existing (v4.2+)
 
 From v4.2 onwards, the demand for all four product carriers (glass, ceramic,

@@ -14,6 +14,7 @@ from zen_creator.datasets.datasets._industry_heat_utils import (
     INPUT_DATA,
     HOURS_PER_YEAR,
     OPERATING_HOURS,
+    SECTOR_LIFETIMES,
     capacity_existing_df,
     ceramic_demand_from_fec_df,
     industry_demand_df,
@@ -54,14 +55,16 @@ class JrcIdeesIndustryDataset(Dataset[pd.DataFrame]):
         return SourceInformation(description=description, metadata=self.metadata)
 
     def get_capacity_existing(self, element: Element, sector: str, year: int, year_construction: int) -> Attribute:
-        df = capacity_existing_df(sector, year, year_construction=year_construction)
+        lifetime = SECTOR_LIFETIMES[sector]
+        df = capacity_existing_df(sector, year, lifetime=lifetime, year_construction=year_construction)
         if sector == "paper":
             bat = pd.read_csv(_BAT_PAPER_CSV)
             bat_nodes = {"Switzerland": "CH", "Norway": "NO", "United Kingdom": "UK"}
             bat = bat[bat["country"].isin(bat_nodes)]
             for _, row in bat.iterrows():
                 node = bat_nodes[row["country"]]
-                df.loc[df["node"] == node, "capacity_existing"] = row["consumption_1000t_2008"] * 1000 / 8000
+                total_cap = row["consumption_1000t_2008"] * 1000 / 8000
+                df.loc[df["node"] == node, "capacity_existing"] = total_cap / lifetime
         attr = Attribute("capacity_existing", default_value=0.0, unit="tonproduct/hour", element=element)
         attr.set_data(
             df=df.set_index(["node", "year_construction"]),
@@ -121,11 +124,17 @@ class JrcIdeesIndustryDataset(Dataset[pd.DataFrame]):
     def get_ceramic_capacity_from_fec(self, element: Element, year: int, year_construction: int) -> Attribute:
         """Ceramic capacity_existing from JRC-IDEES thermal FEC ÷ Rehfeldt weighted specific energy (v4.3)."""
         df = ceramic_demand_from_fec_df(year)
-        df["capacity_existing"] = df["kt_yr"] * 1000 / OPERATING_HOURS
-        df["year_construction"] = year_construction
+        lifetime = SECTOR_LIFETIMES["ceramic"]
+        cap_per_yr = df.set_index("node")["kt_yr"] * 1000 / OPERATING_HOURS / lifetime
+        rows = [
+            {"node": node, "year_construction": yc, "capacity_existing": cap}
+            for node, cap in cap_per_yr.items()
+            for yc in range(year_construction - lifetime + 1, year_construction + 1)
+        ]
+        result_df = pd.DataFrame(rows)
         attr = Attribute("capacity_existing", default_value=0.0, unit="tonproduct/hour", element=element)
         attr.set_data(
-            df=df.set_index(["node", "year_construction"])["capacity_existing"],
+            df=result_df.set_index(["node", "year_construction"])["capacity_existing"],
             source=self._source_info(
                 "Ceramic capacity_existing from JRC-IDEES-2023 NMM_fec thermal FEC "
                 "(kiln/furnace rows) ÷ Rehfeldt-2017 weighted specific energy; "

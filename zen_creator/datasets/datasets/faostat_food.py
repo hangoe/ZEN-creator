@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
 from zen_creator.datasets.datasets._industry_heat_utils import (
     INPUT_DATA,
+    SECTOR_LIFETIMES,
     food_capacity_existing_df,
     food_demand_df,
 )
@@ -48,7 +49,7 @@ class FaostatFoodDataset(Dataset[pd.DataFrame]):
         return SourceInformation(description=description, metadata=self.metadata)
 
     def get_food_capacity_existing(self, element: Element, year: int, year_construction: int) -> Attribute:
-        df = food_capacity_existing_df(year, year_construction=year_construction)
+        df = food_capacity_existing_df(year, lifetime=SECTOR_LIFETIMES["food"], year_construction=year_construction)
         attr = Attribute("capacity_existing", default_value=0.0, unit="tonproduct/hour", element=element)
         attr.set_data(
             df=df.set_index(["node", "year_construction"]),

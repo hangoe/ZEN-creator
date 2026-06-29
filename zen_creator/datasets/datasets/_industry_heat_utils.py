@@ -544,6 +544,16 @@ OPERATING_HOURS = 8000
 HOURS_PER_YEAR = 8760
 KTOE_TO_GJ = 41868.0  # 1 ktoe = 1000 toe × 41.868 GJ/toe
 
+# Lifetimes (years) used to spread existing capacity across vintage cohorts.
+# Production tech lifetimes from process_parametrization.xlsx / JRC-EU-TIMES (see ASSUMPTIONS.md).
+# Boiler lifetimes from heat_tech_parametrization.xlsx (Crystal Ball values).
+SECTOR_LIFETIMES: dict[str, int] = {"glass": 28, "ceramic": 20, "paper": 25, "food": 20}
+BOILER_LIFETIMES: dict[str, int] = {
+    "biomass_boiler_industry": 20,
+    "natural_gas_boiler_industry": 21,
+    "electrode_boiler_industry": 30,
+}
+
 INSTALLED_CAPACITY_HEADER = "Installed capacity (kt production)"
 PHYSICAL_OUTPUT_HEADER = "Physical output (kt)"
 
@@ -619,23 +629,31 @@ def physical_output_kt(country, sector, year):
     return _sector_kt(country, sector, year, PHYSICAL_OUTPUT_HEADER)
 
 
-def capacity_existing_df(sector, year, year_construction=None):
-    rows = []
+def capacity_existing_df(sector, year, lifetime=None, year_construction=None):
+    # Compute total capacity per node
+    node_caps: dict[str, float] = {}
     for node in MODEL_NODES:
-        if node in NODES_WITHOUT_IDEES:
-            capacity = 0.0
-        else:
-            capacity = installed_capacity_kt(node, sector, year) * 1000 / OPERATING_HOURS
-        rows.append({"node": node, "year_construction": year_construction or year, "capacity_existing": capacity})
-    df = pd.DataFrame(rows)
+        node_caps[node] = 0.0 if node in NODES_WITHOUT_IDEES else installed_capacity_kt(node, sector, year) * 1000 / OPERATING_HOURS
+
+    # Population-proxy overrides for glass/ceramic (CH/NO/UK not covered by IDEES)
     if sector in ("glass", "ceramic"):
-        at_cap = float(df.loc[df["node"] == "AT", "capacity_existing"].values[0])
-        fi_cap = float(df.loc[df["node"] == "FI", "capacity_existing"].values[0])
-        de_cap = float(df.loc[df["node"] == "DE", "capacity_existing"].values[0])
-        df.loc[df["node"] == "CH", "capacity_existing"] = at_cap
-        df.loc[df["node"] == "NO", "capacity_existing"] = fi_cap
-        df.loc[df["node"] == "UK", "capacity_existing"] = de_cap * (69.9 / 83.5)
-    return df
+        node_caps["CH"] = node_caps["AT"]
+        node_caps["NO"] = node_caps["FI"]
+        node_caps["UK"] = node_caps["DE"] * (69.9 / 83.5)
+
+    # Build rows: spread uniformly over `lifetime` vintage years ending at reference_year,
+    # or return a single row (backward-compatible path used by demand methods).
+    ref_year = year_construction or year
+    rows = []
+    if lifetime is not None:
+        for node in MODEL_NODES:
+            cap_per_yr = node_caps[node] / lifetime
+            for yc in range(ref_year - lifetime + 1, ref_year + 1):
+                rows.append({"node": node, "year_construction": yc, "capacity_existing": cap_per_yr})
+    else:
+        for node in MODEL_NODES:
+            rows.append({"node": node, "year_construction": ref_year, "capacity_existing": node_caps[node]})
+    return pd.DataFrame(rows)
 
 
 def industry_demand_df(sector, year):
@@ -692,7 +710,7 @@ def ceramic_demand_from_fec_df(year: int) -> pd.DataFrame:
     return df
 
 
-def food_capacity_existing_df(year, year_construction=None):
+def food_capacity_existing_df(year, lifetime=None, year_construction=None):
     activity_mt = {node: 0.0 for node in MODEL_NODES}
     for subsector, item in FOOD_PRODUCTION_ITEMS.items():
         production = faostat_production_by_node(item, year)
@@ -700,10 +718,18 @@ def food_capacity_existing_df(year, year_construction=None):
         for node in MODEL_NODES:
             share = production[node] / total if total else 0.0
             activity_mt[node] += share * REHFELDT2017_FOOD[subsector]["activity_Mt"]
-    return pd.DataFrame([
-        {"node": node, "year_construction": year_construction or year, "capacity_existing": activity_mt[node] * 1e6 / OPERATING_HOURS}
-        for node in MODEL_NODES
-    ])
+    node_caps = {node: activity_mt[node] * 1e6 / OPERATING_HOURS for node in MODEL_NODES}
+    ref_year = year_construction or year
+    rows = []
+    if lifetime is not None:
+        for node in MODEL_NODES:
+            cap_per_yr = node_caps[node] / lifetime
+            for yc in range(ref_year - lifetime + 1, ref_year + 1):
+                rows.append({"node": node, "year_construction": yc, "capacity_existing": cap_per_yr})
+    else:
+        for node in MODEL_NODES:
+            rows.append({"node": node, "year_construction": ref_year, "capacity_existing": node_caps[node]})
+    return pd.DataFrame(rows)
 
 
 def food_demand_df(year):
@@ -741,23 +767,33 @@ def eurostat_gross_heat_gwh(sheet, year):
     return values
 
 
-def boiler_capacity_existing_df(sheet, year, year_construction=None):
+def boiler_capacity_existing_df(sheet, year, lifetime=None, year_construction=None):
     heat_gwh = eurostat_gross_heat_gwh(sheet, year)
-    rows = []
+    node_caps: dict[str, float] = {}
     for node in MODEL_NODES:
         country = NODE_TO_EUROSTAT_COUNTRY.get(node)
         gwh = heat_gwh.get(country, 0.0) if country else 0.0
-        rows.append({"node": node, "year_construction": year_construction or year, "capacity_existing": gwh / OPERATING_HOURS})
+        node_caps[node] = gwh / OPERATING_HOURS
+    ref_year = year_construction or year
+    rows = []
+    if lifetime is not None:
+        for node in MODEL_NODES:
+            cap_per_yr = node_caps[node] / lifetime
+            for yc in range(ref_year - lifetime + 1, ref_year + 1):
+                rows.append({"node": node, "year_construction": yc, "capacity_existing": cap_per_yr})
+    else:
+        for node in MODEL_NODES:
+            rows.append({"node": node, "year_construction": ref_year, "capacity_existing": node_caps[node]})
     return pd.DataFrame(rows)
 
 
-def biomass_boiler_capacity_existing_df(year, year_construction=None):
-    return boiler_capacity_existing_df(EUROSTAT_BIOMASS_HEAT_SHEET, year, year_construction)
+def biomass_boiler_capacity_existing_df(year, lifetime=None, year_construction=None):
+    return boiler_capacity_existing_df(EUROSTAT_BIOMASS_HEAT_SHEET, year, lifetime=lifetime, year_construction=year_construction)
 
 
-def natural_gas_boiler_capacity_existing_df(year, year_construction=None):
-    return boiler_capacity_existing_df(EUROSTAT_NATURAL_GAS_HEAT_SHEET, year, year_construction)
+def natural_gas_boiler_capacity_existing_df(year, lifetime=None, year_construction=None):
+    return boiler_capacity_existing_df(EUROSTAT_NATURAL_GAS_HEAT_SHEET, year, lifetime=lifetime, year_construction=year_construction)
 
 
-def electrode_boiler_capacity_existing_df(year, year_construction=None):
-    return boiler_capacity_existing_df(EUROSTAT_ELECTRICITY_HEAT_SHEET, year, year_construction)
+def electrode_boiler_capacity_existing_df(year, lifetime=None, year_construction=None):
+    return boiler_capacity_existing_df(EUROSTAT_ELECTRICITY_HEAT_SHEET, year, lifetime=lifetime, year_construction=year_construction)

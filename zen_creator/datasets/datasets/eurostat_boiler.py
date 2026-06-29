@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
 from zen_creator.datasets.datasets._industry_heat_utils import (
     INPUT_DATA,
+    BOILER_LIFETIMES,
     biomass_boiler_capacity_existing_df,
     electrode_boiler_capacity_existing_df,
     heat_pump_capacity_existing_df,
@@ -50,19 +51,19 @@ class EurostatBoilerDataset(Dataset[pd.DataFrame]):
         return SourceInformation(description=description, metadata=self.metadata)
 
     def get_biomass_boiler_capacity(self, element: Element, year: int, year_construction: int) -> Attribute:
-        df = biomass_boiler_capacity_existing_df(year, year_construction=year_construction)
+        df = biomass_boiler_capacity_existing_df(year, lifetime=BOILER_LIFETIMES["biomass_boiler_industry"], year_construction=year_construction)
         attr = Attribute("capacity_existing", default_value=0.0, unit="GW", element=element)
         attr.set_data(df=df.set_index(["node", "year_construction"]), source=self._source_info("Biomass boiler capacity from Eurostat gross heat production."))
         return attr
 
     def get_natural_gas_boiler_capacity(self, element: Element, year: int, year_construction: int) -> Attribute:
-        df = natural_gas_boiler_capacity_existing_df(year, year_construction=year_construction)
+        df = natural_gas_boiler_capacity_existing_df(year, lifetime=BOILER_LIFETIMES["natural_gas_boiler_industry"], year_construction=year_construction)
         attr = Attribute("capacity_existing", default_value=0.0, unit="GW", element=element)
         attr.set_data(df=df.set_index(["node", "year_construction"]), source=self._source_info("Natural gas boiler capacity from Eurostat gross heat production."))
         return attr
 
     def get_electrode_boiler_capacity(self, element: Element, year: int, year_construction: int) -> Attribute:
-        df = electrode_boiler_capacity_existing_df(year, year_construction=year_construction)
+        df = electrode_boiler_capacity_existing_df(year, lifetime=BOILER_LIFETIMES["electrode_boiler_industry"], year_construction=year_construction)
         attr = Attribute("capacity_existing", default_value=0.0, unit="GW", element=element)
         attr.set_data(df=df.set_index(["node", "year_construction"]), source=self._source_info("Electrode boiler capacity from Eurostat gross heat production."))
         return attr
