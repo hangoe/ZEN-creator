@@ -22,9 +22,12 @@ from zen_creator.elements.conversion_technologies.industry_heat_supply import (
     ElectrodeBoilerIndustry,
     HeatIndustryTempConversion100,
     HeatIndustryTempConversion150,
-    HeatPumpIndustry0100,
-    HeatPumpIndustry100150,
-    HeatPumpIndustry150200,
+    HeatPumpIndustry0100WasteHeat,
+    HeatPumpIndustry0100WasteWater,
+    HeatPumpIndustry100150WasteHeat,
+    HeatPumpIndustry100150WasteWater,
+    HeatPumpIndustry150200WasteHeat,
+    HeatPumpIndustry150200WasteWater,
     NaturalGasBoilerIndustry,
 )
 from zen_creator.elements.storage_technologies.industry_DSM import (
@@ -52,8 +55,10 @@ class IndustryHeat(Sector):
             HeatIndustry0100, HeatIndustry100150, HeatIndustry150200,
             # production technologies
             GlassProduction, CeramicProduction, PaperProduction, FoodProduction,
-            # heat pumps (one per temperature level)
-            HeatPumpIndustry0100, HeatPumpIndustry100150, HeatPumpIndustry150200,
+            # heat pumps (two per temperature level: waste heat 50°C and waste water 15°C)
+            HeatPumpIndustry0100WasteHeat, HeatPumpIndustry0100WasteWater,
+            HeatPumpIndustry100150WasteHeat, HeatPumpIndustry100150WasteWater,
+            HeatPumpIndustry150200WasteHeat, HeatPumpIndustry150200WasteWater,
             # boilers (150-200 only)
             BiomassBoilerIndustry, ElectrodeBoilerIndustry, NaturalGasBoilerIndustry,
             # temperature downgrade cascade

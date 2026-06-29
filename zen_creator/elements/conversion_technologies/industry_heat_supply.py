@@ -12,7 +12,8 @@ if TYPE_CHECKING:
 
 from zen_creator.datasets.datasets.eurostat_boiler import EurostatBoilerDataset
 from zen_creator.datasets.datasets.heat_tech_parametrization import (
-    HP_COP,
+    HP_COP_WASTE_HEAT,
+    HP_COP_WASTE_WATER,
     HeatTechParametrizationDataset,
 )
 from zen_creator.datasets.datasets.process_parametrization import (
@@ -31,131 +32,104 @@ def _hp_capacity(element, temp_level: str) -> Attribute:
     split = ProcessParametrizationDataset().get_heat_capacity_split()
     if base_attr.df is not None:
         df = base_attr.df.copy()
-        df["capacity_existing"] = df["capacity_existing"] * split[temp_level]
+        # divide by 2: existing capacity split equally between waste-heat and waste-water variants
+        df["capacity_existing"] = df["capacity_existing"] * split[temp_level] / 2
         base_attr.df = df
     return base_attr
 
 
 # -- Heat pumps ---------------------------------------------------------------
+# Two variants per temperature level:
+#   _waste_heat: source = waste heat at 50°C (Bever2024, Agora_IGE2023)
+#   _waste_water: source = (waste) water at 15°C (Agora_IGE2023)
 
-class HeatPumpIndustry0100(ConversionTechnology):
-    name = "heat_pump_industry_0_100"
+def _hp_methods(base_tech: str, temp_level: str, cop: float):
+    """Return a dict of _set_* methods shared across all HP variants."""
+    carrier = f"heat_industry_{temp_level}"
 
-    def __init__(self, model: Model):
-        super().__init__(model=model, power_unit="GW")
+    class _Mixin:
+        def _set_reference_carrier(self) -> Attribute:
+            return Attribute("reference_carrier", default_value=[carrier], element=self)
 
-    def _set_reference_carrier(self) -> Attribute:
-        return Attribute("reference_carrier", default_value=["heat_industry_0_100"], element=self)
+        def _set_input_carrier(self) -> Attribute:
+            return Attribute("input_carrier", default_value=["electricity"], element=self)
 
-    def _set_input_carrier(self) -> Attribute:
-        return Attribute("input_carrier", default_value=["electricity"], element=self)
+        def _set_output_carrier(self) -> Attribute:
+            return Attribute("output_carrier", default_value=[carrier], element=self)
 
-    def _set_output_carrier(self) -> Attribute:
-        return Attribute("output_carrier", default_value=["heat_industry_0_100"], element=self)
+        def _set_conversion_factor(self) -> Attribute:
+            return HeatTechParametrizationDataset().get_conversion_factor(self, base_tech, temp_level, cop_override=cop)
 
-    def _set_conversion_factor(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_conversion_factor(self, "heat_pump_industry", "0_100", cop_override=HP_COP["0_100"])
+        def _set_lifetime(self) -> Attribute:
+            return HeatTechParametrizationDataset().get_lifetime(self, base_tech)
 
-    def _set_lifetime(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_lifetime(self, "heat_pump_industry")
+        def _set_capex_specific_conversion(self) -> Attribute:
+            return HeatTechParametrizationDataset().get_capex_specific_conversion(self, base_tech)
 
-    def _set_capex_specific_conversion(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_capex_specific_conversion(self, "heat_pump_industry")
+        def _set_opex_specific_fixed(self) -> Attribute:
+            return HeatTechParametrizationDataset().get_opex_specific_fixed(self, base_tech)
 
-    def _set_opex_specific_fixed(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_opex_specific_fixed(self, "heat_pump_industry")
+        def _set_opex_specific_variable(self) -> Attribute:
+            return HeatTechParametrizationDataset().get_opex_specific_variable(self, base_tech)
 
-    def _set_opex_specific_variable(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_opex_specific_variable(self, "heat_pump_industry")
+        def _set_carbon_intensity_technology(self) -> Attribute:
+            return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, base_tech)
 
-    def _set_carbon_intensity_technology(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, "heat_pump_industry")
+        def _set_max_diffusion_rate(self) -> Attribute:
+            return HeatTechParametrizationDataset().get_max_diffusion_rate(self, base_tech)
 
-    def _set_max_diffusion_rate(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_max_diffusion_rate(self, "heat_pump_industry")
+        def _set_capacity_existing(self) -> Attribute:
+            return _hp_capacity(self, temp_level)
 
-    def _set_capacity_existing(self) -> Attribute:
-        return _hp_capacity(self, "0_100")
-
-
-class HeatPumpIndustry100150(ConversionTechnology):
-    name = "heat_pump_industry_100_150"
-
-    def __init__(self, model: Model):
-        super().__init__(model=model, power_unit="GW")
-
-    def _set_reference_carrier(self) -> Attribute:
-        return Attribute("reference_carrier", default_value=["heat_industry_100_150"], element=self)
-
-    def _set_input_carrier(self) -> Attribute:
-        return Attribute("input_carrier", default_value=["electricity"], element=self)
-
-    def _set_output_carrier(self) -> Attribute:
-        return Attribute("output_carrier", default_value=["heat_industry_100_150"], element=self)
-
-    def _set_conversion_factor(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_conversion_factor(self, "heat_pump_industry", "100_150", cop_override=HP_COP["100_150"])
-
-    def _set_lifetime(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_lifetime(self, "heat_pump_industry")
-
-    def _set_capex_specific_conversion(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_capex_specific_conversion(self, "heat_pump_industry")
-
-    def _set_opex_specific_fixed(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_opex_specific_fixed(self, "heat_pump_industry")
-
-    def _set_opex_specific_variable(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_opex_specific_variable(self, "heat_pump_industry")
-
-    def _set_carbon_intensity_technology(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, "heat_pump_industry")
-
-    def _set_max_diffusion_rate(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_max_diffusion_rate(self, "heat_pump_industry")
-
-    def _set_capacity_existing(self) -> Attribute:
-        return _hp_capacity(self, "100_150")
+    return _Mixin
 
 
-class HeatPumpIndustry150200(ConversionTechnology):
-    name = "heat_pump_industry_150_200"
+# --- 0–100°C ---
+
+class HeatPumpIndustry0100WasteHeat(_hp_methods("heat_pump_industry", "0_100", HP_COP_WASTE_HEAT["0_100"]), ConversionTechnology):
+    name = "heat_pump_industry_0_100_waste_heat"
 
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
 
-    def _set_reference_carrier(self) -> Attribute:
-        return Attribute("reference_carrier", default_value=["heat_industry_150_200"], element=self)
 
-    def _set_input_carrier(self) -> Attribute:
-        return Attribute("input_carrier", default_value=["electricity"], element=self)
+class HeatPumpIndustry0100WasteWater(_hp_methods("heat_pump_industry", "0_100", HP_COP_WASTE_WATER["0_100"]), ConversionTechnology):
+    name = "heat_pump_industry_0_100_waste_water"
 
-    def _set_output_carrier(self) -> Attribute:
-        return Attribute("output_carrier", default_value=["heat_industry_150_200"], element=self)
+    def __init__(self, model: Model):
+        super().__init__(model=model, power_unit="GW")
 
-    def _set_conversion_factor(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_conversion_factor(self, "heat_pump_industry", "150_200", cop_override=HP_COP["150_200"])
 
-    def _set_lifetime(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_lifetime(self, "heat_pump_industry")
+# --- 100–150°C ---
 
-    def _set_capex_specific_conversion(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_capex_specific_conversion(self, "heat_pump_industry")
+class HeatPumpIndustry100150WasteHeat(_hp_methods("heat_pump_industry", "100_150", HP_COP_WASTE_HEAT["100_150"]), ConversionTechnology):
+    name = "heat_pump_industry_100_150_waste_heat"
 
-    def _set_opex_specific_fixed(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_opex_specific_fixed(self, "heat_pump_industry")
+    def __init__(self, model: Model):
+        super().__init__(model=model, power_unit="GW")
 
-    def _set_opex_specific_variable(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_opex_specific_variable(self, "heat_pump_industry")
 
-    def _set_carbon_intensity_technology(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, "heat_pump_industry")
+class HeatPumpIndustry100150WasteWater(_hp_methods("heat_pump_industry", "100_150", HP_COP_WASTE_WATER["100_150"]), ConversionTechnology):
+    name = "heat_pump_industry_100_150_waste_water"
 
-    def _set_max_diffusion_rate(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_max_diffusion_rate(self, "heat_pump_industry")
+    def __init__(self, model: Model):
+        super().__init__(model=model, power_unit="GW")
 
-    def _set_capacity_existing(self) -> Attribute:
-        return _hp_capacity(self, "150_200")
+
+# --- 150–200°C ---
+
+class HeatPumpIndustry150200WasteHeat(_hp_methods("heat_pump_industry", "150_200", HP_COP_WASTE_HEAT["150_200"]), ConversionTechnology):
+    name = "heat_pump_industry_150_200_waste_heat"
+
+    def __init__(self, model: Model):
+        super().__init__(model=model, power_unit="GW")
+
+
+class HeatPumpIndustry150200WasteWater(_hp_methods("heat_pump_industry", "150_200", HP_COP_WASTE_WATER["150_200"]), ConversionTechnology):
+    name = "heat_pump_industry_150_200_waste_water"
+
+    def __init__(self, model: Model):
+        super().__init__(model=model, power_unit="GW")
 
 
 # -- Boilers (produce heat_industry_150_200 only) ----------------------------

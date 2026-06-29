@@ -330,26 +330,58 @@ their own sources in their `source`/`comment` columns.
   boiler capacity for `biomass_boiler_industry` and
   `natural_gas_boiler_industry`.
 
-## Heat pump COP parametrization (v4.2+)
+## Heat pump COP parametrization (v4.5+)
 
-The three industry heat pump variants are parametrized using temperature-level-specific
-COPs derived from the Carnot efficiency, replacing the previous approach of applying
-small additive bonuses (±0.01–0.02) to a single base COP of ~3.03 from Crystal_Ball.
-The old base COP was physically inconsistent: at the 150–200°C level its value
-exceeded the Carnot COP of 2.89, violating the second law.
+Six industry heat pump variants are modelled — two per temperature level — distinguished
+by their heat source temperature:
 
-**Method**: COP = 0.50 × COP_Carnot, where COP_Carnot = T_hot / (T_hot − T_cold),
-T_cold = 20°C (293.15 K), T_hot = midpoint of the supply temperature range.
-50% of Carnot is a representative practical efficiency for industrial water heat pumps.
+- **Waste-heat source** (`_waste_heat`): T_cold = 50°C (323.15 K).
+  Represents waste heat recovery from industrial processes at 50°C
+  (Bever2024, Agora_IGE2023: waste heat at 20–80°C, mid ≈ 50°C assumed).
+- **Waste-water source** (`_waste_water`): T_cold = 15°C (288.15 K).
+  Represents (waste) water or low-grade ambient sources at 15°C (Agora_IGE2023).
+
+**Method**: COP = 0.50 × COP_Carnot (Agora_IGE2023), where
+COP_Carnot = T_hot / (T_hot − T_cold), with T_hot = midpoint of the supply
+temperature range (sink) and T_cold = source temperature as above.
+
+**Waste-heat source (T_cold = 50°C = 323.15 K):**
 
 | HP variant | T_hot (mid) | COP_Carnot | COP (50%) | conv. factor (1/COP) |
 |---|---|---|---|---|
-| `heat_pump_industry_0_100` | 75°C = 348.15 K | 6.330 | **3.165** | 0.3160 |
-| `heat_pump_industry_100_150` | 125°C = 398.15 K | 3.792 | **1.896** | 0.5274 |
-| `heat_pump_industry_150_200` | 175°C = 448.15 K | 2.891 | **1.446** | 0.6917 |
+| `heat_pump_industry_0_100_waste_heat`   | 75°C = 348.15 K | 13.926 | **6.963** | 0.1436 |
+| `heat_pump_industry_100_150_waste_heat` | 125°C = 398.15 K | 5.309  | **2.654** | 0.3768 |
+| `heat_pump_industry_150_200_waste_heat` | 175°C = 448.15 K | 3.585  | **1.793** | 0.5578 |
 
-Implemented via `HP_COP` dict in `heat_tech_parametrization.py` and the
-`cop_override` parameter of `HeatTechParametrizationDataset.get_conversion_factor`.
+**Waste-water source (T_cold = 15°C = 288.15 K):**
+
+| HP variant | T_hot (mid) | COP_Carnot | COP (50%) | conv. factor (1/COP) |
+|---|---|---|---|---|
+| `heat_pump_industry_0_100_waste_water`   | 75°C = 348.15 K | 5.803 | **2.901** | 0.3447 |
+| `heat_pump_industry_100_150_waste_water` | 125°C = 398.15 K | 3.620 | **1.810** | 0.5525 |
+| `heat_pump_industry_150_200_waste_water` | 175°C = 448.15 K | 2.801 | **1.400** | 0.7143 |
+
+**Costs**: identical for both source types — same `heat_pump_industry` row from
+`heat_tech_parametrization.xlsx` (assumption: cost data not yet differentiated
+by source type).
+
+**Existing capacity**: David2017 capacity is split by temperature level
+(demand-weighted shares) and then divided equally (50/50) between the two source
+variants at each level.
+
+Implemented via `HP_COP_WASTE_HEAT` and `HP_COP_WASTE_WATER` dicts in
+`heat_tech_parametrization.py` and the `cop_override` parameter of
+`HeatTechParametrizationDataset.get_conversion_factor`.
+
+### Previous parametrization (v4.2–v4.4, now superseded)
+
+Used a single HP per temperature level with T_cold = 20°C (293.15 K):
+
+| HP variant | T_hot (mid) | COP_Carnot | COP (50%) |
+|---|---|---|---|
+| `heat_pump_industry_0_100` | 75°C | 6.330 | 3.165 |
+| `heat_pump_industry_100_150` | 125°C | 3.792 | 1.896 |
+| `heat_pump_industry_150_200` | 175°C | 2.891 | 1.446 |
 
 ## Heat technology temperature-level structure (v3.0+)
 
@@ -357,12 +389,12 @@ Heat supply is modeled with three temperature levels (`heat_industry_0_100`,
 `heat_industry_100_150`, `heat_industry_150_200`) and an asymmetric structure
 reflecting the thermodynamic advantage of heat pumps at low temperatures:
 
-- **Heat pumps** are split into three variants
-  (`heat_pump_industry_0_100`, `heat_pump_industry_100_150`,
-  `heat_pump_industry_150_200`), each producing a single temperature level.
-  HP 0_100 has the highest COP (base COP + 0.02), HP 100_150 intermediate
-  (base COP + 0.01), HP 150_200 the base COP. This ensures the optimizer
-  prefers the dedicated low-temp heat pump for lower-temperature demand.
+- **Heat pumps** are split into six variants — two per temperature level,
+  distinguished by heat source: waste heat at 50°C (`_waste_heat`) and
+  (waste) water at 15°C (`_waste_water`). The waste-heat variant achieves
+  a higher COP at each level because its source temperature is closer to
+  the sink temperature. This ensures the optimizer can choose the most
+  cost-effective source type for each temperature level independently.
 - **Boilers** (`biomass_boiler_industry`, `electrode_boiler_industry`,
   `natural_gas_boiler_industry`) produce only `heat_industry_150_200`.
   Their full `capacity_existing` is assigned (no temperature split).
@@ -550,7 +582,7 @@ zen-creator template pattern consistently across all element types:
   `PaperProduction`, `FoodProduction`) were moved from
   `zen_creator/elements/industry_heat/production_techs.py` to
   `zen_creator/elements/conversion_technologies/industry_production.py`.
-- **Heat supply technologies** (3 heat pumps, 3 boilers, 2 temperature
+- **Heat supply technologies** (6 heat pumps, 3 boilers, 2 temperature
   conversions) were moved from
   `zen_creator/elements/industry_heat/heat_techs.py` to
   `zen_creator/elements/conversion_technologies/industry_heat_supply.py`.
