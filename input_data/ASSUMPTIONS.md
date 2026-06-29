@@ -129,17 +129,30 @@ their own sources in their `source`/`comment` columns.
   process CO2 for paper, and black-liquor combustion CO2 is treated as
   biogenic (not counted).
 - **Cost and lifetime parameters** (`capex_specific_conversion`,
-  `opex_specific_fixed`, `opex_specific_variable`, `lifetime`) from
-  JRC-EU-TIMES 2019.11, activity-weighted across the three sub-processes
-  using Rehfeldt2017 EU28+3 activity shares (paper 56.1%, recovered_fibres
-  28.9%, chemical_pulp 15.0%): `IPPHIGQUA01` (INVCOST=2500, FIXOM=125,
-  LIFE=25), `IPPLOWQUA01` (INVCOST=1100, FIXOM=53, LIFE=25), `IPPPUPCHE01`
-  (INVCOST=1355, FIXOM=40, VAROM=28, LIFE=25). Same 2006→2019 deflator and
-  ×8760 unit conversion as glass. Resulting values: capex ≈ 19,995,772
-  EUR/(t/h), opex_fixed ≈ 950,445 EUR/(t/h)/yr, opex_variable ≈ 4.99 EUR/t
-  (2019 prices), lifetime = 25 yr (all three IPP processes have LIFE=25).
-  Derivation block written to README sheet of `process_parametrization.xlsx`
-  by `write_sector_cost_params`.
+  `opex_specific_fixed`, `opex_specific_variable`, `lifetime`): `opex_specific_fixed`,
+  `opex_specific_variable`, and `lifetime` are taken from JRC-EU-TIMES 2019.11,
+  activity-weighted across the three sub-processes using Rehfeldt2017 EU28+3
+  activity shares (paper 56.1%, recovered_fibres 28.9%, chemical_pulp 15.0%):
+  `IPPHIGQUA01` (INVCOST=2500, FIXOM=125, LIFE=25), `IPPLOWQUA01` (INVCOST=1100,
+  FIXOM=53, LIFE=25), `IPPPUPCHE01` (INVCOST=1355, FIXOM=40, VAROM=28, LIFE=25).
+  Same 2006→2019 deflator and ×8760 unit conversion as glass. JRC-derived values:
+  opex_fixed ≈ 950,445 EUR/(t/h)/yr, opex_variable ≈ 4.99 EUR/t (2019 prices),
+  lifetime = 25 yr (all three IPP processes have LIFE=25).
+- **`capex_specific_conversion` (literature-based override)**: the JRC-EU-TIMES
+  activity-weighted CAPEX of ~19,996,000 EUR/(t/h) (~2,283 EUR/(t/yr)) is replaced
+  by **700 EUR/(t/yr) → 6,132,000 EUR/(t/h)**. The JRC figure represents a fully
+  integrated greenfield pulp-and-paper mill and is inconsistent with the scope used
+  for glass and other sectors (furnace/process core only), overstating CAPEX relative
+  to real-world investment announcements. Literature benchmarks for recent European
+  paper mill conversions:
+  - Stora Enso Oulu, Finland (newsprint→packaging board, brownfield, 2026):
+    ~EUR 1 billion / 750,000 t/yr → ~1,333 EUR/(t/yr)
+  - Stora Enso Langerbrugge, Belgium (newsprint→testliner/recycled fluting,
+    brownfield, 2022): ~EUR 400 million / 700,000 t/yr → ~571 EUR/(t/yr)
+  - Kotkamills BM2, Finland (newsprint/magazine→folding boxboard, brownfield, 2016):
+    ~EUR 170–180 million / 400,000 t/yr → ~425–450 EUR/(t/yr)
+  All three are brownfield conversions; a greenfield premium is expected. 700 EUR/(t/yr)
+  is adopted as a conservative lower bound consistent with this evidence base.
 - Note: Kraft pulp calcination CO2 (lime kiln, CaCO3→CaO+CO2) is a real
   process emission not captured by EMISSIONS~INDCO2P in JRC-EU-TIMES and
   therefore not included here.

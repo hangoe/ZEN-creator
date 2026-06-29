@@ -144,8 +144,15 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         if sector == "glass":
             return sector_weighted_params(GLASS_AIDRES_TO_JRC, AIDRES2023_GLASS_SHARES, JRC_COST_TARGET_YEAR)
         elif sector == "paper":
+            # JRC-EU-TIMES gives ~19,996 k€/(t/h) (~2,283 €/(t/yr)), which appears to
+            # represent a fully integrated greenfield mill and overshoots real brownfield/
+            # conversion projects. Literature values (Stora Enso Oulu 2026, Langerbrugge
+            # 2022, Kotkamills 2016) range 425–1,333 €/(t/yr); 700 €/(t/yr) is used as
+            # a conservative lower bound. See ASSUMPTIONS.md (Paper section).
             paper_w = activity_weights(REHFELDT2017_PAPER)
-            return sector_weighted_params(PAPER_REHFELDT_TO_JRC, paper_w, JRC_COST_TARGET_YEAR)
+            jrc = sector_weighted_params(PAPER_REHFELDT_TO_JRC, paper_w, JRC_COST_TARGET_YEAR)
+            jrc["capex_specific_conversion"] = round(700 * 8760, 2)  # 6_132_000 €/(t/h)
+            return jrc
         elif sector == "food":
             deflator = gdp_deflator_ratio(PARAM_BASE_YEAR, JRC_COST_TARGET_YEAR)
             return {
