@@ -30,18 +30,6 @@ from zen_creator.elements.conversion_technologies.industry_heat_supply import (
     HeatPumpIndustry150200Water,
     NaturalGasBoilerIndustry,
 )
-from zen_creator.elements.storage_technologies.industry_DSM import (
-    CeramicDSM,
-    FoodDSM,
-    GlassDSM,
-    PaperDSM,
-)
-from zen_creator.elements.storage_technologies.industry_TES import (
-    IndustryTESSteam100150,
-    IndustryTESSteam150200,
-    IndustryTESWater0100,
-    IndustryTESWater100150,
-)
 
 
 class IndustryHeat(Sector):
@@ -64,9 +52,4 @@ class IndustryHeat(Sector):
             # temperature downgrade cascade
             HeatIndustryTempConversion150,
             HeatIndustryTempConversion100,
-            # thermal energy storage
-            IndustryTESWater0100, IndustryTESWater100150,
-            IndustryTESSteam100150, IndustryTESSteam150200,
-            # demand-side management
-            GlassDSM, CeramicDSM, PaperDSM, FoodDSM,
         ]

@@ -482,7 +482,7 @@ In v2.2, all four heat supply technologies (heat pumps + 3 boilers) were each
 split into two variants (`_0_100` and `_100_200`), totaling 8 technologies.
 Capacity was split by the same demand-weighted temperature share for all techs.
 
-## Industry thermal energy storage (v4.0+)
+## Industry thermal energy storage (v4.0+; moved to industry_flexibility in v5.0+)
 
 Two thermal energy storage (TES) technologies are added for industry heat,
 parametrized from Mayer et al. (2024), Table 3:
@@ -535,43 +535,64 @@ parametrized from Mayer et al. (2024), Table 3:
 - **Steam accumulators** are pressurised vessels with inherently short storage horizons
   (minutes to a few hours); 0.25–4 h covers the practical range from industrial practice.
 
-## Industry demand-side management (v4.0+)
+## Industry demand-side management (v4.0+; restructured v5.0+)
 
-Four demand-side management (DSM) storage technologies allow the optimizer
-to shift production in time for each industry product carrier:
+DSM storage technologies allow the optimizer to shift production in time for each
+industry product carrier. From v5.0, DSM techs live in the `industry_flexibility`
+sector (not `industry_heat`), which allows them to cover carriers from any industrial
+sector.
 
-- **`glass_DSM`** — reference carrier: `glass`
-- **`ceramic_DSM`** — reference carrier: `ceramic`
-- **`paper_DSM`** — reference carrier: `paper`
-- **`food_DSM`** — reference carrier: `food`
+### Covered carriers
+
+| Technology | Carrier | Sector origin |
+|---|---|---|
+| `glass_DSM` | `glass` | industry_heat |
+| `ceramic_DSM` | `ceramic` | industry_heat |
+| `paper_DSM` | `paper` | industry_heat |
+| `food_DSM` | `food` | industry_heat |
+| `ammonia_DSM` | `ammonia` | Crystal Ball base model |
+| `clinker_DSM` | `clinker` | Crystal Ball base model |
+| `methanol_DSM` | `methanol` | Crystal Ball base model |
+| `primary_steel_DSM` | `primary_steel` | Crystal Ball base model |
+| `secondary_steel_DSM` | `secondary_steel` | Crystal Ball base model |
+| `olefin_DSM` | `olefin` | Crystal Ball base model |
+
+The six new carriers (ammonia, clinker, methanol, primary/secondary steel, olefin) already
+exist in the base Crystal Ball dataset — no new carrier classes are needed in zen_creator.
 
 ### Parametrization
 
 DSM storages are modeled as perfect storages with no losses:
 
-| Parameter                         | Value                       |
-|-----------------------------------|-----------------------------|
-| `efficiency_charge`               | 1.0 (default)               |
-| `efficiency_discharge`            | 1.0 (default)               |
-| `self_discharge`                  | 0.0 (default)               |
-| `capex_specific_storage_energy`   | 0.01 EUR/(tonproduct/hour·h)|
-| `lifetime`                        | 50 years                    |
+| Parameter                         | Value                        |
+|-----------------------------------|------------------------------|
+| `efficiency_charge`               | 1.0 (default)                |
+| `efficiency_discharge`            | 1.0 (default)                |
+| `self_discharge`                  | 0.0 (default)                |
+| `capex_specific_storage_energy`   | 1.0 EUR/(tonproduct/hour·h)  |
+| `lifetime`                        | 50 years                     |
 
-- **Minimal capex**: a small but non-zero energy capex of 0.01 prevents the
-  optimizer from building DSM capacity without economic justification.
-- **No losses**: efficiency = 1.0 and self_discharge = 0.0, representing
-  an idealized ability to reschedule production within a planning period.
-- **Power unit**: `tonproduct/hour`, matching the production technology
-  capacity units.
+- **Capex (v5.0+)**: raised from 0.01 to 1.0 EUR/(ton/h·h). At 0.01 the optimizer built
+  economically unjustified DSM capacity; 1.0 ensures DSM is only deployed where it provides
+  genuine value, while remaining affordable when flexibility is worth it.
+- **No losses**: efficiency = 1.0 and self_discharge = 0.0, representing an idealized
+  ability to reschedule production within a planning period.
+- **Power unit**: `tonproduct/hour`, matching production technology capacity units.
 
 ### Energy-to-power ratio bounds (v4.6+)
 
 | Technology | `energy_to_power_ratio_max` (h) | Rationale |
 |---|---|---|
-| `glass_DSM` | 168 (1 week) | Stable inventory; aligns with Mayer2024 tsc |
+| `glass_DSM` | 168 (1 week) | Stable inventory; Mayer2024 tsc |
 | `ceramic_DSM` | 168 (1 week) | Thermally stable product; Mayer2024 tsc |
 | `paper_DSM` | 168 (1 week) | Stable inventory; Mayer2024 tsc |
 | `food_DSM` | 48 (2 days) | Perishability limits storage horizon |
+| `ammonia_DSM` | 168 (1 week) | Stable liquid/gas; typical industrial storage |
+| `clinker_DSM` | 168 (1 week) | Very stable cement intermediate |
+| `methanol_DSM` | 168 (1 week) | Stable liquid chemical |
+| `primary_steel_DSM` | 168 (1 week) | Stable material |
+| `secondary_steel_DSM` | 168 (1 week) | Stable material |
+| `olefin_DSM` | 168 (1 week) | Stored under pressure; typical industrial practice |
 
 - `energy_to_power_ratio_min` is left at 0 (default) for all DSM techs — no minimum
   inventory depth is physically required.
