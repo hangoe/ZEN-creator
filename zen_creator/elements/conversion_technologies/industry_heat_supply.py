@@ -96,7 +96,7 @@ class HeatPumpIndustry0100WasteHeat(_hp_methods("heat_pump_industry", "0_100", H
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
 
-    def _set_capacity_addition_max(self) -> Attribute:
+    def _set_capacity_limit(self) -> Attribute:
         return _hp_waste_heat_limit(self, "0_100")
 
 
@@ -115,7 +115,7 @@ class HeatPumpIndustry100150WasteHeat(_hp_methods("heat_pump_industry", "100_150
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
 
-    def _set_capacity_addition_max(self) -> Attribute:
+    def _set_capacity_limit(self) -> Attribute:
         return _hp_waste_heat_limit(self, "100_150")
 
 
@@ -134,7 +134,7 @@ class HeatPumpIndustry150200WasteHeat(_hp_methods("heat_pump_industry", "150_200
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
 
-    def _set_capacity_addition_max(self) -> Attribute:
+    def _set_capacity_limit(self) -> Attribute:
         return _hp_waste_heat_limit(self, "150_200")
 
 

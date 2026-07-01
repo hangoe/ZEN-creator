@@ -273,14 +273,14 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         return {level: totals[level] / grand_total for level in HEAT_TEMP_LEVELS}
 
     def get_waste_heat_capacity_limit(self, element: "Element", temp_level: str) -> Attribute:
-        """Per-node capacity_addition_max for waste-heat HPs at a given temperature level.
+        """Per-node capacity_limit for waste-heat HPs at a given temperature level.
 
         Waste heat available from sector s at node n = demand[s,n] × cf_fuel[s],
         where cf_fuel is the high-temperature (>200°C) fuel heat fraction (GW per
         tonproduct/hr). This is distributed to each temperature level proportionally
         to the sector's low-temp heat demand share at that level.
 
-        capacity_addition_max is set equal to the available waste heat input (GW),
+        capacity_limit is set equal to the available waste heat input (GW),
         which is a conservative bound on the HP heat output (true max output is
         waste_heat × COP/(COP-1), i.e. 1.17–2.26× larger depending on temperature level).
         """
@@ -297,9 +297,9 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
             share_at_level[s] = (self._heat_cfs[s][temp_level] / total_lt) if total_lt > 0 else 0.0
 
         wh_series = sum(demands[s] * cf_fuel[s] * share_at_level[s] for s in demands)
-        df = wh_series.rename("capacity_addition_max").to_frame()
+        df = wh_series.rename("capacity_limit").to_frame()
 
-        attr = Attribute("capacity_addition_max", default_value=np.inf, unit="GW", element=element)
+        attr = Attribute("capacity_limit", default_value=np.inf, unit="GW", element=element)
         attr.set_data(df=df, source=self._source_info(
             f"Waste-heat HP capacity limit for {temp_level}: sector high-temp fuel demand "
             "(glass/ceramic/paper/food) × sector-specific low-temp heat share at this level. "
