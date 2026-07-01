@@ -37,6 +37,15 @@ _DSM_SOURCE = SourceInformation(
 
 _DSM_LIFETIME = 50
 
+_DSM_E2P_SOURCE = SourceInformation(
+    description=(
+        "Maximum energy-to-power ratio (inventory horizon) per product type, "
+        "based on Mayer et al. (2024) storage capacity time intervals (tsc). "
+        "Glass/ceramic/paper: ≤1 week. Food: ≤2 days (perishability constraint)."
+    ),
+    metadata=_DSM_METADATA,
+)
+
 
 class GlassDSM(StorageTechnology):
 
@@ -60,6 +69,11 @@ class GlassDSM(StorageTechnology):
             unit="Euro/(tonproduct/hour*h)",
             source=_DSM_SOURCE,
         )
+        return attr
+
+    def _set_energy_to_power_ratio_max(self) -> Attribute:
+        attr = Attribute("energy_to_power_ratio_max", element=self)
+        attr.set_data(default_value=168.0, unit="h", source=_DSM_E2P_SOURCE)
         return attr
 
 
@@ -87,6 +101,11 @@ class CeramicDSM(StorageTechnology):
         )
         return attr
 
+    def _set_energy_to_power_ratio_max(self) -> Attribute:
+        attr = Attribute("energy_to_power_ratio_max", element=self)
+        attr.set_data(default_value=168.0, unit="h", source=_DSM_E2P_SOURCE)
+        return attr
+
 
 class PaperDSM(StorageTechnology):
 
@@ -112,6 +131,11 @@ class PaperDSM(StorageTechnology):
         )
         return attr
 
+    def _set_energy_to_power_ratio_max(self) -> Attribute:
+        attr = Attribute("energy_to_power_ratio_max", element=self)
+        attr.set_data(default_value=168.0, unit="h", source=_DSM_E2P_SOURCE)
+        return attr
+
 
 class FoodDSM(StorageTechnology):
 
@@ -135,4 +159,9 @@ class FoodDSM(StorageTechnology):
             unit="Euro/(tonproduct/hour*h)",
             source=_DSM_SOURCE,
         )
+        return attr
+
+    def _set_energy_to_power_ratio_max(self) -> Attribute:
+        attr = Attribute("energy_to_power_ratio_max", element=self)
+        attr.set_data(default_value=48.0, unit="h", source=_DSM_E2P_SOURCE)
         return attr

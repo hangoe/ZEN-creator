@@ -522,6 +522,19 @@ parametrized from Mayer et al. (2024), Table 3:
   - `industry_TES_steam_100_150` → `heat_industry_100_150`
   - `industry_TES_steam_150_200` → `heat_industry_150_200`
 
+### Energy-to-power ratio bounds (v4.6+)
+
+| Technology | `energy_to_power_ratio_min` (h) | `energy_to_power_ratio_max` (h) |
+|---|---|---|
+| Water tank (0–100 °C, 100–150 °C) | 1 | 24 |
+| Steam accumulator (100–150 °C, 150–200 °C) | 0.25 | 4 |
+
+- **Water tanks** are sized for intraday heat buffering; a minimum of 1 h ensures the
+  tank has meaningful thermal mass relative to its charging rate. The 24 h cap reflects
+  that industrial water tanks are not seasonal stores.
+- **Steam accumulators** are pressurised vessels with inherently short storage horizons
+  (minutes to a few hours); 0.25–4 h covers the practical range from industrial practice.
+
 ## Industry demand-side management (v4.0+)
 
 Four demand-side management (DSM) storage technologies allow the optimizer
@@ -550,6 +563,19 @@ DSM storages are modeled as perfect storages with no losses:
   an idealized ability to reschedule production within a planning period.
 - **Power unit**: `tonproduct/hour`, matching the production technology
   capacity units.
+
+### Energy-to-power ratio bounds (v4.6+)
+
+| Technology | `energy_to_power_ratio_max` (h) | Rationale |
+|---|---|---|
+| `glass_DSM` | 168 (1 week) | Stable inventory; aligns with Mayer2024 tsc |
+| `ceramic_DSM` | 168 (1 week) | Thermally stable product; Mayer2024 tsc |
+| `paper_DSM` | 168 (1 week) | Stable inventory; Mayer2024 tsc |
+| `food_DSM` | 48 (2 days) | Perishability limits storage horizon |
+
+- `energy_to_power_ratio_min` is left at 0 (default) for all DSM techs — no minimum
+  inventory depth is physically required.
+- Values follow the storage capacity time intervals (tsc) from Mayer et al. (2024).
 
 ## Existing capacity spread over vintage cohorts (v4.4+)
 

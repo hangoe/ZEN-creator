@@ -14,7 +14,7 @@ model.add_sector_by_name("industry_heat")
 
 model.build()
 
-model.name = "Crystal_Ball_HG_v4_5" \
+model.name = "Crystal_Ball_HG_v4_6" \
 ""
 model.output_folder = output_path
 
