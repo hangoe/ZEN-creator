@@ -48,7 +48,7 @@
         "unit": "tonproduct/hour"
     },
     "max_diffusion_rate": {
-        "default_value": 0.13,
+        "default_value": "inf",
         "unit": ""
     },
     "lifetime": {
