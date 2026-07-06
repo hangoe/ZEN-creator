@@ -7,6 +7,7 @@ Absorbs all logic previously in zen_creator/industry_heat_eu/:
 """
 
 import csv
+import functools
 import json
 import warnings
 from dataclasses import dataclass
@@ -767,13 +768,7 @@ def eurostat_gross_heat_gwh(sheet, year):
     return values
 
 
-def boiler_capacity_existing_df(sheet, year, lifetime=None, year_construction=None):
-    heat_gwh = eurostat_gross_heat_gwh(sheet, year)
-    node_caps: dict[str, float] = {}
-    for node in MODEL_NODES:
-        country = NODE_TO_EUROSTAT_COUNTRY.get(node)
-        gwh = heat_gwh.get(country, 0.0) if country else 0.0
-        node_caps[node] = gwh / OPERATING_HOURS
+def _boiler_capacity_df_from_node_caps(node_caps, year, lifetime, year_construction):
     ref_year = year_construction or year
     rows = []
     if lifetime is not None:
@@ -787,13 +782,100 @@ def boiler_capacity_existing_df(sheet, year, lifetime=None, year_construction=No
     return pd.DataFrame(rows)
 
 
+def boiler_capacity_existing_df(sheet, year, lifetime=None, year_construction=None):
+    heat_gwh = eurostat_gross_heat_gwh(sheet, year)
+    node_caps: dict[str, float] = {}
+    for node in MODEL_NODES:
+        country = NODE_TO_EUROSTAT_COUNTRY.get(node)
+        gwh = heat_gwh.get(country, 0.0) if country else 0.0
+        node_caps[node] = gwh / OPERATING_HOURS
+    return _boiler_capacity_df_from_node_caps(node_caps, year, lifetime, year_construction)
+
+
+def total_industry_heat_demand_gw(year: int) -> dict[str, float]:
+    """Total heat carrier demand (GW) per node, summed over glass/paper/food/ceramic.
+
+    Covers heat_industry_0_100 + heat_industry_100_150 + heat_industry_150_200
+    via SectorParams.cf_lt = (lt_GJ_t_0_100 + lt_GJ_t_100_200) / 3600 per sector.
+    Glass uses AIDRES2023 energy data with Rehfeldt2017 temperature distribution,
+    matching process_parametrization._compute_sector_params().
+    """
+    glass_params = compute_sector_params(
+        AIDRES2023_GLASS, REHFELDT2017_GLASS, AIDRES2023_GLASS_SHARES, fuel_key="ng_GJ_t"
+    )
+    ceramic_params = compute_sector_params(
+        REHFELDT2017_CERAMIC, REHFELDT2017_CERAMIC, activity_weights(REHFELDT2017_CERAMIC)
+    )
+    paper_params = compute_sector_params(
+        REHFELDT2017_PAPER, REHFELDT2017_PAPER, activity_weights(REHFELDT2017_PAPER)
+    )
+    food_params = compute_sector_params(
+        REHFELDT2017_FOOD, REHFELDT2017_FOOD, activity_weights(REHFELDT2017_FOOD)
+    )
+    glass_demand = industry_demand_df("glass", year).set_index("node")["demand"]   # ton/hr
+    paper_demand = industry_demand_df("paper", year).set_index("node")["demand"]   # ton/hr
+    food_demand_s = food_demand_df(year).set_index("node")["demand"]               # ton/hr
+    ceramic_demand = (
+        ceramic_demand_from_fec_df(year).set_index("node")["kt_yr"] * 1000.0 / HOURS_PER_YEAR
+    )  # ton/hr
+    return {
+        node: (
+            glass_demand[node] * glass_params.cf_lt
+            + paper_demand[node] * paper_params.cf_lt
+            + food_demand_s[node] * food_params.cf_lt
+            + ceramic_demand[node] * ceramic_params.cf_lt
+        )
+        for node in MODEL_NODES
+    }
+
+
+@functools.lru_cache(maxsize=4)
+def _demand_based_boiler_capacity_gw(year: int) -> dict[str, dict[str, float]]:
+    """Per-node boiler capacity (GW) scaled to total heat demand with Eurostat fuel shares.
+
+    Returns {node: {"biomass": GW, "natural_gas": GW, "electrode": GW}}.
+    Nodes without Eurostat coverage (e.g. CH) fall back to 100% natural_gas.
+    """
+    total_demand = total_industry_heat_demand_gw(year)
+    biomass_gwh = eurostat_gross_heat_gwh(EUROSTAT_BIOMASS_HEAT_SHEET, year)
+    ng_gwh = eurostat_gross_heat_gwh(EUROSTAT_NATURAL_GAS_HEAT_SHEET, year)
+    elec_gwh = eurostat_gross_heat_gwh(EUROSTAT_ELECTRICITY_HEAT_SHEET, year)
+    result: dict[str, dict[str, float]] = {}
+    for node in MODEL_NODES:
+        country = NODE_TO_EUROSTAT_COUNTRY.get(node)
+        bio_gw = (biomass_gwh.get(country, 0.0) / OPERATING_HOURS) if country else 0.0
+        ng_gw = (ng_gwh.get(country, 0.0) / OPERATING_HOURS) if country else 0.0
+        elec_gw = (elec_gwh.get(country, 0.0) / OPERATING_HOURS) if country else 0.0
+        total_euro = bio_gw + ng_gw + elec_gw
+        if total_euro > 0.0:
+            share_bio, share_ng, share_elec = bio_gw / total_euro, ng_gw / total_euro, elec_gw / total_euro
+        else:
+            share_bio, share_ng, share_elec = 0.0, 1.0, 0.0
+        total = total_demand[node]
+        result[node] = {
+            "biomass": total * share_bio,
+            "natural_gas": total * share_ng,
+            "electrode": total * share_elec,
+        }
+    return result
+
+
 def biomass_boiler_capacity_existing_df(year, lifetime=None, year_construction=None):
-    return boiler_capacity_existing_df(EUROSTAT_BIOMASS_HEAT_SHEET, year, lifetime=lifetime, year_construction=year_construction)
+    caps = _demand_based_boiler_capacity_gw(year)
+    return _boiler_capacity_df_from_node_caps(
+        {node: caps[node]["biomass"] for node in MODEL_NODES}, year, lifetime, year_construction
+    )
 
 
 def natural_gas_boiler_capacity_existing_df(year, lifetime=None, year_construction=None):
-    return boiler_capacity_existing_df(EUROSTAT_NATURAL_GAS_HEAT_SHEET, year, lifetime=lifetime, year_construction=year_construction)
+    caps = _demand_based_boiler_capacity_gw(year)
+    return _boiler_capacity_df_from_node_caps(
+        {node: caps[node]["natural_gas"] for node in MODEL_NODES}, year, lifetime, year_construction
+    )
 
 
 def electrode_boiler_capacity_existing_df(year, lifetime=None, year_construction=None):
-    return boiler_capacity_existing_df(EUROSTAT_ELECTRICITY_HEAT_SHEET, year, lifetime=lifetime, year_construction=year_construction)
+    caps = _demand_based_boiler_capacity_gw(year)
+    return _boiler_capacity_df_from_node_caps(
+        {node: caps[node]["electrode"] for node in MODEL_NODES}, year, lifetime, year_construction
+    )
