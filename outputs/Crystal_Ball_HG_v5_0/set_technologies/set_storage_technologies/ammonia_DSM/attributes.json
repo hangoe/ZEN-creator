@@ -29,15 +29,15 @@
     },
     "opex_specific_variable": {
         "default_value": 0.0,
-        "unit": "Euro/(GW*h)"
+        "unit": "Euro/GWh"
     },
     "opex_specific_fixed": {
         "default_value": 0.0,
-        "unit": "Euro/(GW)"
+        "unit": "Euro/GW"
     },
     "carbon_intensity_technology": {
         "default_value": 0.0,
-        "unit": "kilotons/(GW*h)"
+        "unit": "kilotons/GWh"
     },
     "construction_time": {
         "default_value": 0.0,
@@ -74,27 +74,27 @@
     },
     "capex_specific_storage": {
         "default_value": 0.0,
-        "unit": "Euro/(GW)"
+        "unit": "Euro/GW"
     },
     "capex_specific_storage_energy": {
         "default_value": 1.0,
-        "unit": "Euro/(GW*h)"
+        "unit": "Euro/GWh"
     },
     "capacity_addition_min_energy": {
         "default_value": 0.0,
-        "unit": "GW*h"
+        "unit": "GWh"
     },
     "capacity_addition_max_energy": {
         "default_value": "inf",
-        "unit": "GW*h"
+        "unit": "GWh"
     },
     "capacity_existing_energy": {
         "default_value": 0.0,
-        "unit": "GW*h"
+        "unit": "GWh"
     },
     "capacity_limit_energy": {
         "default_value": "inf",
-        "unit": "GW*h"
+        "unit": "GWh"
     },
     "min_load_energy": {
         "default_value": 0.0,
@@ -106,11 +106,11 @@
     },
     "capacity_investment_existing_energy": {
         "default_value": 0.0,
-        "unit": "GW*h"
+        "unit": "GWh"
     },
     "opex_specific_fixed_energy": {
         "default_value": 0.0,
-        "unit": "Euro/(GW*h)"
+        "unit": "Euro/GWh"
     },
     "energy_to_power_ratio_min": {
         "default_value": 0.0,
