@@ -1,23 +1,23 @@
 {
     "capacity_addition_min": {
         "default_value": 0.0,
-        "unit": "tonproduct/hour"
+        "unit": "GW"
     },
     "capacity_addition_max": {
         "default_value": "inf",
-        "unit": "tonproduct/hour"
+        "unit": "GW"
     },
     "capacity_addition_unbounded": {
         "default_value": 0.0,
-        "unit": "tonproduct/hour"
+        "unit": "GW"
     },
     "capacity_existing": {
         "default_value": 0.0,
-        "unit": "tonproduct/hour"
+        "unit": "GW"
     },
     "capacity_limit": {
         "default_value": "inf",
-        "unit": "tonproduct/hour"
+        "unit": "GW"
     },
     "min_load": {
         "default_value": 0.0,
@@ -29,15 +29,15 @@
     },
     "opex_specific_variable": {
         "default_value": 0.0,
-        "unit": "Euro/(tonproduct/hour*h)"
+        "unit": "Euro/(GW*h)"
     },
     "opex_specific_fixed": {
         "default_value": 0.0,
-        "unit": "Euro/(tonproduct/hour)"
+        "unit": "Euro/(GW)"
     },
     "carbon_intensity_technology": {
         "default_value": 0.0,
-        "unit": "kilotons/(tonproduct/hour*h)"
+        "unit": "kilotons/(GW*h)"
     },
     "construction_time": {
         "default_value": 0.0,
@@ -45,7 +45,7 @@
     },
     "capacity_investment_existing": {
         "default_value": 0.0,
-        "unit": "tonproduct/hour"
+        "unit": "GW"
     },
     "max_diffusion_rate": {
         "default_value": "inf",
@@ -74,27 +74,27 @@
     },
     "capex_specific_storage": {
         "default_value": 0.0,
-        "unit": "Euro/(tonproduct/hour)"
+        "unit": "Euro/(GW)"
     },
     "capex_specific_storage_energy": {
         "default_value": 1.0,
-        "unit": "Euro/(tonproduct/hour*h)"
+        "unit": "Euro/(GW*h)"
     },
     "capacity_addition_min_energy": {
         "default_value": 0.0,
-        "unit": "tonproduct/hour*h"
+        "unit": "GW*h"
     },
     "capacity_addition_max_energy": {
         "default_value": "inf",
-        "unit": "tonproduct/hour*h"
+        "unit": "GW*h"
     },
     "capacity_existing_energy": {
         "default_value": 0.0,
-        "unit": "tonproduct/hour*h"
+        "unit": "GW*h"
     },
     "capacity_limit_energy": {
         "default_value": "inf",
-        "unit": "tonproduct/hour*h"
+        "unit": "GW*h"
     },
     "min_load_energy": {
         "default_value": 0.0,
@@ -106,11 +106,11 @@
     },
     "capacity_investment_existing_energy": {
         "default_value": 0.0,
-        "unit": "tonproduct/hour*h"
+        "unit": "GW*h"
     },
     "opex_specific_fixed_energy": {
         "default_value": 0.0,
-        "unit": "Euro/(tonproduct/hour*h)"
+        "unit": "Euro/(GW*h)"
     },
     "energy_to_power_ratio_min": {
         "default_value": 0.0,
@@ -122,6 +122,6 @@
     },
     "flow_storage_inflow": {
         "default_value": 0.0,
-        "unit": "tonproduct/hour"
+        "unit": "GW"
     }
 }

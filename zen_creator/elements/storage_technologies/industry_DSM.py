@@ -169,7 +169,7 @@ class AmmoniaDSM(StorageTechnology):
 
     name: str = "ammonia_DSM"
 
-    def __init__(self, model: Model, power_unit: str = "tonproduct/hour"):
+    def __init__(self, model: Model, power_unit: str = "GW"):
         super().__init__(model=model, power_unit=power_unit)
 
     def _set_reference_carrier(self) -> Attribute:
@@ -182,7 +182,7 @@ class AmmoniaDSM(StorageTechnology):
 
     def _set_capex_specific_storage_energy(self) -> Attribute:
         attr = Attribute("capex_specific_storage_energy", element=self)
-        attr.set_data(default_value=_CAPEX, unit="Euro/(tonproduct/hour*h)", source=_DSM_SOURCE)
+        attr.set_data(default_value=_CAPEX, unit="Euro/(GW*h)", source=_DSM_SOURCE)
         return attr
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
@@ -221,7 +221,7 @@ class MethanolDSM(StorageTechnology):
 
     name: str = "methanol_DSM"
 
-    def __init__(self, model: Model, power_unit: str = "tonproduct/hour"):
+    def __init__(self, model: Model, power_unit: str = "GW"):
         super().__init__(model=model, power_unit=power_unit)
 
     def _set_reference_carrier(self) -> Attribute:
@@ -234,7 +234,7 @@ class MethanolDSM(StorageTechnology):
 
     def _set_capex_specific_storage_energy(self) -> Attribute:
         attr = Attribute("capex_specific_storage_energy", element=self)
-        attr.set_data(default_value=_CAPEX, unit="Euro/(tonproduct/hour*h)", source=_DSM_SOURCE)
+        attr.set_data(default_value=_CAPEX, unit="Euro/(GW*h)", source=_DSM_SOURCE)
         return attr
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
