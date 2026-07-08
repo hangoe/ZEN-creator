@@ -45,16 +45,17 @@ _DSM_LIFETIME = 50
 _DSM_E2P_SOURCE = SourceInformation(
     description=(
         "Maximum energy-to-power ratio (inventory horizon) per product type. "
-        "Glass/ceramic/paper/chemicals/metals: ≤1 week (168 h), based on typical "
-        "industrial inventory turnover and Mayer et al. (2024) tsc parameter. "
-        "Food: ≤2 days (48 h) due to perishability constraints."
+        "Glass/ceramic/paper/chemicals/metals: ≤6 months (4380 h), reflecting seasonal "
+        "production scheduling flexibility for durable industrial products. "
+        "Food: ≤1 week (168 h); includes durable products (milk powder, sugar, beer) "
+        "but perishability still limits the horizon relative to other sectors."
     ),
     metadata=_DSM_METADATA,
 )
 
 _CAPEX = 1.0
-_E2P_MAX_WEEK = 168.0
-_E2P_MAX_FOOD = 48.0
+_E2P_MAX_SIX_MONTHS = 4380.0
+_E2P_MAX_FOOD = 168.0
 
 
 class GlassDSM(StorageTechnology):
@@ -79,7 +80,7 @@ class GlassDSM(StorageTechnology):
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX_WEEK, unit="h", source=_DSM_E2P_SOURCE)
+        attr.set_data(default_value=_E2P_MAX_SIX_MONTHS, unit="h", source=_DSM_E2P_SOURCE)
         return attr
 
 
@@ -105,7 +106,7 @@ class CeramicDSM(StorageTechnology):
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX_WEEK, unit="h", source=_DSM_E2P_SOURCE)
+        attr.set_data(default_value=_E2P_MAX_SIX_MONTHS, unit="h", source=_DSM_E2P_SOURCE)
         return attr
 
 
@@ -131,7 +132,7 @@ class PaperDSM(StorageTechnology):
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX_WEEK, unit="h", source=_DSM_E2P_SOURCE)
+        attr.set_data(default_value=_E2P_MAX_SIX_MONTHS, unit="h", source=_DSM_E2P_SOURCE)
         return attr
 
 
@@ -187,7 +188,7 @@ class AmmoniaDSM(StorageTechnology):
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX_WEEK, unit="h", source=_DSM_E2P_SOURCE)
+        attr.set_data(default_value=_E2P_MAX_SIX_MONTHS, unit="h", source=_DSM_E2P_SOURCE)
         return attr
 
 
@@ -213,7 +214,7 @@ class ClinkerDSM(StorageTechnology):
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX_WEEK, unit="h", source=_DSM_E2P_SOURCE)
+        attr.set_data(default_value=_E2P_MAX_SIX_MONTHS, unit="h", source=_DSM_E2P_SOURCE)
         return attr
 
 
@@ -239,7 +240,7 @@ class MethanolDSM(StorageTechnology):
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX_WEEK, unit="h", source=_DSM_E2P_SOURCE)
+        attr.set_data(default_value=_E2P_MAX_SIX_MONTHS, unit="h", source=_DSM_E2P_SOURCE)
         return attr
 
 
@@ -265,7 +266,7 @@ class PrimarysteelDSM(StorageTechnology):
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX_WEEK, unit="h", source=_DSM_E2P_SOURCE)
+        attr.set_data(default_value=_E2P_MAX_SIX_MONTHS, unit="h", source=_DSM_E2P_SOURCE)
         return attr
 
 
@@ -291,7 +292,7 @@ class SecondarysteelDSM(StorageTechnology):
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX_WEEK, unit="h", source=_DSM_E2P_SOURCE)
+        attr.set_data(default_value=_E2P_MAX_SIX_MONTHS, unit="h", source=_DSM_E2P_SOURCE)
         return attr
 
 
@@ -317,5 +318,5 @@ class OlefinDSM(StorageTechnology):
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX_WEEK, unit="h", source=_DSM_E2P_SOURCE)
+        attr.set_data(default_value=_E2P_MAX_SIX_MONTHS, unit="h", source=_DSM_E2P_SOURCE)
         return attr
