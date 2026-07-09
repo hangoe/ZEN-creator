@@ -29,7 +29,7 @@
     },
     "opex_specific_variable": {
         "default_value": 10.0,
-        "unit": "Euro/GWh"
+        "unit": "Euro/(tonproduct/hour*h)"
     },
     "opex_specific_fixed": {
         "default_value": 0.0,

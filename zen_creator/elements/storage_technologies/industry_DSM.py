@@ -108,7 +108,7 @@ class GlassDSM(StorageTechnology):
 
     def _set_opex_specific_variable(self) -> Attribute:
         attr = Attribute("opex_specific_variable", element=self)
-        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        attr.set_data(default_value=_OPEX_VAR, unit=f"Euro/({self.power_unit}*h)", source=_DSM_SOURCE)
         return attr
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
@@ -142,7 +142,7 @@ class CeramicDSM(StorageTechnology):
 
     def _set_opex_specific_variable(self) -> Attribute:
         attr = Attribute("opex_specific_variable", element=self)
-        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        attr.set_data(default_value=_OPEX_VAR, unit=f"Euro/({self.power_unit}*h)", source=_DSM_SOURCE)
         return attr
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
@@ -176,7 +176,7 @@ class PaperDSM(StorageTechnology):
 
     def _set_opex_specific_variable(self) -> Attribute:
         attr = Attribute("opex_specific_variable", element=self)
-        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        attr.set_data(default_value=_OPEX_VAR, unit=f"Euro/({self.power_unit}*h)", source=_DSM_SOURCE)
         return attr
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
@@ -210,7 +210,7 @@ class FoodDSM(StorageTechnology):
 
     def _set_opex_specific_variable(self) -> Attribute:
         attr = Attribute("opex_specific_variable", element=self)
-        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        attr.set_data(default_value=_OPEX_VAR, unit=f"Euro/({self.power_unit}*h)", source=_DSM_SOURCE)
         return attr
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
@@ -248,7 +248,7 @@ class AmmoniaDSM(StorageTechnology):
 
     def _set_opex_specific_variable(self) -> Attribute:
         attr = Attribute("opex_specific_variable", element=self)
-        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        attr.set_data(default_value=_OPEX_VAR, unit=f"Euro/({self.power_unit}*h)", source=_DSM_SOURCE)
         return attr
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
@@ -282,7 +282,7 @@ class ClinkerDSM(StorageTechnology):
 
     def _set_opex_specific_variable(self) -> Attribute:
         attr = Attribute("opex_specific_variable", element=self)
-        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        attr.set_data(default_value=_OPEX_VAR, unit=f"Euro/({self.power_unit}*h)", source=_DSM_SOURCE)
         return attr
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
@@ -316,7 +316,7 @@ class MethanolDSM(StorageTechnology):
 
     def _set_opex_specific_variable(self) -> Attribute:
         attr = Attribute("opex_specific_variable", element=self)
-        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        attr.set_data(default_value=_OPEX_VAR, unit=f"Euro/({self.power_unit}*h)", source=_DSM_SOURCE)
         return attr
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
@@ -350,7 +350,7 @@ class PrimarysteelDSM(StorageTechnology):
 
     def _set_opex_specific_variable(self) -> Attribute:
         attr = Attribute("opex_specific_variable", element=self)
-        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        attr.set_data(default_value=_OPEX_VAR, unit=f"Euro/({self.power_unit}*h)", source=_DSM_SOURCE)
         return attr
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
@@ -384,7 +384,7 @@ class SecondarysteelDSM(StorageTechnology):
 
     def _set_opex_specific_variable(self) -> Attribute:
         attr = Attribute("opex_specific_variable", element=self)
-        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        attr.set_data(default_value=_OPEX_VAR, unit=f"Euro/({self.power_unit}*h)", source=_DSM_SOURCE)
         return attr
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
@@ -418,7 +418,7 @@ class OlefinDSM(StorageTechnology):
 
     def _set_opex_specific_variable(self) -> Attribute:
         attr = Attribute("opex_specific_variable", element=self)
-        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        attr.set_data(default_value=_OPEX_VAR, unit=f"Euro/({self.power_unit}*h)", source=_DSM_SOURCE)
         return attr
 
     def _set_energy_to_power_ratio_max(self) -> Attribute:
