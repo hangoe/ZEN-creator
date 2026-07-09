@@ -64,7 +64,10 @@ def _dsm_capacity_limit(element, carrier_name: str) -> Attribute:
     attr = Attribute("capacity_limit", element=element)
     if carrier is None or carrier.demand.df is None:
         return attr
-    limit_df = (carrier.demand.df["demand"] * 2.0).rename("capacity_limit").to_frame()
+    raw = carrier.demand.df
+    # df may be a Series (node index) or a DataFrame (node index, "demand" column)
+    demand_series = raw if hasattr(raw, "iloc") and raw.ndim == 1 else raw.iloc[:, 0]
+    limit_df = (demand_series * 2.0).rename("capacity_limit").to_frame()
     attr.set_data(
         default_value=np.inf,
         unit=element.power_unit,
