@@ -716,3 +716,49 @@ Instead, all attributes are set through `_set_<attribute>()` methods that
 delegate to the appropriate Dataset's `get_<attribute>()` method, following
 the zen-creator template pattern. This change is structural only — the
 computed parameter values and model output are unchanged.
+
+---
+
+## v5_2 flexibility parametrization (DSM and TES)
+
+### DSM — all technologies (glass, ceramic, paper, food, ammonia, clinker, methanol,
+### primary_steel, secondary_steel, olefin)
+
+- **`energy_to_power_ratio_max` = 168 h (1 week)** for all DSM technologies including
+  food. Food is revised upward from 48 h (2 days) because the food sector in this model
+  also includes durable products such as milk powder, sugar, and beer.
+- **`capacity_limit` = 2 × per-node carrier demand** (200 % of the carrier's annual
+  demand rate at each node). Derived at model build time from the carrier element's
+  demand attribute. Prevents unrealistically large DSM stocks while allowing full
+  flexibility within the demand range.
+- **`capex_specific_storage_energy` = 10** (EUR/GWh or EUR/(tonproduct/hour·h)) —
+  replaces earlier placeholder value of 1. Chosen as a small but non-trivial cost to
+  represent opportunity cost of carrying inventory.
+- **`opex_specific_variable` = 10** (EUR/GWh) — small friction cost to discourage
+  unnecessary charge/discharge cycling without distorting the optimal flexibility
+  dispatch.
+
+### TES water tanks (industry_TES_water_0_100, industry_TES_water_100_150)
+
+- **`capex_specific_storage_energy` = 1000 EUR/MWh** — Mayer et al. (2024) Table 3
+  reports 0 EUR/kWh for water tanks (no literature value available). 1000 EUR/MWh
+  (= 1 EUR/kWh) is applied as a modeling friction cost to prevent the optimizer from
+  installing unlimited capacity at zero cost.
+- Source: internal assumption; Mayer et al. (2024) Renewable and Sustainable Energy
+  Reviews, Table 3.
+
+### TES — all technologies (water 0–100, water 100–150, steam 100–150, steam 150–200)
+
+- **`opex_specific_variable` = 1 EUR/GWh** for all TES technologies. Small friction
+  cost to prevent spurious charge/discharge cycling. Mayer2024 does not report a
+  variable O&M cost for heat storage cycling.
+- **`self_discharge` = 0.95** for all TES technologies. Mayer et al. (2024) does not
+  report self-discharge rates for industrial TES. The value 0.95 is adopted as an
+  internal assumption reflecting standing thermal losses per model time step.
+
+### Heat industry temperature conversion techs
+  (heat_industry_temp_conversion_100, heat_industry_temp_conversion_150)
+
+- **`opex_specific_variable` = 0.1 EUR/GWh** — small friction cost to avoid the
+  optimizer building these cascade techs unnecessarily large.
+  Mayer2024 does not cover temperature-conversion costs.

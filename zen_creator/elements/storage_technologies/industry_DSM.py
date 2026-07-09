@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from zen_creator.model import Model
 
+import numpy as np
+
 from zen_creator.datasets.datasets.metadata import MetaData, SourceInformation
 from zen_creator.elements.storage_technologies.storage_technology import (
     StorageTechnology,
@@ -44,18 +46,38 @@ _DSM_LIFETIME = 50
 
 _DSM_E2P_SOURCE = SourceInformation(
     description=(
-        "Maximum energy-to-power ratio (inventory horizon) per product type. "
-        "Glass/ceramic/paper/chemicals/metals: ≤6 months (4380 h), reflecting seasonal "
-        "production scheduling flexibility for durable industrial products. "
-        "Food: ≤1 week (168 h); includes durable products (milk powder, sugar, beer) "
-        "but perishability still limits the horizon relative to other sectors."
+        "Maximum energy-to-power ratio (inventory horizon): 1 week (168 h) for all "
+        "DSM technologies. Food includes durable products (milk powder, sugar, beer) "
+        "so a weekly horizon is appropriate."
     ),
     metadata=_DSM_METADATA,
 )
 
-_CAPEX = 1.0
-_E2P_MAX_SIX_MONTHS = 4380.0
-_E2P_MAX_FOOD = 168.0
+_CAPEX = 10.0
+_OPEX_VAR = 10.0
+_E2P_MAX = 168.0
+
+
+def _dsm_capacity_limit(element, carrier_name: str) -> Attribute:
+    """Per-node capacity_limit = 2 × carrier demand (200% buffer)."""
+    carrier = element.model.elements.get(carrier_name)
+    attr = Attribute("capacity_limit", element=element)
+    if carrier is None or carrier.demand.df is None:
+        return attr
+    limit_df = (carrier.demand.df["demand"] * 2.0).rename("capacity_limit").to_frame()
+    attr.set_data(
+        default_value=np.inf,
+        unit=element.power_unit,
+        df=limit_df,
+        source=SourceInformation(
+            description=(
+                f"capacity_limit = 2 × per-node {carrier_name} carrier demand "
+                "(200% of demand — bounds DSM stock without blocking flexibility)."
+            ),
+            metadata=_DSM_METADATA,
+        ),
+    )
+    return attr
 
 
 class GlassDSM(StorageTechnology):
@@ -68,6 +90,9 @@ class GlassDSM(StorageTechnology):
     def _set_reference_carrier(self) -> Attribute:
         return Attribute(name="reference_carrier", default_value=["glass"], element=self)
 
+    def _set_capacity_limit(self) -> Attribute:
+        return _dsm_capacity_limit(self, "glass")
+
     def _set_lifetime(self) -> Attribute:
         attr = Attribute("lifetime", element=self)
         attr.set_data(default_value=_DSM_LIFETIME, unit="1", source=_DSM_SOURCE)
@@ -78,9 +103,14 @@ class GlassDSM(StorageTechnology):
         attr.set_data(default_value=_CAPEX, unit="Euro/(tonproduct/hour*h)", source=_DSM_SOURCE)
         return attr
 
+    def _set_opex_specific_variable(self) -> Attribute:
+        attr = Attribute("opex_specific_variable", element=self)
+        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        return attr
+
     def _set_energy_to_power_ratio_max(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX_SIX_MONTHS, unit="h", source=_DSM_E2P_SOURCE)
+        attr.set_data(default_value=_E2P_MAX, unit="h", source=_DSM_E2P_SOURCE)
         return attr
 
 
@@ -94,6 +124,9 @@ class CeramicDSM(StorageTechnology):
     def _set_reference_carrier(self) -> Attribute:
         return Attribute(name="reference_carrier", default_value=["ceramic"], element=self)
 
+    def _set_capacity_limit(self) -> Attribute:
+        return _dsm_capacity_limit(self, "ceramic")
+
     def _set_lifetime(self) -> Attribute:
         attr = Attribute("lifetime", element=self)
         attr.set_data(default_value=_DSM_LIFETIME, unit="1", source=_DSM_SOURCE)
@@ -104,9 +137,14 @@ class CeramicDSM(StorageTechnology):
         attr.set_data(default_value=_CAPEX, unit="Euro/(tonproduct/hour*h)", source=_DSM_SOURCE)
         return attr
 
+    def _set_opex_specific_variable(self) -> Attribute:
+        attr = Attribute("opex_specific_variable", element=self)
+        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        return attr
+
     def _set_energy_to_power_ratio_max(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX_SIX_MONTHS, unit="h", source=_DSM_E2P_SOURCE)
+        attr.set_data(default_value=_E2P_MAX, unit="h", source=_DSM_E2P_SOURCE)
         return attr
 
 
@@ -120,6 +158,9 @@ class PaperDSM(StorageTechnology):
     def _set_reference_carrier(self) -> Attribute:
         return Attribute(name="reference_carrier", default_value=["paper"], element=self)
 
+    def _set_capacity_limit(self) -> Attribute:
+        return _dsm_capacity_limit(self, "paper")
+
     def _set_lifetime(self) -> Attribute:
         attr = Attribute("lifetime", element=self)
         attr.set_data(default_value=_DSM_LIFETIME, unit="1", source=_DSM_SOURCE)
@@ -130,9 +171,14 @@ class PaperDSM(StorageTechnology):
         attr.set_data(default_value=_CAPEX, unit="Euro/(tonproduct/hour*h)", source=_DSM_SOURCE)
         return attr
 
+    def _set_opex_specific_variable(self) -> Attribute:
+        attr = Attribute("opex_specific_variable", element=self)
+        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        return attr
+
     def _set_energy_to_power_ratio_max(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX_SIX_MONTHS, unit="h", source=_DSM_E2P_SOURCE)
+        attr.set_data(default_value=_E2P_MAX, unit="h", source=_DSM_E2P_SOURCE)
         return attr
 
 
@@ -146,6 +192,9 @@ class FoodDSM(StorageTechnology):
     def _set_reference_carrier(self) -> Attribute:
         return Attribute(name="reference_carrier", default_value=["food"], element=self)
 
+    def _set_capacity_limit(self) -> Attribute:
+        return _dsm_capacity_limit(self, "food")
+
     def _set_lifetime(self) -> Attribute:
         attr = Attribute("lifetime", element=self)
         attr.set_data(default_value=_DSM_LIFETIME, unit="1", source=_DSM_SOURCE)
@@ -156,9 +205,14 @@ class FoodDSM(StorageTechnology):
         attr.set_data(default_value=_CAPEX, unit="Euro/(tonproduct/hour*h)", source=_DSM_SOURCE)
         return attr
 
+    def _set_opex_specific_variable(self) -> Attribute:
+        attr = Attribute("opex_specific_variable", element=self)
+        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        return attr
+
     def _set_energy_to_power_ratio_max(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX_FOOD, unit="h", source=_DSM_E2P_SOURCE)
+        attr.set_data(default_value=_E2P_MAX, unit="h", source=_DSM_E2P_SOURCE)
         return attr
 
 
@@ -176,6 +230,9 @@ class AmmoniaDSM(StorageTechnology):
     def _set_reference_carrier(self) -> Attribute:
         return Attribute(name="reference_carrier", default_value=["ammonia"], element=self)
 
+    def _set_capacity_limit(self) -> Attribute:
+        return _dsm_capacity_limit(self, "ammonia")
+
     def _set_lifetime(self) -> Attribute:
         attr = Attribute("lifetime", element=self)
         attr.set_data(default_value=_DSM_LIFETIME, unit="1", source=_DSM_SOURCE)
@@ -186,9 +243,14 @@ class AmmoniaDSM(StorageTechnology):
         attr.set_data(default_value=_CAPEX, unit="Euro/(GW*h)", source=_DSM_SOURCE)
         return attr
 
+    def _set_opex_specific_variable(self) -> Attribute:
+        attr = Attribute("opex_specific_variable", element=self)
+        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        return attr
+
     def _set_energy_to_power_ratio_max(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX_SIX_MONTHS, unit="h", source=_DSM_E2P_SOURCE)
+        attr.set_data(default_value=_E2P_MAX, unit="h", source=_DSM_E2P_SOURCE)
         return attr
 
 
@@ -202,6 +264,9 @@ class ClinkerDSM(StorageTechnology):
     def _set_reference_carrier(self) -> Attribute:
         return Attribute(name="reference_carrier", default_value=["clinker"], element=self)
 
+    def _set_capacity_limit(self) -> Attribute:
+        return _dsm_capacity_limit(self, "clinker")
+
     def _set_lifetime(self) -> Attribute:
         attr = Attribute("lifetime", element=self)
         attr.set_data(default_value=_DSM_LIFETIME, unit="1", source=_DSM_SOURCE)
@@ -212,9 +277,14 @@ class ClinkerDSM(StorageTechnology):
         attr.set_data(default_value=_CAPEX, unit="Euro/(tonproduct/hour*h)", source=_DSM_SOURCE)
         return attr
 
+    def _set_opex_specific_variable(self) -> Attribute:
+        attr = Attribute("opex_specific_variable", element=self)
+        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        return attr
+
     def _set_energy_to_power_ratio_max(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX_SIX_MONTHS, unit="h", source=_DSM_E2P_SOURCE)
+        attr.set_data(default_value=_E2P_MAX, unit="h", source=_DSM_E2P_SOURCE)
         return attr
 
 
@@ -228,6 +298,9 @@ class MethanolDSM(StorageTechnology):
     def _set_reference_carrier(self) -> Attribute:
         return Attribute(name="reference_carrier", default_value=["methanol"], element=self)
 
+    def _set_capacity_limit(self) -> Attribute:
+        return _dsm_capacity_limit(self, "methanol")
+
     def _set_lifetime(self) -> Attribute:
         attr = Attribute("lifetime", element=self)
         attr.set_data(default_value=_DSM_LIFETIME, unit="1", source=_DSM_SOURCE)
@@ -238,9 +311,14 @@ class MethanolDSM(StorageTechnology):
         attr.set_data(default_value=_CAPEX, unit="Euro/(GW*h)", source=_DSM_SOURCE)
         return attr
 
+    def _set_opex_specific_variable(self) -> Attribute:
+        attr = Attribute("opex_specific_variable", element=self)
+        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        return attr
+
     def _set_energy_to_power_ratio_max(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX_SIX_MONTHS, unit="h", source=_DSM_E2P_SOURCE)
+        attr.set_data(default_value=_E2P_MAX, unit="h", source=_DSM_E2P_SOURCE)
         return attr
 
 
@@ -254,6 +332,9 @@ class PrimarysteelDSM(StorageTechnology):
     def _set_reference_carrier(self) -> Attribute:
         return Attribute(name="reference_carrier", default_value=["primary_steel"], element=self)
 
+    def _set_capacity_limit(self) -> Attribute:
+        return _dsm_capacity_limit(self, "primary_steel")
+
     def _set_lifetime(self) -> Attribute:
         attr = Attribute("lifetime", element=self)
         attr.set_data(default_value=_DSM_LIFETIME, unit="1", source=_DSM_SOURCE)
@@ -264,9 +345,14 @@ class PrimarysteelDSM(StorageTechnology):
         attr.set_data(default_value=_CAPEX, unit="Euro/(tonproduct/hour*h)", source=_DSM_SOURCE)
         return attr
 
+    def _set_opex_specific_variable(self) -> Attribute:
+        attr = Attribute("opex_specific_variable", element=self)
+        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        return attr
+
     def _set_energy_to_power_ratio_max(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX_SIX_MONTHS, unit="h", source=_DSM_E2P_SOURCE)
+        attr.set_data(default_value=_E2P_MAX, unit="h", source=_DSM_E2P_SOURCE)
         return attr
 
 
@@ -280,6 +366,9 @@ class SecondarysteelDSM(StorageTechnology):
     def _set_reference_carrier(self) -> Attribute:
         return Attribute(name="reference_carrier", default_value=["secondary_steel"], element=self)
 
+    def _set_capacity_limit(self) -> Attribute:
+        return _dsm_capacity_limit(self, "secondary_steel")
+
     def _set_lifetime(self) -> Attribute:
         attr = Attribute("lifetime", element=self)
         attr.set_data(default_value=_DSM_LIFETIME, unit="1", source=_DSM_SOURCE)
@@ -290,9 +379,14 @@ class SecondarysteelDSM(StorageTechnology):
         attr.set_data(default_value=_CAPEX, unit="Euro/(tonproduct/hour*h)", source=_DSM_SOURCE)
         return attr
 
+    def _set_opex_specific_variable(self) -> Attribute:
+        attr = Attribute("opex_specific_variable", element=self)
+        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        return attr
+
     def _set_energy_to_power_ratio_max(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX_SIX_MONTHS, unit="h", source=_DSM_E2P_SOURCE)
+        attr.set_data(default_value=_E2P_MAX, unit="h", source=_DSM_E2P_SOURCE)
         return attr
 
 
@@ -306,6 +400,9 @@ class OlefinDSM(StorageTechnology):
     def _set_reference_carrier(self) -> Attribute:
         return Attribute(name="reference_carrier", default_value=["olefin"], element=self)
 
+    def _set_capacity_limit(self) -> Attribute:
+        return _dsm_capacity_limit(self, "olefin")
+
     def _set_lifetime(self) -> Attribute:
         attr = Attribute("lifetime", element=self)
         attr.set_data(default_value=_DSM_LIFETIME, unit="1", source=_DSM_SOURCE)
@@ -316,7 +413,12 @@ class OlefinDSM(StorageTechnology):
         attr.set_data(default_value=_CAPEX, unit="Euro/(tonproduct/hour*h)", source=_DSM_SOURCE)
         return attr
 
+    def _set_opex_specific_variable(self) -> Attribute:
+        attr = Attribute("opex_specific_variable", element=self)
+        attr.set_data(default_value=_OPEX_VAR, unit="Euro/GWh", source=_DSM_SOURCE)
+        return attr
+
     def _set_energy_to_power_ratio_max(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX_SIX_MONTHS, unit="h", source=_DSM_E2P_SOURCE)
+        attr.set_data(default_value=_E2P_MAX, unit="h", source=_DSM_E2P_SOURCE)
         return attr

@@ -28,6 +28,24 @@ _TES_E2P_SOURCE = SourceInformation(
 )
 
 
+_TES_COST_SOURCE = SourceInformation(
+    description=(
+        "Water TES: capex overridden to 1000 EUR/MWh (Mayer2024 reports 0 — no literature "
+        "value for cheap water tanks; 1000 EUR/MWh applied as a modeling friction cost). "
+        "opex_specific_variable = 1 EUR/GWh (small friction to prevent spurious cycling). "
+        "self_discharge = 0.95 (standing thermal loss per time step; Mayer2024 does not "
+        "report self-discharge rates, so this internal assumption is used)."
+    ),
+    metadata=MetaData(
+        name="industry_TES_costs",
+        title="Industrial TES cost assumptions",
+        author=["ZEN Creator"],
+        publication="Internal assumption",
+        publication_year=2024,
+    ),
+)
+
+
 class IndustryTESWater0100(StorageTechnology):
 
     name: str = "industry_TES_water_0_100"
@@ -48,10 +66,22 @@ class IndustryTESWater0100(StorageTechnology):
         return Mayer2024Dataset().get_efficiency_discharge(element=self)
 
     def _set_capex_specific_storage_energy(self) -> Attribute:
-        return Mayer2024Dataset().get_capex_specific_storage_energy(element=self)
+        attr = Attribute("capex_specific_storage_energy", element=self)
+        attr.set_data(default_value=1000.0, unit="Euro/MWh", source=_TES_COST_SOURCE)
+        return attr
 
     def _set_opex_specific_fixed_energy(self) -> Attribute:
         return Mayer2024Dataset().get_opex_specific_fixed_energy(element=self)
+
+    def _set_opex_specific_variable(self) -> Attribute:
+        attr = Attribute("opex_specific_variable", element=self)
+        attr.set_data(default_value=1.0, unit="Euro/GWh", source=_TES_COST_SOURCE)
+        return attr
+
+    def _set_self_discharge(self) -> Attribute:
+        attr = Attribute("self_discharge", element=self)
+        attr.set_data(default_value=0.95, unit="1", source=_TES_COST_SOURCE)
+        return attr
 
     def _set_energy_to_power_ratio_min(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_min", element=self)
@@ -84,10 +114,22 @@ class IndustryTESWater100150(StorageTechnology):
         return Mayer2024Dataset().get_efficiency_discharge(element=self)
 
     def _set_capex_specific_storage_energy(self) -> Attribute:
-        return Mayer2024Dataset().get_capex_specific_storage_energy(element=self)
+        attr = Attribute("capex_specific_storage_energy", element=self)
+        attr.set_data(default_value=1000.0, unit="Euro/MWh", source=_TES_COST_SOURCE)
+        return attr
 
     def _set_opex_specific_fixed_energy(self) -> Attribute:
         return Mayer2024Dataset().get_opex_specific_fixed_energy(element=self)
+
+    def _set_opex_specific_variable(self) -> Attribute:
+        attr = Attribute("opex_specific_variable", element=self)
+        attr.set_data(default_value=1.0, unit="Euro/GWh", source=_TES_COST_SOURCE)
+        return attr
+
+    def _set_self_discharge(self) -> Attribute:
+        attr = Attribute("self_discharge", element=self)
+        attr.set_data(default_value=0.95, unit="1", source=_TES_COST_SOURCE)
+        return attr
 
     def _set_energy_to_power_ratio_min(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_min", element=self)
@@ -125,6 +167,16 @@ class IndustryTESSteam100150(StorageTechnology):
     def _set_opex_specific_fixed_energy(self) -> Attribute:
         return Mayer2024Dataset().get_opex_specific_fixed_energy(element=self)
 
+    def _set_opex_specific_variable(self) -> Attribute:
+        attr = Attribute("opex_specific_variable", element=self)
+        attr.set_data(default_value=1.0, unit="Euro/GWh", source=_TES_COST_SOURCE)
+        return attr
+
+    def _set_self_discharge(self) -> Attribute:
+        attr = Attribute("self_discharge", element=self)
+        attr.set_data(default_value=0.95, unit="1", source=_TES_COST_SOURCE)
+        return attr
+
     def _set_energy_to_power_ratio_min(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_min", element=self)
         attr.set_data(default_value=0.25, unit="h", source=_TES_E2P_SOURCE)
@@ -160,6 +212,16 @@ class IndustryTESSteam150200(StorageTechnology):
 
     def _set_opex_specific_fixed_energy(self) -> Attribute:
         return Mayer2024Dataset().get_opex_specific_fixed_energy(element=self)
+
+    def _set_opex_specific_variable(self) -> Attribute:
+        attr = Attribute("opex_specific_variable", element=self)
+        attr.set_data(default_value=1.0, unit="Euro/GWh", source=_TES_COST_SOURCE)
+        return attr
+
+    def _set_self_discharge(self) -> Attribute:
+        attr = Attribute("self_discharge", element=self)
+        attr.set_data(default_value=0.95, unit="1", source=_TES_COST_SOURCE)
+        return attr
 
     def _set_energy_to_power_ratio_min(self) -> Attribute:
         attr = Attribute("energy_to_power_ratio_min", element=self)
