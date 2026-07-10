@@ -1,0 +1,1111 @@
+                                                                                                                  TYPE Original Research
+                                                                                                                  PUBLISHED 14 August 2024
+                                                                                                                  DOI 10.3389/fenrg.2024.1443506
+
+
+
+
+                                                 Flexibility from industrial
+OPEN ACCESS                                      demand-side management in
+EDITED BY
+Francesco Liberato Cappiello,
+University of Naples Federico II, Italy
+                                                 net-zero sector-coupled
+REVIEWED BY
+Yi Zong,
+                                                 national energy systems
+Technical University of Denmark, Denmark
+Wei He,
+University of Warwick, United Kingdom            Patricia Mayer, Mario Heer, David Yang Shu, Nik Zielonka,
+*CORRESPONDENCE                                  Ludger Leenders, Florian Joseph Baader and André Bardow*
+André Bardow,
+  abardow@ethz.ch                                Energy and Process Systems Engineering, ETH Zurich, Zurich, Switzerland
+
+RECEIVED 04 June 2024
+ACCEPTED 18 July 2024
+PUBLISHED 14 August 2024
+                                                 National energy systems require flexibility to accommodate increasing amounts
+CITATION
+Mayer P, Heer M, Shu DY, Zielonka N,             of variable renewable energy. This flexibility can be provided by demand-side
+Leenders L, Baader FJ and Bardow A (2024),       management (DSM) from industry. However, the flexibility potential depends
+Flexibility from industrial demand-side          on the characteristics of each industrial process. The enormous diversity of
+management in net-zero sector-coupled
+national energy systems.                         industrial processes makes it challenging to evaluate the total flexibility provision
+Front. Energy Res. 12:1443506.                   from industry to sector-coupled energy systems. In this work, we quantify
+doi: 10.3389/fenrg.2024.1443506                  the maximum cost reductions due to industrial DSM in the net-zero sector-
+COPYRIGHT                                        coupled Swiss energy system, and the relationship between cost reductions
+© 2024 Mayer, Heer, Shu, Zielonka, Leenders,     and various industrial process characteristics. We analyze the flexibility of
+Baader and Bardow. This is an open-access
+article distributed under the terms of the       industrial processes using a generic, process-agnostic model. Our results show
+Creative Commons Attribution License (CC         that industrial DSM can reduce total energy system costs by up to 4.4%,
+BY). The use, distribution or reproduction in    corresponding to 20% of industry-related energy costs. The value of flexibility
+other forums is permitted, provided the
+original author(s) and the copyright owner(s)    from industrial DSM depends not only on the process characteristics but also on
+are credited and that the original publication   the system’s flexibility alternatives, particularly for flexibility over seasonal time
+in this journal is cited, in accordance with     horizons. As one specific option for industrial DSM, we find that thermal energy
+accepted academic practice. No use,
+distribution or reproduction is permitted        storage (TES) technologies available today could realize between 28% and 61%
+which does not comply with these terms.          of the maximum cost reductions from industrial DSM, making TES a promising
+                                                 DSM solution and showing that industrial DSM is an accessible and cost-effective
+                                                 flexibility option.
+              agnostic = unabhängig
+                                                 KEYWORDS
+
+                                                 demand response, flexibility, sector-coupling, net-zero, industry, Switzerland, thermal
+                                                 energy storage, optimization
+
+
+                                                 1 Introduction
+                                                    Countries are increasingly setting net-zero emissions targets to address climate change
+                                                 (United Nations, 2023). Meeting this target requires rapid decarbonization across sectors,
+                                                 mainly by replacing fossil fuels with renewable energy sources. Renewable energy can
+                                                 be extracted as electricity from natural resources, for example, through photovoltaics
+                                                 and wind turbines for harnessing sun and wind energy, respectively. However, sun
+                                                 and wind energy are subject to intermittency, making the associated electricity volatile
+                                                 (Ramsebner et al., 2021).
+                                                    As non-power energy sectors transition, electrification becomes increasingly
+                                                 important as the medium for integrating renewables. For example, the heating sector
+                                                 can be electrified by heat pumps and the transportation sector can be electrified
+
+
+
+
+Frontiers in Energy Research                                          01                                                          frontiersin.org
+Mayer et al.                                                                                                              10.3389/fenrg.2024.1443506
+
+
+
+
+by battery electric vehicles (Sternberg and Bardow, 2015). The                  consumers (Zhang and Grossmann, 2016; Williams et al., 2023).
+resulting reliance of all energy sectors on electricity leads                   Industrial DSM can be implemented through production
+to sector-coupling, where the electricity sector becomes the                    flexibility, where production schedules shift to follow the
+central pillar for the overall energy system (Bardow et al., 2023).             availability of renewable electricity. For instance, an industrial
+However, systems with a high share of volatile renewable                        process can over-produce during the daytime hours to take
+electricity require flexibility to ensure matching of electricity               advantage of low prices caused by photovoltaic availability.
+supply and demand at every point in time. Flexibility refers                    The overproduction is stored and the process under-produces
+to an energy system’s ability to cope with the variability and                  during night-time hours such that the overall production
+unpredictability that variable renewable energy introduces on                   stays the same. Promising example processes for industrial
+different time scales, while reliably supplying all the demanded                DSM have been identified with high electricity demands
+energy to end users (Bardow et al., 2023). The need for flexibility             and technical possibilities for load shifting (Arnold and
+increases rapidly for a share of renewable energy above 80%                     Janssen, 2018). These processes include: aluminum electrolysis
+(Shaner et al., 2018).      Flexibility definition                              (Bao et al., 2020; Golmohamadi, 2022), cement and raw mills
+     Flexibility can be provided from the supply side through                   (Bohlayer et al., 2020; Golmohamadi, 2022), air separation
+imports and exports, dispatchable production, and energy storage.               (Caspari et al., 2019; Zhang and Pinto, 2022), electric arc
+However, each of these options has limitations: Electricity                     furnace (Manana et al., 2021; Wachs et al., 2023), pulp and paper
+and fossil fuel imports are subject to availability abroad and                  (Helin et al., 2017), and copper production (Röben et al., 2022;
+geopolitics. Dispatchable carbon-neutral generation from fossil                 Wang et al., 2024).
+fuels requires carbon capture and storage (CCS), which is not                        Demand-side flexibility can also stem from the energy
+widely accepted and can be difficult to implement at scale due                  demands of industrial processes. As discussed above, thermal
+to both social and physical constraints (Budinis et al., 2018).                 energy can be stored on-site with round-trip efficiencies
+Other renewable forms of dispatchable generation, through                       greater than 95%. If heat production is electrified, such on-
+hydropower, geothermal, or bio-based power plants are limited                   site TES enables the shifting of electricity consumption to
+by resource availability. Regarding storage technologies, batteries             follow the temporal availability of renewables without modifying
+for electricity storage are expensive and not suitable for long-                the actual process operation (Arteconi et al., 2013). Thus,
+duration applications due to their self-discharge characteristic                industrial TES is a promising DSM option that can be applied
+(Albertus et al., 2020; Gabrielli et al., 2020; Sepulveda et al., 2021).        to a wide range of processes. According to Williams et al.
+Power-to-hydrogen is a storage option that is stable over long                  (2023), industries with large thermal energy storage are well-
+time horizons, but has a low round-trip efficiency (Pellow et al.,              suited for DSM applications. Cirocco et al. (2022) demonstrate
+2015; Gabrielli et al., 2020). Pumped hydro storage, while                      significant cost savings via thermal energy storage on-
+efficient, is subject to high capital costs, topographic limitations,           site an industrial food processing plant as a demand-side
+and environmental concerns regarding surrounding areas                          management measure.
+(Koohi-Fayegh and Rosen, 2020).                                                      The extent of flexibility achievable from industrial DSM depends
+     Flexibility can also be provided in the form of thermal                    on the characteristics of the production processes (Arnold and
+energy storage (TES), where heating or cooling is stored for                    Janssen, 2018; Schäfer et al., 2020; Bielefeld et al., 2023):
+later use either directly as thermal energy or reconversion into
+                                                                                   • Load-varying potential: The power load that can vary up or
+electricity. While TES has a low round-trip efficiency back to
+                                                                                     down at a time.
+electricity (Viswanathan et al., 2022), TES can have round-trip
+                                                                                   • Storage potential: The amount of product that can be stored
+efficiencies greater than 95% for heat recovery (Murakoshi and
+                                                                                     at a time, and the duration over which products can remain
+Fushimi, 2022). Additionally, TES technologies are significantly
+                                                                                     in storage.
+cheaper than batteries (Victoria et al., 2019; IRENA, 2020), making
+                                                                                   • DSM losses: The losses associated with demand-side
+TES particularly promising for industrial applications with a
+                                                                                     management, such as efficiency losses from off-design
+substantial heat demand (IRENA, 2020). However, as heat transport
+                                                                                     operation and storage losses.
+over long distances is limited (Hammond and Norman, 2014),
+TES for heat recovery should be employed on-site where the                           These process characteristics influence the potential value
+heat is consumed.                                                               from industrial DSM for the overall system. Promising
+     Limitations of the flexibility options described above can                 industrial candidates can be identified via favorable
+be alleviated by demand-side management (DSM). Demand-                          combinations of these characteristics. Additionally, some
+side management refers to the shifting of energy consumption                    characteristics can be influenced via investments, e.g.,
+patters to obtain a desired energy consumption profile (Meyabadi                the installation of larger storage capacities. Therefore,
+and Deihimi, 2017). Kachirayil et al. (2022) identify DSM as                    understanding the characteristics’ effects on industrial DSM
+one of the most impactful flexibility levers for sector-coupled                 can help to find promising processes and guide financial
+energy systems reliant on volatile renewable electricity. A good                incentives.
+candidate for demand-side management is the industry sector                          Industrial DSM can affect the costs and environmental
+due to its large energy demand in the form of both electricity                  impacts of individual industrial sites, as shown for example,
+and thermal energy, its potential for storing products over                     by (Klaucke et al., 2017; Schäfer et al., 2020; Torabi et al., 2020).
+long time horizons, its already-existing metering infrastructure,               However, these works measure the DSM contributions to the
+and the avoidance of behavior change from individual end                        sites rather than to the overall energy system. Other studies
+
+
+
+Frontiers in Energy Research                                               02                                                          frontiersin.org
+Mayer et al.                                                                                                             10.3389/fenrg.2024.1443506
+
+
+
+
+consider the contributions of industrial DSM from a power-system              2 Modeling industrial DSM in
+perspective, rather than from an industrial site perspective (Paulus          sector-coupled energy systems
+and Borggrefe, 2011; Papadaskalopoulos et al., 2018; Marañón-
+Ledesma and Tomasgard, 2019; Lu et al., 2021; He et al., 2023).                   As the focus of this study is industrial DSM, we only
+However, the non-power energy sectors that require electricity                briefly summarize the Swiss energy system model in Section 2.1.
+also contribute to the energy system’s flexibility needs. Thus,               Further details, including all modelling assumptions and techno-
+an investigation of industrial DSM within a sector-coupled                    economic parameters of the included technologies, are provided
+energy system is needed to capture the full flexibility potential.            in detail in the Supplementary Material. We describe the modeling
+Still, within sector-coupled energy systems, only a subset of                 of industry and the industrial DSM characteristics in detail
+the industrial flexibility has been considered so far: Nebel et al.           in Section 2.2. Section 2.3 introduces our three scenarios and
+(2020) consider the flexibility provision from DSM of aluminum                associated sensitivities.
+electrolysis to the German sector-coupled energy system. Cruz et al.
+(2023) consider the flexibility provision from DSM of industrial
+electricity demands for Sweden. However, as these works                       2.1 Swiss sector-coupled energy system
+only consider a subset of industrial energy demands for their
+respective analyses, they do not resolve the total potential                      The Swiss sector-coupled energy system is modelled with our
+flexibility provision from industrial DSM. Additionally, a general            in-house open-source linear optimization framework SecMOD
+understanding of the relationships between industrial process                 (Reinert et al., 2022), designed for flexible modelling of multi-
+characteristics and the resulting potential flexibility provision             sector energy systems. We consider the sectors: non-industrial
+is still missing. Thus far, to the best of the authors’ knowledge,            electricity, industry, residential heat, and private transportation. We
+no study has quantified the total potential contributions of                  also consider storage technologies, power-to-X technologies, and
+industrial DSM to a net-zero sector-coupled national energy                   carbon capture and storage (CCS) via direct air capture (DAC).
+system, resolving the impact of varying industrial process                    We do not consider waste heat recovery from our power-to-X
+characteristics.                                                              technologies as a conservative assumption in line with our aim of
+     In the present study, we evaluate how varying degrees of                 quantifying the maximum cost reductions from industrial DSM.
+industrial DSM affect the costs and the needs for other flexibility           However, we do not expect our results to be highly impacted
+options of the Swiss net-zero sector-coupled energy system.                   by this assumption as power-to-X is mainly used for seasonal
+Varying degrees of industrial DSM are modelled by varying the                 flexibility, maximizing production during the summer months
+industrial process characteristics listed above. We model the                 when heat demand is low and when renewables availability is
+Swiss sector-coupled energy system using our in-house linear                  high for direct electrified heat production. We focus on the
+optimization framework SecMOD (Reinert et al., 2022), and employ              year 2050, adding an exogenous net-zero operational emissions
+a snapshot approach for the year 2050. That is, we constrain                  constraint in line with Swiss policy targets (The Federal Council,
+the energy system to net-zero emissions, and determine the                    2019). For the industry sector, we consider the industrial electricity
+system’s cost-optimal investments and operation for varying                   demand together with heat demands at three temperature levels
+degrees of industrial DSM. To determine an upper bound on the                 (Section 2.2).
+potential cost reductions, we do not consider costs associated                    The optimization framework determines the cost-optimal
+with industrial DSM. However, we include a sensitivity analysis               investment and operation decisions to reach the net-zero emissions
+that evaluates thermal energy storage (TES) as a concrete DSM                 target, while ensuring that exogenous demands are met (Figure 1).
+measure while accounting for TES-related costs. We consider                   Demands for non-industrial electricity, residential heat, and
+three scenarios varying the availability and operating costs of               private transportation are provided separately (details in the
+new dispatchable power plants to compare the contributions                    Supplementary Material), while demands for industrial electricity
+from industrial DSM across systems with varying flexibility                   and heat are provided in an aggregated fashion to represent Swiss
+alternatives. To represent industry, we create a generic, process-            industrial demands. We only consider operational emissions for
+agnostic model comprised of the Swiss industry’s electricity                  the net-zero target corresponding to current accounting practice
+and thermal energy requirements. Emissions associated with                    (Rypdal et al., 2006). To focus the analysis on the flexibility needs of
+industrial production therefore arise from the energy system’s                a sector-coupled energy system with maximal renewable electricity
+electricity and thermal energy supply. This set-up allows us                  penetration, we exclusively consider electrified technology
+to vary industrial process characteristics without the need to                options for the residential heat and private transportation
+model specific industries and processes. Our approach allows                  sectors. The technology options included in the model are
+us to quantify the maximum potential of industrial DSM                        specified in Table 1.
+as a flexibility provider to net-zero sector-coupled national                     The energy system is modelled as a 1-node system. By excluding
+energy systems. Furthermore, we can assess the extent to which                spatial resolution in our system setup, we may underestimate the
+the maximum potential can be harnessed through thermal                        energy system’s flexibility needs (Pfenninger et al., 2014). However,
+energy storage.                                                               as the contributions from industrial DSM can either increase
+     In Section 2, we briefly introduce the energy system model and           or decrease depending on the spatial distribution of industry
+discuss the modeling of industrial DSM in detail. In Section 3, we            vs. the systems’ flexibility needs, we believe that our one-node
+present the results of the study and in Section 4 we highlight the key        representation provides a balanced approximation of the upper
+takeaways.                                                                    bound contributions from industrial DSM. Hourly time series are
+
+
+
+Frontiers in Energy Research                                             03                                                             frontiersin.org
+Mayer et al.                                                                                                                     10.3389/fenrg.2024.1443506
+
+
+
+
+   FIGURE 1
+   System boundaries, energy system setup, and simplified optimization formulation for the sector-coupled energy system model for Switzerland. The full
+   optimization problem formulation can be found in Reinert et al. (2022). Dashed lines represent connections that exist for specific scenarios or
+   sensitivities (Section 2.3). Not all technologies are depicted, see Table 1 for a comprehensive list of the technologies included in each sector. TAC: total
+   annualized costs; CCS: carbon capture and storage; BEV: battery electric vehicle; TES: thermal energy storage; H2 : hydrogen.
+
+
+
+
+provided and aggregated with a temporal resolution of 25 typical                   Switzerland. We use an industrial electricity demand of 6 TWh
+days. The number of typical days was selected by running a                         (Swiss Federal Office of Energy (SFOE), 2020b) and a heat demand
+sensitivity analysis, investigating how the number of typical days                 of 20 TWh (Marcucci et al., 2021) projected in 2050. The heat
+affects the total annualized system costs. We selected 25 typical days             demand refers to process heat and is split into three temperature
+as the lowest number of typical days for which the total cost stabilizes           levels (Table 2) (Swiss Federal Office of Energy (SFOE), 2020b).
+(Supplementary Figure S4 in the Supplementary Material) to keep                        The demands in Table 2 represent the base industrial energy
+the computation time as low as possible (Supplementary Figure S5).                 demands, dbase
+                                                                                                energy , from which the benefits of industrial DSM are
+To allow for seasonal storage, the typical days are interlinked                    explored. Industrial production is assumed constant throughout the
+using the method developed by Kotzur et al. (Kotzur et al., 2018).                 year, such that an exogenous demand of 1 good/hour, or dbase goods
+                                                                                                                                                      , is
+Note that Switzerland today has 8.8 TWh of seasonal storage                        introduced. Thus, without industrial DSM, the hourly electricity and
+from hydro reservoirs (Swiss Federal Office of Energy (SFOE),                      heat demands of Swiss industry must be supplied for every hour of
+2020a), which is substantial considering that it comprises 14%                     the year. This assumption introduces a basis from which to measure
+of the overall electricity demand in 2019 (Swissgrid, Feb. 2020).                  the benefits from industrial DSM.
+Modeling details of the Swiss sector-coupled energy system can be                      The contributions from industrial DSM are evaluated by
+found in the Supplementary Material.                                               performing a parameterized study of the industrial process
+                                                                                   characteristics introduced in Section 1. An industrial goods storage
+                                                                                   tank is introduced to serve as a buffer for industrial over- and
+2.2 Implementation of industrial                                                   under-production (Figure 2). In order to obtain an upper-bound on
+demand-side management                                                             cost reductions from industrial DSM, no investment or operating
+                                                                                   costs are associated with the industrial sector, including costs
+    In this section, we discuss the representation of the industrial               for production and storage of industrial goods. Still, the total
+sector. We also discuss how industrial DSM is modelled using the                   amount of goods to be produced and the corresponding energy
+three characteristics discussed in Section 1. The hourly electricity               demands are fixed, limiting the overall potential of industrial
+and heat demands of Swiss industry are aggregated into a generic                   DSM. The resulting upper-bound cost reductions can then be
+industrial process. This aggregated process produces 1 “good/hour”,                compared to the real costs associated with DSM measures,
+while consuming the hourly industrial energy demands for                           such as additional production and storage capacities. Such a
+
+
+
+Frontiers in Energy Research                                                  04                                                                 frontiersin.org
+Mayer et al.                                                                                                                              10.3389/fenrg.2024.1443506
+
+
+
+
+TABLE 1 Technology options provided for modeling the Swiss                                      dbase
+                                                                                                  energy , that can be shifted up or down at a given time step, t ∈ T ,
+sector-coupled energy system. Further details are                                               similar to (Papadaskalopoulos et al., 2018), where T is the set
+provided in the Supplementary Material.
+                                                                                                of all time steps. The load-varying potential can take any value
+         Electricity            Residential heat            Transportation                      between 0 and 1, as shown in Eq. 1:
+          photovoltaics          thermal insulation        battery electric vehicle
+
+          onshore wind            electrode boiler
+                                                                                                                         0 ≤ i flex ≤ 1                            (1)
+                            a
+      gas combined cycle             heat pump
+                                                                                               An iflex value of 0 corresponds to no varying of the base load
+      hydrogen-to-power                                                                    and an iflex of 1 corresponds to the ability to shift 100% of the base
+                                                                                           load at a given time step, ranging from a complete shutdown to the
+          run-of-river
+                                                                                           doubling of base production.
+        large dam hydro                                                                       • Storage capacity (tSC ): The storage capacity refers to the
+          (pure/hybrid)
+                                                                                                maximum amount of goods in the industrial storage tank, and
+           geothermal                                                                           limits the amount of goods that can be stored at a time. We
+                                                                                                parameterize the storage capacity, SC, with the time interval
+              biogas                                                                            tSC over which the base demand of 1 good/hour, or dbase
+                                                                                                                                                    goods
+                                                                                                                                                          , can
+                                                                                                accumulate (Eqs 2, 3)
+        Low-T heat              Medium-T heat                 High-T heat
+
+         electrode boiler         electrode boiler                gas boiler
+
+           heat pump                 gas boiler
+                                                                                                                       SC = tSC ⋅ dbase
+                                                                                                                                   goods
+                                                                                                                                                                   (2)
+
+        Storage                    Negative                   Power-to-X                                            dbase  = 1 good/hour                           (3)
+      Technologies                 Emission                                                                          goods
+                                 Technologies
+                                                                                                    tSC ∈ [12 hours, 1 day, 1 week, 1 month, 6 months]
+         Li-ion batteries         direct air capture         power-to-hydrogen
+                                                                                               For example, with a tSC of 1 day, the storage capacity is
+     pumped hydro storage           and storage              power-to-methane
+        (pure/hybrid)
+                                                                                           constrained to a day’s worth of industrial demand. We range tSC
+                                                                                           from 12 h to 6 months in our parameterized study to capture the
+      hydrogen lined rock                                                                  effects ranging from intra-day to seasonal storage. Thus, we also
+           caverns                                                                         implicitly vary the storage duration, as, for example, a storage with a
+                                                                                           day’s worth of storage capacity cannot be used for seasonal storage.
+        gas storage tanks
+                                                                                           Throughout this text, we refer to tSC as the storage capacity.
+    thermal energy storageb
+                                                                                              • DSM losses (η): DSM losses refer to production lost as a result
+a
+ Only New Low-Cost Dispatch and New High-Cost Dispatch scenarios (Section 2.3.1).               of industrial DSM. In practice, such losses can arise from off-
+b
+  One concrete DSM option in an additional sensitivity analysis (Section 2.3.2).
+                                                                                                design operation as well as storage leakage. To study the effect
+                                                                                                of DSM losses, we introduce the discharge efficiency, η, that
+TABLE 2 Base energy demands of Swiss industry, dbase                                            represents the amount of goods that can be withdrawn from the
+                                                energy , for the
+production of 1 good
+                hour
+                     (d base
+                        goods
+                              ).                                                                storage of industrial goods per goods stored. A lower efficiency
+                                                                                                means that fewer goods can be withdrawn per goods stored and
+    Input/Output                 Temperature range                     Value
+                                       [°C]                            [MW]                     therefore more goods need to be produced to meet the overall
+                                                                                                demand. The discharge efficiency, η, can take any value from 0
+    electricity                                –                         685                    to 1 as shown in Eq. 4.
+
+    low temperature heat                     < 200                       750
+
+    medium temperature heat                200–800                       907                                               0≤η≤1                                   (4)
+    high temperature heat                    > 800                       571
+                                                                                                An η value of 0 corresponds to 100% product loss and an η value
+                                                                                           of 1 corresponds to no product loss. Note that while η only represents
+                                                                                           discharge efficiency associated with storage in our mathematical
+comparison is conducted explicitly for thermal energy storage
+                                                                                           formulation, the wide η range investigated can be interpreted as also
+in Section 2.3.2.
+                                                                                           considering additional efficiency losses.
+    The three modelled process characteristics are described below:
+                                                                                                The relationship between the three parameters (i flex, tSC , and η),
+     • Load-varying potential (i flex): The load-varying potential,                        the industrial production, and the storage can be seen schematically
+       referred to as iflex, represents the fraction of the base load,                     in Figure 2 as well as in Eqs 5–9.
+
+
+
+Frontiers in Energy Research                                                          05                                                                frontiersin.org
+Mayer et al.                                                                                                                     10.3389/fenrg.2024.1443506
+
+
+
+
+   FIGURE 2
+   Schematic representation of the relationship between the parameterized industrial DSM process characteristics (i flex, tSC , and η), industrial production,
+   and storage of industrial goods. The three parameters are shown in red. i flex corresponds to load-varying potential. tSC corresponds to the time
+   interval over which the base industrial demand, dbase
+                                                    goods
+                                                          , can accumulate. η corresponds to the storage discharge efficiency. LT, MT, and HT correspond
+   to low, medium, and high temperature heat demands for Swiss industry. P(t) is the production of industrial goods at time t. in(t) and out(t) are the
+   product stored and withdrawn, respectively, and SL(t) is the storage level.
+
+
+
+
+   Eq. 5 constrains the production used at a given time step, P(t),                    and storage (CCS). We vary the natural gas import prices and
+between the range defined by the iflex parameter.                                      restrictions on the utilization of gas power plants with CCS. We
+                                                                                       expect comparable results when green fuels or electricity could be
+        dbase
+         goods
+               ⋅ (1 − i flex) ≤ P (t) ≤ dbase
+                                         goods
+                                               ⋅ (1 + i flex)      ∀t ∈ T   (5)        imported for flexibility. The three scenarios are described below.
+
+    Similar to the implementation in Schäfer et al. (2020), the                          • New Low-Cost Dispatch: This scenario represents a
+circularity constraint in Eq. 6 prevents the industry storage from                         system configuration with an inexpensive dispatchable
+acting as a source or sink for industrial product, where SL refers to                      flexibility option by allowing for cheap imports of natural
+the storage level.                                                                         gas and for electricity production from gas power plants
+                                                                                           with CCS. This scenario assumes an average natural gas
+                             SL (t0 ) = SL (tmax )                          (6)            import price of 31€/MWh, representative of a stable
+                                                                                           historical average (Trading Economics, 2023).
+    Eq. 7 models the development of the stored product inventory                         • New High-Cost Dispatch: This scenario represents a system
+                                                                                           configuration with an expensive dispatchable flexibility option
+                                                out (t)
+               SL (t + 1) = SL (t) + in (t) −               ∀t ∈ T ,        (7)            by increasing the price of natural gas imports to 135
+                                                  η
+                                                                                           €/MWh, representative of the average for 2022 (Trading
+where in(t) refers to the product stored at time t and out(t) refers to                    Economics, 2023).
+the product withdrawn.                                                                   • No New Dispatch: This scenario represents an extreme system
+    Eq. 8 shows how the demand of industrial goods is met at every                         configuration with no dispatchable electricity production
+time step with a combination of production, P(t), and storage.                             options besides those already existing in Switzerland
+                                                                                           (hydropower and biogas), and hence fewer alternative
+                  dbase
+                   goods
+                         = P (t) − in (t) + out (t)       ∀t ∈ T            (8)            flexibility options. Electricity can only come from renewable
+                                                                                           energy sources and can be stored in pumped hydro storage, Li-
+    Finally, Eq. 9 constrains the storage level with respect to the                        ion batteries, hydrogen lined rock caverns through electrolytic
+parameterized storage capacity, tSC .                                                      hydrogen production, or gas storage tanks through synthetic
+                                                                                           methane production. Natural gas can still be imported at the
+                        SL (t) ≤ tSC ⋅ dbase
+                                        goods
+                                                 ∀t ∈ T                     (9)            low-end price of 31 €/MWh, but only for use in gas boilers for
+                                                                                           medium and high temperature heat.
+
+                                                                                       2.3.2 Sensitivity analyses
+2.3 Scenarios and sensitivities
+                                                                                           Two sensitivity analyses were carried out for each scenario to
+                                                                                       serve as benchmarks against which to compare the upper bound cost
+2.3.1 Scenarios
+                                                                                       reductions from industrial DSM.
+    Three scenarios represent energy systems with varying
+dispatchable flexibility alternatives. As a proxy for dispatchable                       • Thermal energy storage (TES) as a DSM measure: As
+flexibility, we consider gas power plants with carbon capture                              discussed in Section 1, on-site TES is a promising DSM
+
+
+
+Frontiers in Energy Research                                                      06                                                            frontiersin.org
+Mayer et al.                                                                                                              10.3389/fenrg.2024.1443506
+
+
+
+
+TABLE 3 Techno-economic parameters for thermal energy storage (TES) technologies included in the TES as a DSM measure sensitivity.
+
+      Technology                  Temperature     Efficiency              Invest. Cost                 Fixed O&M cost                 Lifetime
+                                     [°C]             [%]                  [k€/MWh]                       [k€/MWh]                     [years]
+
+         water tank                   < 200a          0.9b                        10a                          0.15c                     30b
+
+     steam accumulator                < 200d         0.95e                       114d                          4.1f                      25e
+
+         packed bed                 200 − 800b        0.9g                      13.15b                         4.1f                      13b
+
+         molten salt                200 − 800b       0.95g                      10.52a                         8.2f                      30b
+
+    phase change material           200 − 800b       0.95b                      70.16b                         4.1f                      21b
+a
+  IRENA (2013).
+b
+  IRENA (2020).
+c
+  Petkov and Gabrielli (2020).
+d
+  Al Kindi et al. (2022).
+e
+  Murakoshi and Fushimi (2022).
+f
+  Gautam et al. (2022).
+g
+  Strasser and Selvam (2014).
+
+
+
+
+       measure that can be implemented for all processes requiring             that a large portion of the cost reduction potential from industrial
+       heat at low or medium temperature levels. Thus, we                      DSM is achievable.
+       include TES for low and medium temperature heat as a                          In the New Low-Cost Dispatch scenario, industrial DSM reduces
+       DSM option. TES can be implemented for any industrial                   costs by up to 2%. The maximum cost reduction remains around 2%
+       process that requires heat at low or medium temperature                 regardless of the industrial storage time horizon (Figure 3). In the
+       levels. In this sensitivity analysis, TES, as one concrete              New High-Cost Dispatch scenario, the maximum reductions increase
+       DSM measure, replaces the generic process-agnostic DSM                  from 2% to 4.4% as more storage capacity becomes available to
+       implementation in each scenario. We consider costs and losses           enable long-term flexibility. The comparison between the New Low-
+       associated with TES (Table 3), as opposed to the process-               Cost Dispatch and the New High-Cost Dispatch scenarios shows
+       agnostic implementation of industrial DSM without specific              that the value of long-term industrial storage depends on the
+       techno-economic data. This sensitivity analysis gives us                system’s flexibility alternatives. More generally, our study shows that
+       realistic cost reductions arising from TES as a DSM measure,            the contributions from industrial DSM depend not only on the
+       allowing us to put our upper-bound cost reductions arising              industrial DSM characteristics, represented by the three parameters
+       from industrial DSM into perspective.                                   (i flex, tSC , and η) (Figure 3), but also on the system’s flexibility
+     • Industry-related energy costs: We minimize the system costs             alternatives, represented by the three scenarios.
+       for each scenario without considering the industrial electricity              Industrial DSM can lead to 6 TWh of energy equivalents stored
+       and heat demands (Table 2). Comparing the overall system                in the form of industrial goods for seasonal flexibility (Table 4).
+       costs with and without industrial energy demands gives us the           This energy equivalent is substantial compared to the already-
+       industry-related energy costs. Subsequently, we calculate the           existing seasonal flexibility options for Switzerland (8.8 TWh of
+       cost reductions from industrial DSM relative to the industry-           hydro storage (Swiss Federal Office of Energy (SFOE), 2020a)). This
+       related energy costs.                                                   finding indicates that the contributions from industrial DSM could
+                                                                               be larger for countries with fewer seasonal flexibility options or more
+                                                                               industry than Switzerland.
+              HIER WEITER                                                            Section 3.1 discusses the system effects of industrial DSM.
+                                                                               Section 3.2 presents the results of implementing thermal energy
+3 Results and discussion                                                       storage (TES) as a specific DSM measure. In Sections 3.3 and 3.4,
+                                                                               we discuss findings regarding the effect of storage capacity and DSM
+    The maximum system cost reductions from industrial DSM                     losses on cost reductions from industrial DSM.
+range from 2% to 4.4% of overall system costs across the three
+scenarios. These cost reductions make up between 12% and 20%
+of the industry-related energy costs (Figure 3). Thus, industry has            3.1 System responses to industrial DSM
+a substantial incentive to contribute to DSM. Notably, thermal
+energy storage (TES) as a DSM measure can harness between                          Industrial DSM can decrease system costs for all scenarios
+28% and 61% of the maximum cost reductions from industrial                     (Figure 3, top row). However, if the alternative flexibility options
+DSM. Overall, our study shows that industrial DSM reduces overall              are more expensive, potential for cost reductions is higher. In the
+system costs, and that the cost reductions comprise up to 1/5                  New High-Cost Dispatch scenario, increasing storage capacity, tSC ,
+of industry-related energy costs. Additionally, TES provides a                 increases the contributions from industrial DSM. Conversely, in the
+promising solution for flexibility provision from industry, showing            New Low-Cost Dispatch scenario, increasing storage capacity has
+
+
+
+Frontiers in Energy Research                                              07                                                            frontiersin.org
+Mayer et al.                                                                                                                      10.3389/fenrg.2024.1443506
+
+
+
+
+   FIGURE 3
+   Top row: % cost reduction compared to a system with no industrial DSM (left axis) and compared to industry-related energy costs with no industrial
+   DSM (right axis) as a function of load-varying potential, iflex, for 100% discharge efficiency (η = 1). Black dashed line represents the cost reduction from
+   low and medium temperature thermal energy storage (TES) (details in Section 2.3.2). Bottom row: % cost reduction compared to a system with no
+   industrial DSM (left axis) and compared to industry-related energy costs with no industrial DSM (right axis) as a function of discharge efficiency, η, for
+   100% load-varying potential (i flex = 1). The columns correspond to scenarios and the colors correspond to storage capacities, tSC . Arrows point in the
+   direction of increasing storage capacity.
+
+
+
+
+TABLE 4 Maximum used storage for different storage technologies and for varying storage capacities, tSC . The Reference case corresponds to no
+industrial DSM, 12 h and 6 months correspond to storage capacities. LRC stands for lined rock caverns. Sub-tables A, B, and C correspond to the
+different scenarios.
+
+                                                       A. New High-Cost Dispatch scenario
+
+               Storage technologies                               Unit                  Reference                     12 h                 6 months
+
+                  Pumped Hydro Storage                            TWh                          8                         8                       6.8
+
+                      Hydrogen LRC                                TWh                      2.6 ⋅ 10−3                1.9 ⋅ 10−3               0.6 ⋅ 10−3
+
+                    Industrial Energy                            TWhel                         -                    6.0 ⋅ 10−3                   1.4
+                       Equivalents                              TWhtherm                       -                    19.5 ⋅ 10−3                  4.6
+
+                                                       B. New Low-Cost Dispatch scenario
+
+               Storage technologies                               Unit                  Reference                     12 h                 6 months
+
+                  Pumped Hydro Storage                            TWh                         3.7                       4.3                      4.0
+
+                      Hydrogen LRC                                TWh                      0.3 ⋅ 10−3                    -                        -
+
+                    Industrial Energy                            TWhel                         -                    5.4 ⋅ 10−3                   0.8
+                       Equivalents                              TWhtherm                       -                    17.7 ⋅ 10−3                  2.6
+
+                                                            C. No New Dispatch scenario
+
+               Storage technologies                               Unit                  Reference                     12 h                 6 months
+
+                  Pumped Hydro Storage                            TWh                          8                         8                       6.9
+
+                      Hydrogen LRC                                TWh                      3.5 ⋅ 10−3                3.4 ⋅ 10−3               2.4 ⋅ 10−3
+
+                    Industrial Energy                            TWhel                         -                    6.4 ⋅ 10−3                   1.4
+                       Equivalents                              TWhtherm                       -                    20.9 ⋅ 10−3                  4.6
+
+
+
+
+Frontiers in Energy Research                                                  08                                                                  frontiersin.org
+Mayer et al.                                                                                                              10.3389/fenrg.2024.1443506
+
+
+
+
+   FIGURE 4
+   New High-Cost Dispatch scenario: yearly profiles for hydrogen storage level (top row) and natural gas imports (bottom row) for varying storage
+   capacities (columns). The Reference case corresponds to no industrial DSM (i flex = 0). The 12-h and 6-month storage capacity plots assume 100%
+   load-varying potential (i flex = 1) and 100% discharge efficiency (η = 1).
+
+
+
+
+little effect on the contributions from industrial DSM. We discuss            to 20% of industry-related energy costs. The relationship
+the system responses to industrial DSM separately for each scenario           between load-varying potential and system cost reduction
+in Sections 3.1.1–3.1.3.                                                      becomes increasingly non-linear for larger storage capacities,
+                                                                              indicating diminishing returns for increasing load-varying
+3.1.1 New High-Cost Dispatch scenario                                         potential (Figure 3). With seasonal flexibility, industrial production
+     We first discuss the New High-Cost Dispatch scenario, as                 shifts to the summer months. More synthetic methane is also
+industrial DSM shows the highest contributions under this system              produced during the summer to directly cover the industrial
+configuration. In the New High-Cost Dispatch scenario without                 heat demands. This shift reduces natural gas imports by 82%
+industrial DSM, the system does not produce any electricity                   relative to no industrial DSM (Figure 4). In contrast to a 12-
+from natural gas due to the high natural gas prices. The system               h storage capacity, photovoltaic capacity increases relative to
+produces all electricity through renewable sources and relies on              no industrial DSM due to the need for peak photovoltaic
+2.6 GWh of hydrogen lined rock caverns (LRCs) and 8 TWh                       electricity in the summer. Most of the 4.4% system cost reduction
+of pumped hydro storage for seasonal flexibility. In addition,                comes from the decrease in natural gas imports (42% of cost
+the system relies on natural gas imports for medium and high                  reduction) in addition to a reduction in hydrogen seasonal
+temperature heat production mainly during the winter months,                  storage (48% of cost reduction) (Figure 4). Installed capacities
+when renewable electricity availability is insufficient for synthetic         for power-to-hydrogen and hydrogen LRCs decrease by 75%
+methane production (Figure 4). 105 GWh of methane storage is                  each. Thus, the 4.4% cost reduction for the New High-Cost
+used on a monthly time scale and helps provide some of the winter             Dispatch scenario comes from a decrease in both forms of
+gas demand.                                                                   alternative flexibility options: natural gas imports and hydrogen
+     Industrial DSM with a 12-h storage capacity (assuming η = 1,             seasonal storage.
+i flex = 1, tSC = 12 hours) can achieve up to 2% cost reduction. This             In summary, in a scenario with expensive dispatchable
+reduction is attributed to less investment and operation of hydrogen          flexibility alternatives to industrial DSM, the industrial
+conversion and storage technologies (56% of cost reduction),                  DSM contributions are the largest across all of our studied
+reduced investment in Li-ion batteries (14% of cost reduction), and           scenarios, reducing system costs by up to 4.4% and industry-
+in photovoltaics (30% of cost reduction). The decrease in Li-ion              related energy costs by up to 20%. Additionally, the
+battery capacity arises due to the shifting of industrial production          contributions grow with increasing flexibility provision time
+to daytime hours. Less photovoltaic capacity is needed due to the             scale due to the displacement of long-duration flexibility
+decrease in hydrogen storage during summer months, reducing the               alternatives.
+electricity losses from the low round-trip efficiency of hydrogen
+storage and thus requiring less photovoltaic capacity.                        3.1.2 No New Dispatch scenario
+     Industrial DSM with a 6-month storage capacity (assuming                     In the No New Dispatch scenario, similar to the New High-
+η = 1, i flex = 1, tSC = 6 months) reduces a system costs by 4.4%             Cost Dispatch scenario, the system produces all electricity through
+relative to no industrial DSM. This cost decrease corresponds                 renewable sources and relies on 3.5 GWh of hydrogen lined rock
+
+
+
+Frontiers in Energy Research                                             09                                                              frontiersin.org
+Mayer et al.                                                                                                             10.3389/fenrg.2024.1443506
+
+
+
+
+caverns (LRCs) and 8 TWh of pumped hydro storage for seasonal                corresponding to an 11% decrease of industry-related energy costs.
+flexibility. However, contrary to the New High-Cost Dispatch                 The cost reduction is driven by 12% fewer natural gas imports (40%
+scenario, no synthetic methane is produced due to the cheaper                of cost reduction), translating into 12% less CO2 stored. Because
+natural gas imports. Therefore, more renewable electricity can be            of industrial DSM, less natural gas-based electricity is needed for
+stored in the form of hydrogen throughout the summer.                        intraday balancing due to the shifting of industrial production to
+     Industrial DSM with a 12-h storage capacity (assuming η =               daytime hours. Consequently, less electricity is required to run
+1, i flex = 1, tSC = 12 hours) can reduce system costs by 1.9%.              the DAC during summer months, decreasing natural gas imports
+Similar to the New High-Cost Dispatch scenario, this decrease is             even further (Supplementary Figures S6,12 h). The remainder of
+attributed to less investment and operation of hydrogen conversion           the 1.9% cost reduction is attributed to a smaller DAC capacity
+and storage technologies (52% of cost reduction), decreased                  (23% of cost reduction) and to the complete removal of hydrogen
+investment in photovoltaics (29% of cost reduction), and a smaller           conversion and storage technologies for seasonal flexibility (24% of
+Li-ion battery capacity used for intra-day storage (18% of cost              cost reduction).
+reduction).                                                                       Industrial DSM with a 6-month storage capacity (assuming η =
+     Industrial DSM with a 6-month storage capacity (assuming                1, i flex = 1, tSC = 6 months) reduces costs by an additional 0.1% vs
+η = 1, i flex = 1, tSC = 6 months) reduces system costs by 3.1%              a 12-h storage capacity. The maximum savings under this system
+relative to no industrial DSM. This decrease corresponds to                  configuration are 2% of system costs, comprising 12% of industry-
+18% of industry-related energy costs. The 3.1% cost reduction                related energy costs. The additional 0.1% decrease mainly comes
+is driven by decreased investment and operation of hydrogen                  from smaller installed capacities of gas combined cycle for electricity
+seasonal storage (61% of cost reduction), and by less investment             production, since less electricity is needed during the winter months
+in photovoltaics (29% of cost reduction). Because no synthetic               due to the shifting of industrial production to the summer.
+methane is produced in the No New Dispatch scenario, the total                    In a scenario with inexpensive dispatchable flexibility
+yearly natural gas imports for industrial heat (Figure 5) and the            alternatives, contributions from industrial DSM are the smallest
+total yearly electricity for industrial production remain constant           across all of our studied scenarios, reducing system costs by up to
+across storage capacities regardless of the shift in industrial              2% and industry-related energy costs by up to 12%. The maximum
+production. Shifting industrial production to the summer months              contributions from industrial DSM are obtained with flexibility
+requires less hydrogen storage for industrial production during              provision at a daily time scale and the contributions do not increase
+the winter period. Hence, less electricity is lost from the low              when flexibility is provided over longer time horizons.
+round-trip efficiency of hydrogen storage leading to a substantial
+decrease in summer electricity production. This effect drives the                In summary, our findings across all three scenarios show that the
+decrease in photovoltaic capacity. The maximum cost reduction                magnitude of the cost reduction from industrial DSM depends on the
+in the No New Dispatch scenario is, hence, mainly attributed to              system’s alternative flexibility options, particularly over time horizons
+industrial DSM replacing hydrogen storage as the alternative long-           longer than 12 h. Industrial DSM contributes most in systems with
+duration flexibility option, in addition to decreased investment in          expensive long-duration flexibility alternatives. Across our studied
+renewables.                                                                  scenarios, the maximum system cost reduction is 4.4%. This cost
+     In an extreme system configuration with limited dispatchable            reduction represents an upper bound on contributions from industrial
+electricity production options, the contributions from industrial            DSM since it considers no costs, losses, or technical constraints
+DSM grow with increasing storage capacity. Counterintuitively,               regarding DSM implementation. When considering cost reductions
+however, industrial DSM decreases the installed capacities of                relative to industry-related energy costs, the maximum cost reduction
+renewable power generation technologies. Regardless of the amount            ranges between 12% and 20%, indicating high incentives for industrial
+of flexibility from industrial DSM, natural gas imports for the              DSM implementation from an industry perspective. Moreover, the
+production of industrial heat remain constant, while investments in          system cost reduction from industrial DSM might be higher in
+renewables decrease.                                                         countries with higher shares of industrial energy demands than in
+                                                                             Switzerland. The upper-bound system cost reductions relative to no
+3.1.3 New Low-Cost Dispatch scenario                                         industrial DSM may differ depending on actual industrial energy
+    In the New Low-Cost Dispatch scenario without industrial                 demand profiles, which we assume constant, and on the spatial
+DSM, dispatchable electricity from natural gas in combination                distribution of energy supply and demand throughout Switzerland,
+with carbon capture and storage (CCS) is used to balance                     which we aggregate for the purposes of our study.
+both the intraday and the seasonal fluctuations in renewables
+availability. To help with the seasonal imbalance of PV availability,
+which peaks in the summer, direct air capture (DAC) with                     3.2 Thermal energy storage as a DSM
+CCS is deployed flexibly, maximizing its CO2 capture in the                  measure
+summer (Supplementary Figure S6 in the Supplementary Material,
+Reference). DAC capacity thus serves as a seasonal flexibility                   The previous analysis assumes a generic industrial process to
+alternative to industrial DSM. Additionally, the system invests              establish the maximal potential of industrial DSM. To explore
+in a small amount, 0.33 GWh, of hydrogen storage for seasonal                whether this potential can be reached in practice, we study a concrete
+flexibility.                                                                 industrial DSM option: thermal energy storage (TES) for low and
+    Industrial DSM with a 12-h storage capacity (assuming η =                medium temperature heat (Section 2.3). As a process-independent
+1, i flex = 1, tSC = 12 hours) can reduce system costs by 1.9%,              DSM measure, TES can already harness between 28% and 61% of
+
+
+
+Frontiers in Energy Research                                            10                                                             frontiersin.org
+Mayer et al.                                                                                                                10.3389/fenrg.2024.1443506
+
+
+
+
+   FIGURE 5
+   No New Dispatch scenario: yearly profiles for hydrogen storage level (top row) and natural gas imports (bottom row) for varying storage capacities
+   (columns). The Reference case corresponds to no industrial DSM (i flex = 0). The 12-h and 6-month storage capacity plots assume 100% load-varying
+   potential (i flex = 1) and 100% discharge efficiency (η = 1).
+
+
+
+
+the maximum cost reductions from industrial DSM depending on                        Our implementation of TES as a concrete DSM measure,
+the scenario (Figure 3). These findings are substantial considering              considering today’s costs and losses, shows that TES can harness
+that the cost reductions from TES take into account realistic costs              between 28% and 61% of the upper bound cost reductions from
+and losses, as opposed to the upper-bound cost reductions from                   industrial DSM. TES provides a promising and process-independent
+the generic industrial DSM implementation without costs, losses,                 industrial DSM measure, showing that the potential benefits of
+or technical limitations. All three scenarios implement only TES for             industrial DSM are obtainable.
+low temperature heat via water tanks, which is the cheapest among
+all TES options (Table 3).
+      In the New Low-Cost Dispatch scenario, TES harnesses 61%                   3.3 Storage capacity of industrial goods
+of the upper bound cost reductions from industrial DSM. The
+                                                                                     As discussed in Section 3.1, the effect of storage
+system invests in 38 GWh storage capacity for low temperature
+                                                                                 capacity on cost reductions from industrial DSM differs
+(LT) heat and nearly 5 times more capacity for electrified LT heat
+                                                                                 between scenarios and depends on whether industrial DSM
+production than in the reference case without DSM. Similar to the
+                                                                                 provides a preferred alternative for long-duration flexibility.
+results of the generic DSM implementation (Section 3.1.3), natural
+                                                                                 In the following, we analyze the storage capacity actually
+gas imports decrease by 12%, driving 40% of the cost reduction
+                                                                                 used and show that all scenarios exhibit a maximum
+compared to no DSM.
+                                                                                 useful storage capacity beyond which cost reductions from
+      In the New High-Cost Dispatch and No New Dispatch scenarios,
+                                                                                 industrial DSM stagnate.
+the cost reductions arising from TES correspond to 28% and 35%                       In the New Low-Cost Dispatch scenario, which is characterized
+of the maximum cost reductions from industrial DSM, respectively.                by inexpensive dispatchable flexibility alternatives, cost reductions
+The systems invest in 48 GWh and 35 GWh storage capacity for                     already stagnate at a 12-h storage capacity (Section 3.1.3). In the New
+low temperature heat while also installing nearly 5 times more                   High-Cost Dispatch and No New Dispatch scenarios, representative
+capacity for electrified LT heat production. While the savings from              of systems with expensive or missing dispatchable flexibility
+TES in these two scenarios realize less of the upper bound DSM                   alternatives, costs decrease for increasing storage capacities beyond
+potential than in the New Low-Cost Dispatch scenario, the cost                   1 month (Sections 3.1.1, 3.1.2). However, given a storage capacity
+reductions from TES are comparable to the upper bound savings                    availability of 6 months, both of these system configurations
+under a 20% load-varying potential (η = 1) and under 60% efficiency              only use up to 3 months-worth of storage capacity. Hence,
+(i flex = 1) (Figure 3). These characteristic values represent industrial        even systems that benefit from long-duration flexibility from
+processes with DSM limitations. The comparable cost reductions                   industrial DSM reach a storage capacity beyond which cost
+given these process characteristics indicate that TES provides a good            reductions plateau.
+way to harness the flexibility potential of industrial processes with                To put the storage of industrial goods into perspective, we
+limited DSM capabilities.                                                        compare the magnitude of the energy stored across storage
+
+
+
+Frontiers in Energy Research                                                11                                                            frontiersin.org
+Mayer et al.                                                                                                                 10.3389/fenrg.2024.1443506
+
+
+
+
+   FIGURE 6
+   % cost reduction for the net-zero sector-coupled system for different values of load-varying potential, i flex, and discharge efficiency, η, vs. the
+   reference case of no industrial DSM. Rows correspond to scenarios and columns correspond to the storage capacity in terms of the storage capacity
+   time interval, tSC , over which the demand for goods, dbase
+                                                          goods
+                                                                , is accumulated. Red lines indicate the efficiency corresponding to 20% of the maximum
+   cost reduction for the respective storage size, when considering iflex = 1. Contour plots for the storage capacity time intervals between 1 day and 1
+   month are shown in the Supplementary Material along with the contour plots for the No New Dispatch scenario.
+
+
+
+
+technologies (Table 4): in the New High-Cost Dispatch scenario with              3.4 DSM losses
+no industrial DSM, 8 TWh are stored in pumped hydro storage
+and 2.6 GWh are stored in hydrogen lined rock caverns. With                           The discussion in the previous sections focuses on industrial
+maximum industrial DSM implementation, the 3 months-worth                        DSM without efficiency losses. However, losses reduce the
+storage of industrial goods (assuming η = 1, i flex = 1) translates to           achievable cost reductions from industrial DSM. The DSM
+1.4 TWhel and 4.6 TWhtherm (splits in Table 2). Thus, the energy                 efficiency, η (Eq. 4), must be above a certain threshold to obtain
+equivalents stored in the form of industrial goods are in the same               benefits from industrial DSM. This threshold efficiency varies
+order of magnitude as the hydro storage capabilities already existing            depending on the scenario and on the storage capacity. For the
+in Switzerland, serving as inexpensive seasonal flexibility. We                  sake of comparison, we focus the following discussion on an i flex
+expect even larger contributions from industrial DSM in countries                value of 1 and define a threshold efficiency as the efficiency at which
+with fewer flexibility options or a higher share of industry than                20% of the maximum cost reductions for the respective storage sizes
+Switzerland.                                                                     are reached (Figure 6, red lines).
+    Our findings indicate that there is a maximum useful storage                      In the New Low-Cost Dispatch scenario, the threshold efficiency
+capacity for industrial goods, above-which no additional industrial              is 58% for a storage capacity of 12 h and 55% for a storage
+DSM flexibility provision is obtained. Hence, depending on the                   capacity of 6 months. The small change in threshold efficiency
+system configuration, small storage capacities can be sufficient to              across storage capacities reemphasizes the small influence of
+harvest the maximum benefits from industrial DSM. Additionally,                  flexibility time horizon on cost reductions (Section 3.1.3), even
+the contributions from industrial DSM can be greater in countries                when considering DSM losses. Nonetheless, efficiencies as low as
+with fewer seasonal flexibility options and a higher share of industry           55% can yield 1/5 of the 2% maximum savings for this system
+than Switzerland.                                                                configuration.
+
+
+
+Frontiers in Energy Research                                                12                                                              frontiersin.org
+Mayer et al.                                                                                                                10.3389/fenrg.2024.1443506
+
+
+
+
+     In the New High-Cost Dispatch scenario, the threshold                        perspective. Finally, we show that thermal energy storage can
+efficiency decreases from 73% to 54% as storage capacity                          harness a large portion of the potential contributions from industrial
+increases from 12 h to 6 months (Figure 6), emphasizing the                       DSM, making it a promising DSM measure and showing that
+benefits from longer storage duration. In the No New Dispatch                     economic benefits from industrial DSM are obtainable. Note that
+scenario, the threshold efficiency decreases from 69% to 52%                      while we asses the value of industrial DSM from an economic
+(Supplementary Figure S7 in the Supplementary Material). As                       perspective, industrial DSM might have additional benefits on
+shown for both scenarios, increasing storage capacity decreases                   power grid stability (Santecchia et al., 2022; Wang and Milanović,
+the threshold efficiency. Therefore, when considering losses,                     2022) and environmental impacts (Yang et al., 2022; Nilges et al.,
+larger storage capacities may be needed to harness the potential                  2024), potentially compounding the contributions from industrial
+contributions from industrial DSM. However, under these system                    DSM. Additionally, given the large energy equivalents stored in the
+configurations, the value of long-duration flexibility from industrial            form of industrial goods, we expect even larger contributions from
+DSM is so large that even DSM efficiencies around 50%–55% can                     industrial DSM in countries with fewer flexibility options or a higher
+provide 1/5 of the maximum cost reduction.                                        share of industry than Switzerland.
+     Our results show that while DSM efficiencies need to be above
+a certain threshold for industrial DSM to reduce system costs, the
+threshold can be as low as 52% to still obtain 1/5 of the savings.
+Particularly for system configurations with expensive or missing
+                                                                                  Data availability statement
+dispatchable flexibility options, more DSM losses are tolerated for
+                                                                                      The original contributions presented in the study are included
+larger industrial storage capacities due to the high value of long-
+                                                                                  in the article/Supplementary Material. Further inquiries can be
+duration flexibility from industrial DSM.
+                                                                                  directed to the corresponding author.
+
+
+4 Conclusion
+                                                                                  Author contributions
+     In this study, we investigate the potential of industrial demand-
+side management (DSM) as a flexibility provider for the Swiss sector-                PM:      Conceptualization,     Investigation,    Methodology,
+coupled energy system. We find that industrial DSM reduces costs                  Supervision, Visualization, Writing–original draft, Writing–review
+for all three of our considered system configurations, with maximum               and editing. MH: Investigation, Methodology, Validation,
+system cost reductions ranging from 2% to 4.4%. These savings                     Writing–review and editing. DS: Data curation, Supervision,
+comprise between 12% and 20% of industry-related energy costs.                    Writing–review and editing. NZ: Data curation, Investigation,
+Industrial DSM can lead to 6 TWh of energy equivalents stored in                  Writing–review and editing. LL: Methodology, Supervision,
+the form of industrial goods for seasonal flexibility, and thus reach a           Writing–review and editing. FB: Conceptualization, Methodology,
+similar importance to hydro storage.                                              Supervision, Writing–review and editing. AB: Conceptualization,
+     The magnitude of the cost reduction depends on the system’s                  Funding acquisition, Supervision, Writing–review and editing.
+alternative flexibility options and is greatest for systems with expensive
+or limited dispatchable flexibility alternatives. Under these system
+configurations, savings increase for longer flexibility provision time            Funding
+horizons due to the displacement of alternative long-duration
+flexibility options. This effect becomes magnified when considering                   The author(s) declare that financial support was received for
+DSM losses, in which case larger storage capacities are needed as losses          the research, authorship, and/or publication of this article. This
+increase in order to obtain the benefits of industrial DSM.                       work was funded by the Swiss Federal Office of Energy’s SWEET
+     The maximum system cost reductions from industrial DSM                       program as part of the project PATHFNDR. Open access funding
+represent an upper bound on the potential savings since they                      by ETH Zurich.
+consider 100% over-sizing of industrial processes, no costs or
+losses associated with industrial DSM, and no technical constraints
+regarding DSM implementation. Still, as a concrete DSM option,
+thermal energy storage (TES) can harness between 28% and 61%
+                                                                                  Acknowledgments
+of the upper bound industrial DSM savings while considering the
+                                                                                      We thank Behnam Akbari for his help in gathering data for the
+associated costs and losses. Thus, TES provides a promising and
+                                                                                  hydrogen and methane storage technologies and we thank Fabian
+process-independent DSM measure.
+                                                                                  Leuenberger for his help in gathering data for the thermal energy
+     Overall, the maximum cost reductions from industrial DSM
+                                                                                  storage technologies.
+depend on both industrial process characteristics and on the
+system’s characteristics. Therefore, the value of industrial DSM
+must be evaluated within the context of the overall energy system.
+Particularly, industrial DSM is most beneficial when industrial                   Conflict of interest
+products can be stored seasonally and long-duration flexibility
+options are expensive or missing. Additionally, we find large                        AB has ownership interests in firms that render services to
+incentives for industrial DSM implementation from an industry                     industry, some of which may offer flexibility. AB has served on
+
+
+
+Frontiers in Energy Research                                                 13                                                           frontiersin.org
+Mayer et al.                                                                                                                                                 10.3389/fenrg.2024.1443506
+
+
+
+
+review committees for research and development at ExxonMobil and                                     their affiliated organizations, or those of the publisher,
+TotalEnergies, oil and gas companies that might also offer flexibility.                              the editors and the reviewers. Any product that may
+     The remaining authors declare that the research was                                             be evaluated in this article, or claim that may be made
+conducted in the absence of any commercial or financial                                              by its manufacturer, is not guaranteed or endorsed by
+relationships that could be construed as a potential conflict                                        the publisher.
+of interest.
+
+                                                                                                     Supplementary material
+Publisher’s note
+                                                                                                         The Supplementary Material for this article can be found
+   All claims expressed in this article are solely those                                             online at: https://www.frontiersin.org/articles/10.3389/fenrg.2024.
+of the authors and do not necessarily represent those of                                             1443506/full#supplementary-material
+
+
+
+References
+   Albertus, P., Manser, J. S., and Litzelman, S. (2020). Long-duration                                Helin, K., Käki, A., Zakeri, B., Lahdelma, R., and Syri, S. (2017). Economic potential
+electricity storage applications, economics, and technologies. Joule 4, 21–32.                       of industrial demand side management in pulp and paper industry. Energy 141,
+doi:10.1016/j.joule.2019.11.009                                                                      1681–1694. doi:10.1016/j.energy.2017.11.075
+   Al Kindi, A. A., Sapin, P., Pantaleo, A. M., Wang, K., and Markides, C. N. (2022).                  IRENA (2013). Thermal energy storage: technology brief. IEA-ETSAP and IRENA-
+Thermo-economic analysis of steam accumulation and solid thermal energy storage in                   Technology Brief. E17-January.
+direct steam generation concentrated solar power plants. Energy Convers. Manag. 274,
+                                                                                                       IRENA (2020). Innovation outlook: thermal energy storage. Int. Renew. Energy
+116222. doi:10.1016/j.enconman.2022.116222
+                                                                                                     Agency.
+   Arnold, K., and Janssen, T. (2018). Demand side management in industry: necessary
+                                                                                                       Kachirayil, F., Weinand, J. M., Scheller, F., and McKenna, R. (2022). Reviewing local
+for a sustainable energy system or a backward step in terms of improving efficiency?.
+                                                                                                     and integrated energy system models: insights into flexibility and robustness challenges.
+  Arteconi, A., Hewitt, N. J., and Polonara, F. (2013). Domestic demand-side                         Appl. energy 324, 119666. doi:10.1016/j.apenergy.2022.119666
+management (dsm): role of heat pumps and thermal energy storage (tes) systems. Appl.
+                                                                                                       Klaucke, F., Karsten, T., Holtrup, F., Esche, E., Morosuk, T., Tsatsaronis, G., et al.
+Therm. Eng. 51, 155–165. doi:10.1016/j.applthermaleng.2012.09.023
+                                                                                                     (2017). Demand response potentials for the chemical industry. Chem. Ing. Tech. 89,
+  Bao, P., Zhang, W., Cheng, D., and Liu, M. (2020). Hierarchical control of aluminum                1133–1141. doi:10.1002/cite.201600073
+smelter loads for primary frequency support considering control cost. Int. J. Electr.
+                                                                                                       Koohi-Fayegh, S., and Rosen, M. A. (2020). A review of energy storage
+Power and Energy Syst. 122, 106202. doi:10.1016/j.ijepes.2020.106202
+                                                                                                     types, applications and recent developments. J. Energy Storage 27, 101047.
+   Bardow, A., Fiorentini, M., Heer, P., Kämper, A., Koirala, B., Knoeri, C., et al. (2023).         doi:10.1016/j.est.2019.101047
+Flexibility and sector coupling in energy systems: definitions and metrics: synthesis report.
+                                                                                                       Kotzur, L., Markewitz, P., Robinius, M., and Stolten, D. (2018). Time series
+Zurich: ETH Zurich.
+                                                                                                     aggregation for energy system design: modeling seasonal storage. Appl. Energy 213,
+  Bielefeld, S., Cvetković, M., and Ramírez, A. (2023). Should we exploit flexibility of             123–135. doi:10.1016/j.apenergy.2018.01.023
+chemical processes for demand response? differing perspectives on potential benefits
+                                                                                                        Lu, P., Lv, H., Liu, N., Wang, T., Han, J., Zhang, W., et al. (2021). Optimal flexibility
+and limitations. Front. Energy Res. 11, 1190174. doi:10.3389/fenrg.2023.1190174
+                                                                                                     dispatch of demand side resources with high penetration of renewables: a stackelberg
+  Bohlayer, M., Fleschutz, M., Braun, M., and Zöttl, G. (2020). Energy-intense                       game method. Glob. Energy Interconnect. 4, 28–38. doi:10.1016/j.gloei.2021.03.003
+production-inventory planning with participation in sequential energy markets. Appl.
+                                                                                                        Manana, M., Zobaa, A., Vaccaro, A., Arroyo, A., Martinez, R., Castro, P., et al. (2021).
+Energy 258, 113954. doi:10.1016/j.apenergy.2019.113954
+                                                                                                     Increase of capacity in electric arc-furnace steel mill factories by means of a demand-
+  Budinis, S., Krevor, S., Mac Dowell, N., Brandon, N., and Hawkes, A. (2018).                       side management strategy and ampacity techniques. Int. J. Electr. Power and Energy Syst.
+An assessment of ccs costs, barriers and potential. Energy strategy Rev. 22, 61–81.                  124, 106337. doi:10.1016/j.ijepes.2020.106337
+doi:10.1016/j.esr.2018.08.003
+                                                                                                       Marañón-Ledesma, H., and Tomasgard, A. (2019). Analyzing demand response in a
+   Caspari, A., Pérez, Y. M., Offermanns, C., Schäfer, P., Ecker, A.-M., Peschel, A.,                dynamic capacity expansion model for the european power market. Energies 12, 2976.
+et al. (2019). Economic nonlinear model predictive control of multi-product air                      doi:10.3390/en12152976
+separation processes. Comput. Aided Chem. Eng. (Elsevier) 46, 1–6. doi:10.1016/b978-
+                                                                                                       Marcucci, A., Guidati, G., and Giardini, D. (2021). Swiss energy scope–ETH: Swiss
+0-12-818634-3.50001-1
+                                                                                                     energy scope with hourly resolution. Zurich: ETH Zurich.
+   Cirocco, L., Pudney, P., Riahi, S., Liddle, R., Semsarilar, H., Hudson,
+                                                                                                       Meyabadi, A. F., and Deihimi, M. H. (2017). A review of demand-side management:
+J., et al. (2022). Thermal energy storage for industrial thermal loads and
+                                                                                                     reconsidering theoretical framework. Renew. Sustain. Energy Rev. 80, 367–379.
+electricity demand side management. Energy Convers. Manag. 270, 116190.
+                                                                                                     doi:10.1016/j.rser.2017.05.207
+doi:10.1016/j.enconman.2022.116190
+                                                                                                       Murakoshi, R., and Fushimi, C. (2022). Integration of a steam accumulator with a
+   Cruz, I., Ilić, D. D., and Johansson, M. T. (2023). Using flexible energy system
+                                                                                                     biomass power-generation system for flexible energy storage and discharge: effect of
+interactions amongst industry, district heating, and the power sector to increase
+                                                                                                     the initial steam pressure on the steam discharge profile and levelized cost of storage. J.
+renewable energy penetration. Energy Effic. 16, 53. doi:10.1007/s12053-023-10134-4
+                                                                                                     Energy Storage 55, 105586. doi:10.1016/j.est.2022.105586
+   Gabrielli, P., Poluzzi, A., Kramer, G. J., Spiers, C., Mazzotti, M., and Gazzani,
+                                                                                                        Nebel, A., Krüger, C., Janßen, T., Saurat, M., Kiefer, S., and Arnold, K. (2020).
+M. (2020). Seasonal energy storage for zero-emissions multi-energy systems
+                                                                                                     Comparison of the effects of industrial demand side management and other
+via underground hydrogen storage. Renew. Sustain. Energy Rev. 121, 109629.
+                                                                                                     flexibilities on the performance of the energy system. Energies 13, 4448. doi:10.3390/
+doi:10.1016/j.rser.2019.109629
+                                                                                                     en13174448
+  Gautam, K. R., Andresen, G. B., and Victoria, M. (2022). Review and techno-
+                                                                                                       Nilges, B., Reinert, C., and von der Assen, N. (2024). Is demand-side management
+economic analysis of emerging thermo-mechanical energy storage technologies.
+                                                                                                     environmentally beneficial? analyzing the greenhouse gas emissions due to load shifting
+Energies 15, 6328. doi:10.3390/en15176328
+                                                                                                     in electric power systems. J. Clean. Prod. 434, 140062. doi:10.1016/j.jclepro.2023.
+  Golmohamadi, H. (2022). Demand-side management in industrial sector:                               140062
+a review of heavy industries. Renew. Sustain. Energy Rev. 156, 111963.
+                                                                                                        Papadaskalopoulos, D., Moreira, R., Strbac, G., Pudjianto, D., Djapic, P., Teng,
+doi:10.1016/j.rser.2021.111963
+                                                                                                     F., et al. (2018). Quantifying the potential economic benefits of flexible industrial
+  Hammond, G., and Norman, J. (2014). Heat recovery opportunities in UK industry.                    demand in the european power system. IEEE Trans. Industrial Inf. 14, 5123–5132.
+Appl. Energy 116, 387–397. doi:10.1016/j.apenergy.2013.11.008                                        doi:10.1109/tii.2018.2811734
+   He, R., Dong, P., Liu, M., Huang, S., and Li, J. (2023). Research on large-scale wind               Paulus, M., and Borggrefe, F. (2011). The potential of demand-side management
+power consumption in the electricity market considering demand response and energy                   in energy-intensive industries for electricity markets in Germany. Appl. energy 88,
+storage systems. Front. Energy Res. 10, 1025152. doi:10.3389/fenrg.2022.1025152                      432–441. doi:10.1016/j.apenergy.2010.03.017
+
+
+
+
+Frontiers in Energy Research                                                                    14                                                                             frontiersin.org
+Mayer et al.                                                                                                                                          10.3389/fenrg.2024.1443506
+
+
+
+
+  Pellow, M. A., Emmott, C. J., Barnhart, C. J., and Benson, S. M. (2015). Hydrogen or             Swiss Federal Office of Energy (SFOE) (2020a). Schweizerische elektrizitätsstatistik
+batteries for grid storage? A net energy analysis. Energy and Environ. Sci. 8, 1938–1952.        2019.
+doi:10.1039/c4ee04041d
+                                                                                                   Swiss Federal Office of Energy (SFOE) (2020b). Analyse des schweizerischen
+  Petkov, I., and Gabrielli, P. (2020). Power-to-hydrogen as seasonal energy storage:            Energieverbrauchs 2000-2019 nach Verwendungszwecken. Tech. Rep.
+an uncertainty analysis for optimal design of low-carbon multi-energy systems. Appl.
+                                                                                                   The Federal Council (2019). Federal Council aims for a climate-neutral Switzerland
+Energy 274, 115197. doi:10.1016/j.apenergy.2020.115197
+                                                                                                 by 2050. (Accessed May 5, 2021).
+   Pfenninger, S., Hawkes, A., and Keirstead, J. (2014). Energy systems modeling
+                                                                                                   Trading Economics (2023). Natural Gas. Available at: https://tradingeconomics.
+for twenty-first century energy challenges. Renew. Sustain. Energy Rev. 33, 74–86.
+                                                                                                 com/commodity/eu-natural-gas.
+doi:10.1016/j.rser.2014.02.003
+                                                                                                   Torabi, R., Gomes, A., Lobo, D., and Morgado-Dias, F. (2020). Modelling
+  Ramsebner, J., Haas, R., Ajanovic, A., and Wietschel, M. (2021). The sector
+                                                                                                 demand flexibility and energy storage to support increased penetration of renewable
+coupling concept: a critical review. Wiley Interdiscip. Rev. energy Environ. 10, e396.
+                                                                                                 energy resources on porto santo. Greenh. Gases Sci. Technol. 10, 1118–1132.
+doi:10.1002/wene.396
+                                                                                                 doi:10.1002/ghg.2005
+  Reinert, C., Schellhas, L., Mannhardt, J., Shu, D. Y., Kämper, A., Baumgärtner,
+                                                                                                    United Nations (2023). For a livable climate: net-zero commitments must be backed by
+N., et al. (2022). Secmod: an open-source modular framework combining multi-
+                                                                                                 credible action. Available at: https://www.un.org/en/climatechange/net-zero-coalition
+sector system optimization and life-cycle assessment. Front. Energy Res. 10, 884525.
+doi:10.3389/fenrg.2022.884525                                                                       Victoria, M., Zhu, K., Brown, T., Andresen, G. B., and Greiner, M. (2019). The role
+                                                                                                 of storage technologies throughout the decarbonisation of the sector. Energy Convers.
+  Röben, F. T., Liu, D., Reuter, M. A., Dahmen, M., and Bardow, A. (2022).
+                                                                                                 Manag. 201, 111977. doi:10.1016/j.enconman.2019.111977
+The demand response potential in copper production. J. Clean. Prod. 362, 132221.
+doi:10.1016/j.jclepro.2022.132221                                                                   Viswanathan, V., Mongird, K., Franks, R., Li, X., and Sprenkle, V. (2022). “Energy
+                                                                                                 storage grand challenge cost and performance assessment 2022,” in Pacific Northwest
+  Rypdal, K., Paciornik, N., Eggleston, S., Goodwin, J., Irving, W.,
+                                                                                                 national laboratory, US Departmat of energy, technical report, publication, PNNL-33283.
+Penman, J., et al. (2006). 2006 IPCC guidelines for national greenhouse
+gas inventories: chapter 1. Hayama, Kanagawa, Japan: Institute for Global                           Wachs, L., McMillan, C., and Reese, S. B. (2023). Reviewing flexibility in industrial
+Environmental Strategies.                                                                        electrification: focusing on green ammonia and steel in the United States. Energy Res.
+                                                                                                 Soc. Sci. 103, 103202. doi:10.1016/j.erss.2023.103202
+   Santecchia, A., Kantor, I., Castro-Amoedo, R., and Marechal, F. (2022). Industrial
+flexibility as demand side response for electrical grid stability. Front. Energy Res. 10,          Wang, M., and Milanović, J. V. (2022). The impacts of demand side management on
+831462. doi:10.3389/fenrg.2022.831462                                                            combined frequency and angular stability of the power system. IEEE Trans. Power Syst.,
+                                                                                                 1–12. doi:10.1109/tpwrs.2022.3203887
+  Schäfer, P., Daun, T. M., and Mitsos, A. (2020). Do investments in flexibility enhance
+sustainability? a simulative study considering the German electricity sector. AIChE J.              Wang, X., Chen, Z., Xie, H., Liao, S., Ye, X., and Chen, G. (2024). Demand-side
+66, e17010. doi:10.1002/aic.17010                                                                response power control strategy considering load production sequence requirements.
+                                                                                                 Front. Energy Res. 12, 1370301. doi:10.3389/fenrg.2024.1370301
+  Sepulveda, N. A., Jenkins, J. D., Edington, A., Mallapragada, D. S., and Lester, R.
+K. (2021). The design space for long-duration energy storage in decarbonized power                 Williams, B., Bishop, D., Gallardo, P., and Chase, J. G. (2023). Demand side
+systems. Nat. Energy 6, 506–516. doi:10.1038/s41560-021-00796-8                                  management in industrial, commercial, and residential sectors: a review of constraints
+                                                                                                 and considerations. Energies 16, 5155. doi:10.3390/en16135155
+  Shaner, M. R., Davis, S. J., Lewis, N. S., and Caldeira, K. (2018). Geophysical
+constraints on the reliability of solar and wind power in the United States. Energy and            Yang, C., He, B., Liao, H., Ruan, J., and Zhao, J. (2022). Price-based low-carbon
+Environ. Sci. 11, 914–925. doi:10.1039/c7ee03029k                                                demand response considering the conduction of carbon emission costs in smart grids.
+                                                                                                 Front. Energy Res. 10, 959786. doi:10.3389/fenrg.2022.959786
+  Sternberg, A., and Bardow, A. (2015). Power-to-what? environmental assessment of
+energy storage systems. Energy and Environ. Sci. 8, 389–400. doi:10.1039/c4ee03051f                Zhang, Q., and Grossmann, I. E. (2016). Enterprise-wide optimization for industrial
+                                                                                                 demand side management: fundamentals, advances, and perspectives. Chem. Eng. Res.
+  Strasser, M. N., and Selvam, R. P. (2014). A cost and performance comparison of
+                                                                                                 Des. 116, 114–131. doi:10.1016/j.cherd.2016.10.006
+packed bed and structured thermocline thermal energy storage systems. Sol. Energy
+108, 390–402. doi:10.1016/j.solener.2014.07.023                                                    Zhang, Q., and Pinto, J. M. (2022). Energy-aware enterprise-wide optimization
+                                                                                                 and clean energy in the industrial gas industry. Comput. Chem. Eng. 165, 107927.
+  Swissgrid (2020). Energy Statistic Switzerland 2019. Available at: https://www.
+                                                                                                 doi:10.1016/j.compchemeng.2022.107927
+swissgrid.ch/en/home/operation/grid-data/generation.html
+
+
+
+
+Frontiers in Energy Research                                                                15                                                                          frontiersin.org
+Mayer et al.                                                                          10.3389/fenrg.2024.1443506
+
+
+
+
+Nomenclature
+Abbreviations
+
+BEV                battery electric vehicle
+
+CCS                carbon capture & storage
+
+DSM                demand-side management
+
+H2                 hydrogen
+
+HT                 high temperature
+
+LRC                lined rock cavern
+
+LT                 low temperature
+
+MT                 medium temperature
+
+TAC                total annualized costs
+
+TES                thermal energy storage
+
+Parameters
+
+d base
+  goods
+                   base demand for industrial production
+
+d base
+  energy           base energy demand associated with base industrial
+                   production
+
+if lex             load-varying potential
+
+t SC               storage capacity defined as time over which base demand can
+                   accumulate
+
+η                  demand-side management losses
+
+SC                 storage capacity
+
+t0                 initial time step
+
+t max              final time step
+
+Variables
+
+SL(t)              storage level at time t
+
+P(t)               production at time t
+
+in(t)              storage deposit at time t
+
+out(t)             storage withdrawal at time t
+
+Subscripts
+
+el                 electric
+
+therm              thermal
+
+
+
+
+Frontiers in Energy Research                                                     16                frontiersin.org
+

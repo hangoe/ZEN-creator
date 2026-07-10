@@ -30,8 +30,6 @@ _TES_E2P_SOURCE = SourceInformation(
 
 _TES_COST_SOURCE = SourceInformation(
     description=(
-        "Water TES: capex overridden to 1000 EUR/MWh (Mayer2024 reports 0 — no literature "
-        "value for cheap water tanks; 1000 EUR/MWh applied as a modeling friction cost). "
         "opex_specific_variable = 1 EUR/GWh (small friction to prevent spurious cycling). "
         "self_discharge = 0.95 (standing thermal loss per time step; Mayer2024 does not "
         "report self-discharge rates, so this internal assumption is used)."
@@ -66,9 +64,7 @@ class IndustryTESWater0100(StorageTechnology):
         return Mayer2024Dataset().get_efficiency_discharge(element=self)
 
     def _set_capex_specific_storage_energy(self) -> Attribute:
-        attr = Attribute("capex_specific_storage_energy", element=self)
-        attr.set_data(default_value=1000.0, unit="Euro/MWh", source=_TES_COST_SOURCE)
-        return attr
+        return Mayer2024Dataset().get_capex_specific_storage_energy(element=self)
 
     def _set_opex_specific_fixed_energy(self) -> Attribute:
         return Mayer2024Dataset().get_opex_specific_fixed_energy(element=self)
@@ -114,9 +110,7 @@ class IndustryTESWater100150(StorageTechnology):
         return Mayer2024Dataset().get_efficiency_discharge(element=self)
 
     def _set_capex_specific_storage_energy(self) -> Attribute:
-        attr = Attribute("capex_specific_storage_energy", element=self)
-        attr.set_data(default_value=1000.0, unit="Euro/MWh", source=_TES_COST_SOURCE)
-        return attr
+        return Mayer2024Dataset().get_capex_specific_storage_energy(element=self)
 
     def _set_opex_specific_fixed_energy(self) -> Attribute:
         return Mayer2024Dataset().get_opex_specific_fixed_energy(element=self)

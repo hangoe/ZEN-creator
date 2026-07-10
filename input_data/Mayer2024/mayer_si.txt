@@ -1,0 +1,738 @@
+Supplementary Material
+
+Contents
+  1    The Swiss Sector-Coupled Energy System                                                           1
+       1.1 Demands                                                                                      1
+       1.2 Techno-economic parameters of conversion and storage technologies                            4
+       1.3 Life Cycle Inventories                                                                       7
+       1.4 Renewable electricity technologies                                                           7
+       1.5 Heating technologies                                                                        10
+  2    Additional Figures                                                                              11
+
+
+S1     The Swiss Sector-Coupled Energy System
+This section describes the Swiss sector-coupled energy system model. Section S1.1 discusses the
+demands for each sector, Section S1.2 provides the techno-economic parameters for all conversion and
+storage technologies, Section S1.3 shows the calculation of GWP100-based climate change impacts, and
+Sections S1.4 and S1.5 provide more details on electricity and heat-generating technologies.
+
+S1.1     Demands
+  Sections S1.1.1, S1.1.2, and S1.1.3 describe how demands are calculated for non-industrial electricity,
+residential heat, and private transportation, respectively. Regarding spatial resolution, the demands are
+aggregated for all of Switzerland, which is represented as a 1-node system. Regarding temporal resolution,
+the demands are resolved hourly for the year 2050. In many cases, we start with data for the year 2019 and
+project it for the year 2050 based on assumptions from literature. Industrial energy demands are discussed
+in Section 2.2 of the main paper.
+S1.1.1   Non-industrial electricity demand
+  The hourly electricity demand profile is derived from data provided by SwissGrid (Swissgrid AG, 2020),
+who provide electricity consumption in 15-minute increments for the year 2019. As we consider the year
+2050, we perform several adaptations to the 2019 electricity demand: First, as the Swiss population is
+projected to grow from 8.69 million inhabitants in 2019 to 10.44 million inhabitants in 2050 (Federal
+Statistical Office (FSO), 2020), we scale the electricity demand accordingly. Second, we assume a 20%
+electricity demand reduction in 2050 due to efficiency gains (The Swiss Confederation, Fedlex - The
+publication platform for the federal law, 2021; Swiss Federal Office of Energy (SFOE), 2013; Swiss Federal
+Office of Energy (SFOE), Prognos AG, 2012). We exclude the 6 TWh yearly industrial electricity demand
+since these are accounted for in the modelling of industrial production (Section 2.2 of the main paper).
+ Additionally, we exclude the electricity demands used for residential heating applications, since these
+demands are accounted for in the heating sector (Section S1.1.2). Heat demands for space heating and
+warm water are provided by the Swiss Federal office of Energy (SFOE)(Swiss Federal Office of Energy
+
+                                                                                                        1
+Supplementary Material
+
+
+
+(SFOE), Prognos AG, TEP Energy GmbH, INFRAS AG, 2020). The demands are grouped by the energy
+sources used to supply the demands. In 2019, 13% of the heat demand of private households and 5.5% of
+the heat demand of the commercial sector was provided by electricity for electric boilers and heat pumps.
+To resolve double counting, we subtract the power consumption for residential heat from the electricity
+demand.
+  Our assumptions result in a final electricity demand of 45.2 TWh for 2050.
+S1.1.2    Residential heat demand
+
+  Our model’s residential heat demand is composed of the space heating and warm water demands of
+private households and the commercial sector, provided by the Swiss Federal office of Energy (SFOE)
+(Swiss Federal Office of Energy (SFOE), Prognos AG, TEP Energy GmbH, INFRAS AG, 2020). The
+national residential heat demand for Switzerland in 2019 was 74.7 TWh. As we consider the year 2050
+in our model, we apply a 11% reduction to the heat demand (Scenario ZERO in Swiss Federal Office
+of Energy (SFOE) (2021)). This heat demand reduction accounts for climate change and the projected
+population growth.
+  To represent the residential heat demand in time, we use the approach of Baumgärtner et al. (2021). The
+residential heat demands for the commercial sector are assumed constant throughout the year. Following
+Baumgärtner et al. (2021), we model the temporal profile of the private household residential heat demand
+using the hourly outdoor temperature of Switzerland (Renewables.ninja, 2021; Gelaro and et al., 2017) as
+follows:
+
+ 1) Days are assumed to have a heating demand only if the average daily outside temperature is above
+    12°C (Swiss Federal Office of Energy (SFOE), 2020b). Otherwise, the heat demand of the entire day is
+    assumed zero.
+ 2) For days that have a heat demand, the hourly demand is proportional to the normalized temperature
+    difference between the target indoor temperature (20°C (Swiss Federal Office of Energy (SFOE),
+    2020b)) and the outdoor temperature. This temperature difference is normalized by the sum of the
+    temperature difference for the entire year. Outdoor temperatures are taken from Renewables.ninja
+    (2021); Gelaro and et al. (2017) for the year 2019.
+
+S1.1.3    Private transportation demand
+
+  For the total private transportation demand in 2050, we use the forecast from the STEM model (Panos
+and Ramachandran, 2017; Prognos AG, 2012) of 67.1×109 vehicle kilometers (vkm). We derive an hourly
+demand profile ftv based on traffic census data (Federal Statistical Office (FSO), 2014) that includes average
+motorized vehicle counts per hour of a day at different measure points in Switzerland. We use data from
+ten measure points from the last traffic census in 2013 (Figure S1).
+  To derive the hourly private transportation demand profile for our model ftv , we normalize the hourly
+traffic counts of each measure point by the average and take the mean of the ten measure points at each
+hour. The resulting mean profile represents the ten measure points well (Figure S2).
+  The hourly private transportation demand is calculated with (Eq. S1). Every day in our model follows the
+same profile. Note further that any motorized vehicle is counted in the traffic census and not only private
+transportation. However, we assume that our hourly profile is proportional to passenger car traffic and is
+thus applicable to the private transportation demand.
+
+                                                                                                            2
+                                                                                                                              Supplementary Material
+
+
+
+
+                                                                                                 1
+                                                                         Vtpc = ftv DTV
+                                                                                    · V pcRicht.
+                                                                                           · 1+2 [-], ∀ t ∈ T .                                (S1)
+                                                                                             8760 h
+
+
+                                                       12000
+                                                                                                                             80
+                                                       10000                                                                 199
+                                                                                                                             283
+
+
+
+
+                traffic counts [-]
+                                                       8000                                                                  286
+                                                                                                                             511
+                                                       6000
+                                                                                                                             517
+                                                       4000                                                                  593
+                                                                                                                             673
+                                                       2000                                                                  686
+                                                                                                                             697
+                                                             0
+                                                                     0            6          12              18        24
+                                                                                        hour of a day
+
+Figure S1 Daily traffic counts at ten measure points in Switzerland (80-697, category: ‘DTV Richt. 1+2’)
+in 2013 (Federal Statistical Office (FSO), 2014). The traffic counts describe how many motorized vehicles
+have on average been counted at each hour of the day.
+
+                                                                          DTV Richt. 1+2 [% of AVG]
+
+
+
+                                                       250
+
+
+
+
+                traffic counts per daily average [%]
+                                                                                                                            80
+                                                                                                                            199
+                                                       200                                                                  283
+                                                                                                                            286
+                                                       150                                                                  511
+                                                                                                                            517
+                                                       100                                                                  593
+                                                                                                                            673
+                                                        50                                                                  686
+                                                                                                                            697
+                                                                                                                            MEAN
+                                                         0
+                                                                 0            6            12           18        24
+                                                                                      hour of a day
+
+Figure S2 Normalized daily traffic profiles at ten selected measure points (compare to Figure S1). The red
+line represents the mean used for our hourly demand profile.
+
+
+
+Frontiers                                                                                                                                         3
+Supplementary Material
+
+
+
+S1.2        Techno-economic parameters of conversion and storage technologies
+
+
+  The characteristics of all technologies included in our model are listed and described below. Details about
+electricity and heat sector technologies that require additional input data are found in Sections S1.4 and
+S1.5. In this section, we first present the costs and lifetimes (Section S1.2.1), including a more detailed
+explanation of the direct air capture (DAC) costs. We then present the technology efficiencies and capacity
+factors (Section S1.2.2).
+
+S1.2.1           Costs and lifetimes
+
+
+  In our model, all costs are given in EUR, implemented with a fixed average exchange rate between EUR
+and CHF of 2019 (1:1.1125) (Federal Tax Administration (FTA), 2020). Except for direct air capture,
+which has operating costs, all technologies in our model have investment and fixed, yearly maintenance
+costs. The operational costs consist purely of fuel costs and are thus already counted in the import costs.
+
+
+  We annualize the investment costs of technologies with an interest rate of 5% and we use the minimum
+of the technology lifetime and the economic investment time of 30 years for the annualization, as described
+in Baumgärtner et al. (2021). The lifetimes of all technologies are listed in Table S1, S2, S3, and S4.
+Following the Swiss Energy strategy (Swiss Federal Office of Energy (SFOE), 2021), we assume 100%
+electrification in private transportation in 2050. Thus, we assume that all transportation demand is satisfied
+by battery electric vehicles (BEVs). As we focus on energy provision, we do not include the investment
+costs of electric vehicles in our cost calculation.
+
+
+Table S1. Costs and lifetimes of electricity and heat production technologies for the year 2050 used in our Swiss energy system model.
+
+
+  Technology                 CAPEX      Maintenance     Cost                                            Lifetime
+                             [EUR/kW]   [EUR/(kW·a)]    sources                                         [years]
+  biogas-to-power            8,568      483.60          Bauer et al. (2017, 2019)                       30 (Deutsche Energie-Agentur GmbH (dena), 2018)
+  electrode boiler civil     238        4.75            Brauner (2019)                                  20 (Henning and Sauer, 2015)
+  electrode boiler LT        238        4.75            Brauner (2019)                                  20 (Henning and Sauer, 2015)
+  electrode boiler MT        238        4.75            Brauner (2019)                                  20 (Henning and Sauer, 2015)
+  thermal insulation         2,369      0.00            Baumgärtner et al. (2021)                      50 (Baumgärtner et al., 2021)
+  geothermal                 10,301     417.98          Moret (2017b,a)                                 30 (Deutsche Energie-Agentur GmbH (dena), 2018)
+  heat pump (ground) civil   472        20.21           Moret (2017b,a)                                 20 (Henning and Sauer, 2015)
+  heat pump (ground) LT      472        20.21           Moret (2017b,a)                                 20 (Henning and Sauer, 2015)
+  hydrogen-to-power          575        9.20            Palzer (2016)                                   25 (Palzer, 2016)
+  large dam /PSH hybrid      3,146      44.94           Bauer et al. (2017, 2020)                       100 (Deutsche Energie-Agentur GmbH (dena), 2018)
+  large dam pure             3,146      44.94           Bauer et al. (2017, 2020)                       100 (Deutsche Energie-Agentur GmbH (dena), 2018)
+  gas boiler MT              57         1.13            Moret (2017b,a)                                 20 (Baumgärtner et al., 2021)
+  gas boiler HT              57         1.13            Moret (2017b,a)                                 20 (Baumgärtner et al., 2021)
+  gas combined cycle         845        20.67           Bauer et al. (2017, 2020)                       20 (Baumgärtner et al., 2021)
+  photovoltaics              817        16.98           Bauer et al. (2017, 2020)                       25 (Deutsche Energie-Agentur GmbH (dena), 2018)
+  power-to-hydrogen          300        5.00            Deutsche Energie-Agentur GmbH (dena) (2018)     16 (Deutsche Energie-Agentur GmbH (dena), 2018)
+  power-to-methane           591        14.40           Deutsche Energie-Agentur GmbH (dena) (2018)     20 (Deutsche Energie-Agentur GmbH (dena), 2018)
+  run-of-river               3,146      44.94           Bauer et al. (2017, 2020)                       100 (Deutsche Energie-Agentur GmbH (dena), 2018)
+  onshore wind               2,023      67.42           Bauer et al. (2017, 2019)                       25 (Deutsche Energie-Agentur GmbH (dena), 2018)
+
+
+
+
+                                                                                                                                                          4
+                                                                                                                                      Supplementary Material
+
+
+
+Table S2. Costs and lifetimes of storage technologies for the year 2050 used in our Swiss energy system model.
+
+    Technology                    CAPEX     Maintenance OPEX    Cost                                               Lifetime
+                                  [EUR/kWh] [EUR/kWh] [EUR/kWh] sources                                            [years]
+    Li-ion battery                350         12.00    -             Deutsche Energie-Agentur GmbH (dena) (2018)   20 (Deutsche Energie-Agentur GmbH (dena), 2018)
+    hydrogen lined rock cavern    1.8         -        0.026         Papadias and Ahluwalia (2021)                 30 (Papadias and Ahluwalia, 2021)
+    gas storage tank              2.06        -        -             Schmidt et al. (2019) a                       18 (Schmidt et al., 2019)
+    pumped storage hydro (pure)   3,146       44.94    -             Bauer et al. (2017, 2020)                     100 (Deutsche Energie-Agentur GmbH (dena), 2018)
+
+
+
+
+a   converted from hydrogen storage cost using densities at 25◦ C and 100bar
+
+
+
+
+Table S3. Costs and lifetimes of transportation sector technologies for the year 2050 used in our Swiss energy system model.
+
+
+    Technology                            CAPEX                Maintenance      Cost                                   Lifetime
+                                          [EUR/car]            [EUR/(car·year)] sources                                [years]
+    battery electric vehicles Not considered a                 724.50                 Sacchi et al. (2020b,a) 14.08 (Baumgärtner et al., 2021)
+    (BEV)
+
+
+
+a   Details in Section S1.2.1
+
+
+
+
+Table S4. Costs and lifetimes of direct air capture (DAC) for the year 2050 used in our Swiss energy system model.
+
+
+    Technology CAPEX              OPEX           Cost                                                       Lifetime
+               [EUR/(ton CO2 /h)] [EUR/ton CO2 ] sources                                                    [years]
+    DAC             1,592,000                 58.33              Fasihi et al. (2019); Metz et al. (2005) 30 (Deutz and Bardow, 2021; Fasihi et al., 2019)
+
+
+
+
+Direct Air Capture (DAC)
+
+
+  We model a temperature-vacuum swing adsorption process for DAC. This DAC process consumes
+electricity and low temperature heat in order to capture CO2 (Deutz and Bardow, 2021). The costs for
+DAC plants are displayed in Table S4. The operating costs include 1) the CO2 capture process, 2) the CO2
+transport, and 3) the CO2 storage in the North Sea. Each operating cost component is explained below. We
+use an exchange rate of 1.1196 USD/EUR (Federal Tax Administration (FTA), 2020).
+
+    1) The CO2 capture process operating cost corresponds to 4% of the CAPEX, taken from the year 2020
+       as a conservative assumption (Fasihi et al., 2019).
+    2) The captured CO2 must be transported from Switzerland to the nearest carbon storage site, which
+       is Northern Lights (Furre et al., 2019) in the North Sea. We calculate the transport costs using an
+       onshore pipeline from Switzerland to Rotterdam, where the CO2 is loaded onto a ship and delivered to
+       the storage site. The Intergovernmental Panel on Climate Change (IPCC) provides costs for pipeline
+       transport with a mass flow rate of 6 Mt of CO2 per year (Metz et al., 2005). We take an average distance
+       of 800 km (reference: Lucerne-Rotterdam), given as 7.144 EUR (8 USD) per transported ton of CO2 .
+       We reduce the costs for pipeline transport by 30% due to expected scale effects by 2050 (Jakobsen
+
+Frontiers                                                                                                                                                         5
+Supplementary Material
+
+
+
+       et al., 2016). Ship transport to the Northern Lights storage site is expected to cost 5.36 EUR/ton CO2
+       in 2050 (Metz et al., 2005). Total cost of transport is thus 10.36 EUR/ton CO2 .
+    3) The costs for permanent storage are 12.95 EUR/ton CO2 (Metz et al., 2005).
+
+S1.2.2       Efficiencies and secured capacity factors
+
+  As explained by Baumgärtner et al. (2021), time series aggregation removes extreme load points from
+the optimization. Therefore, installed capacities of generation and storage technologies are likely to be
+underestimated. The secured capacity factor is introduced as a parameter to guarantee that the total available
+production through generation and storage of a given product is greater than the peak product demand,
+comprising both exogenous and sector-coupled endogenous demands.
+
+
+Table S5. Efficiencies and secured capacity factors of technologies used in our Swiss energy system model for the year 2050. Unless specified, all values are
+taken from Baumgärtner et al. (2021). Where no efficiency is given, the efficiency is implicitly included in the availability timeseries of the technologies.
+
+
+     Technology                                                                                Efficiency a or                Secured Capacity
+                                                                                                   COP b                           Factor
+     biogas-to-power                                                                                  /                             88%
+     electrode boiler civil                                                                         99%                            100%
+     electrode boiler LT                                                                            99%                            100%
+     electrode boiler MT                                                                            99%                            100%
+     thermal insulation                                                                               /                            100%
+     geothermal                                                                                       /                             90%
+     heat pump (ground) (Deutz and Bardow, 2021)                                                    2.51                           100%
+     heat pump (ground) LT (Deutz and Bardow, 2021)                                                 2.51                           100%
+     hydrogen-to-power                                                                        26.7 MWhton
+                                                                                                         elec
+                                                                                                                                        100%
+     large dam hybrid                                                                               /                                    40%
+     large dam pure                                                                                 /                                    40%
+     gas boiler MT                                                                                95%                                   100%
+     gas boiler HT                                                                                95%                                   100%
+     gas combined cycle                                                                           60%                                    86%
+     photovoltaics                                                                                  /                                     1%
+                                                                                                       ton
+     power-to-hydrogen                                                                       0.024 MWh    elec
+                                                                                                                                        100%
+     power-to-methane                                                                            58.5%                                  100%
+     run-of-river                                                                                   /                                    40%
+     onshore wind                                                                                   /                                     5%
+     DAC c                                                                                    500 MWhelec                               100%
+                                                                                            1500 MWhLTheat
+
+a heat generated per energy source consumed
+b coefficient of performance
+c for the capture of 1000 ton CO
+                                 2
+
+
+
+
+                                                                                                                                                            6
+                                                                                                                                Supplementary Material
+
+
+Table S6. Efficiencies, secured capacity factors, and energy-to-power ratios of storage technologies for the year 2050 used in our Swiss energy system model.
+Unless specified, all values are taken from Baumgärtner et al. (2021).
+
+
+    Technology                                                   Round-trip                              Secured Capacity        Energy-to-Power ratio
+                                                                 Efficiency                                   Factor                     [hrs]
+    lithium-ion battery                                  93%                                                    90%                     1.25
+    pumped storage hydro (hybrid) 80% (Swiss Federal Office of Energy (SFOE), 2020a)                            90%               2252 (Sec. S1.4.1)
+    pumped storage hydro (pure)   80% (Swiss Federal Office of Energy (SFOE), 2020a)                             90%              2252 (Sec. S1.4.1)
+    hydrogen lined rock cavern                96.3% (Berger et al., 2020)                                       100%            400 (Lord et al., 2014)
+    gas storage tank                           99% (Berger et al., 2020)                                        100%                     1a
+
+
+
+a   high-end assumption for complete discharge in 1hr
+
+
+
+
+Table S7. Average mileage and power consumption of transport technologies for the year 2050 used in our Swiss energy system model. The values are taken
+from Bundesministerium für Verkehr und digitale Infrastruktur (2020).
+
+
+    Technology                  Average mileage                                                                        Power consumption
+                                [vehicle km]                                                                           [kWh/100km]
+    battery electric vehicle    13,600 (Bundesministerium für Verkehr und digitale Infrastruktur, 2020)               14.0(Baumgärtner et al., 2021)
+    (BEV)
+
+
+
+
+S1.3        Life Cycle Inventories
+  Life cycle inventories (LCIs) are used calculate the operational climate change impacts (GWP100), which
+we constrain to net-zero. We use the same inventories as Baumgärtner et al. (2021) while updating the data
+to ecoinvent 3.7.1 APOS (Wernet et al., 2016) (rather than 3.5 APOS) and changing the locations from
+Germany to Switzerland wherever possible.
+  Processes in the LCIs can contain energy-related environmental impacts from, for instance, electricity
+production. However, since we explicitly model the energy sectors in our energy system, the energy-related
+environmental impacts are already accounted for within our system boundary. To prevent double counting,
+we delete the energy-related environmental impacts that are already accounted for in the Swiss energy
+sectors. For the deletion, we follow the approach of Volkart et al. (2018) and Reinert et al. (2021). Moreover,
+as our model considers the year 2050, we employ the dynamic LCA method from Reinert et al. (2021)
+with the updated ecoinvent 3.7.1.
+
+S1.4        Renewable electricity technologies
+  The sections below describe the modelling details beyond techno-economic parameters of electricity
+generation technologies that require more details. The techno-economic parameters, including costs,
+lifetimes, efficiencies, secured capacity factors, and lifetimes, for all technologies included in the model
+can be found in Section S1.2. Unless otherwise specified, the data for electricity generation technologies is
+taken from the open-source platform Open Power Systems Data (OPSD), which is divided into data for
+conventional (Open Power System Data, 2020a) and renewable (Open Power System Data, 2020b) power
+plants. Additionally, unless otherwise stated, techno-economic parameters are taken from Baumgärtner et
+al. (2021).
+
+Frontiers                                                                                                                                                 7
+Supplementary Material
+
+
+
+S1.4.1    Hydropower
+
+
+
+
+  Hydropower includes electricity production and storage technologies and well as combinations of the
+two. In our model, we implement four different hydropower technologies: run-of-river, pure large dam,
+pure pumped storage hydro (PSH), and a hybrid hydropower plant consisting of a large dam with PSH.
+Run-of-river power plants use the energy from flowing water to produce electricity. Large dams accumulate
+flowing water in a reservoir, subsequently releasing it for electricity production. PSH stores energy by
+pumping water into a reservoir at a higher elevation, producing electricity from the previously pumped
+water. Hybrid hydropower plants consist of both a PSH and a large dam, producing electricity from both
+natural inflow and previously pumped water (Figure S3).
+
+
+
+  To model the hybrid hydropower plant, we divide the hybrid large dam and hybrid PSH into two separate
+technologies and couple them via the power production capacity, P h [MW], equating it to both the power
+production capacity for hybrid large dam, P ld,h , and to the power production/storage capacity for the
+hybrid PSH, P psh,h (Equation S2). The power production/storage capacity for the hybrid PSH is calculated
+by multiplying the hybrid PSH energy storage capacity, E psh,h [MWh], by its flow-to-storage capacity
+factor, f psh . To calculate the flow-to-storage capacity factor, we divide the total existing Swiss PSH turbine
+capacity, P psh,tc (3.52 GW (Open Power System Data, 2020a)), by 90% of the total existing storage
+volume of Swiss PSH reservoirs, E psh,sc (8.8 TWh (Felix et al., 2020)) (Equation S3). The 90% is assumed
+due to the reported 10% of unused reservoir volume that is always kept as backup (Swiss Federal Office of
+Energy (SFOE), 2020a; Felix et al., 2020).
+
+
+
+  To limit the simultaneous production of the hybrid large dam, Ptld,h , and the hybrid PSH system, Ptpsh,h ,
+at a given time step, t, we add a constraint that limits the total simultaneous production from the hybrid
+system to its existing power production capacity (Equation S4).
+
+
+
+
+                                   P h = P ld,h = P psh,h = E psh,h · f psh                                (S2)
+
+
+
+
+                                                  P psh,tc
+                                     f psh =                  = 4.4 · 10−4                                 (S3)
+                                               0.9 · E psh,sc
+
+
+
+
+                                 Ptld,h + |Ptpsh,h | ≤ f psh · E psh,h ∀ t ∈ τ                             (S4)
+
+                                                                                                              8
+                                                                                                                               Supplementary Material
+
+
+
+
+Figure S3 Energy flows of a hybrid hydropower plant consisting of a large dam and a pumped storage
+hydro (PSH) system. At a given time step, t, electricity can either be generated through natural inflow via
+the large dam, Etld,h , or stored or withdrawn via the PSH system, Etpsh,h .
+
+
+  The existing and potential capacities for the 4 hydropower technologies in 2050 are given in Table S8.
+Data for existing capacities for all hydropower technologies in 2019 are taken from a combination of the
+OPSD data (Open Power System Data, 2020a) and from the official Swiss statistics on hydropower plants
+(Swiss Federal Office of Energy (SFOE), 2018). According to a study by the Swiss Federal Office of
+Energy (SFOE) (Swiss Federal Office of Energy (SFOE), 2019c), the Swiss hydropower production is
+expected to increase by 1.56 TWh/a until 2050. The study distinguishes between expected increase for
+large hydropower plants (> 10MW), which we allocate to large dams (both pure and hybrid), and for small
+hydropower plants (< 10MW), which we allocate to to run-of-river.
+  The hourly electricity generation from run-of-river and large dams is limited to the natural inflow of
+water. We calculate the electricity availability time series based on reported monthly electricity generation
+levels by hydropower technology (Swiss Federal Office of Energy (SFOE), 2019a). We set the monthly
+time series as the ratio of the monthly production and the maximum potential production based on the
+existing capacities. We assume the same availability for every hour in a given month.
+
+Table S8. Existing and potential capacities for hydropower technologies in 2050. Data for existing capacities is taken from Open Power System Data (2020a);
+Swiss Federal Office of Energy (SFOE) (2018) and data for potential capacities from Swiss Federal Office of Energy (SFOE) (2019c). Cost and lifetime
+parameters are given in Tables S1 and S2. Efficiencies are given in Tables S5 and S6.
+
+
+     Technology                                                             Existing Capacity                       Potential Capacity
+     run-of-river                                                           4.45 GW                                 4.71 GW
+     pure large dam                                                         8.27 GW                                 8.49 GW
+     pure pumped storage hydro (PSH)a                                       1.2 TWh/528 MW                          1.2 TWh/528 MW
+     hybrid large dam with PSHa                                             6.7 TWh/2.98 GW                         6.8 TWh/3.04 GW
+                                                                                MW
+a   Capacities for PSH consider a flow-to-storage capacity factor of 4.4 × 10−4 MWh .
+
+
+
+
+S1.4.2        Photovoltaics and Wind Power
+ To derive the hourly production profiles of photovoltaic (PV) and wind technologies, both the maximum
+potential capacity and the hourly capacity factors are needed. Capacity factors refer to the share of the
+
+Frontiers                                                                                                                                               9
+Supplementary Material
+
+
+
+maximum potential capacity that can be generated depending on the temporal availability of renewables.
+Our maximum potential PV capacity for the year 2050 is 67 TWh (Federal Department of the Environment,
+Transport, Energy and Communications (DETEC), 2018; Swiss Federal Office of Energy (SFOE), 2019b).
+We assume the scenario where PV covers roofs and facades of houses. Our potential wind capacity for
+the year 2050 is 4.3 TWh (Swiss Federal Office of Energy (SFOE), 2021). Our hourly capacity factors
+are derived from Renewables.ninja (Renewables.ninja, 2021; Pfenninger and Staffell, 2016; Staffell and
+Pfenninger, 2016), who provides a history of hourly capacity factors for PV and wind power based on
+weather data.
+S1.4.3    Biogas and Geothermal
+  Our biogas-to-power electricity capacity includes all biomass and biogas power plants, sewage and landfill
+gas power plants, and other bioenergy and renewable waste plants from the OPSD data for Switzerland,
+yielding a total generation capacity of 87.2 MW (Open Power System Data, 2020b). All biogas technologies
+are represented by a single technology with a constant hourly availability of 57% (Kannan and Turton,
+2011), or 50 MWh. We justify this simplified implementation since bioenergy technologies are similar and
+have a low overall contribution to the Swiss electricity mix now and in future decades (Swiss Federal Office
+of Energy (SFOE), 2013). Biogas-to-power plants are modeled as a pure power-producing technology,
+without heat cogeneration.
+  Regarding geothermal electricity, we set the potential capacity in 2050 to 2 TWh (Swiss Federal Office
+of Energy (SFOE), 2021) and assume a constant hourly availability.
+
+S1.5     Heating technologies
+S1.5.1    Heat pumps and electrode boilers
+  Heat pumps, electrode boilers, and gas burners are used to supply heat at different temperature levels
+(Table 2). However, heat pumps are not an option for the entire low temperature (LT) range in our model.
+Similarly, electrode boilers are not an option over the entire medium temperature (MT) range. Although
+heat pumps with a heat supply for temperatures above 100°C are already under development, they are not
+commercially available (Arpagaus et al., 2017). Similar holds true for electrode boilers, for which different
+sources define a maximum temperature level between 350°C-500°C (Antoni et al., 2015; Forschungsstelle
+für Energiewirtschaft e.V. (FfE), 2017; PARAT Halvorsen AS, 2021). Therefore, we limit the potential
+capacities of LT heat pumps and MT electrode boilers in our model. The LT heat pump’s capacities are
+constrained to supply at maximum the industrial process heat demand between 0-100°C, and the MT
+electrode boiler’s capacities are constrained to the demand between 200°C-400°C. However, LT heat pumps
+in our model are free to supply additional heat for DAC.
+S1.5.2    Energetic rehabilitation
+  We constrain energetic rehabilitation such that it can at maximum provide 50% of the civil heat demand.
+This implementation is in accordance with a study by Palzer on Germany (Palzer, 2016), who show that
+the rehabilitation increases the thermal insulation and results in a 50% reduction of the heating demand of
+a building. The Swiss advisory platform Energieheld (Energieheld Schweiz, 2021) also refers to German
+data (co2online, 2021) when defining the reduction potential for Swiss buildings to be around 50%.
+
+
+
+
+                                                                                                         10
+                                                                                     Supplementary Material
+
+
+
+
+S2   Additional Figures
+
+
+
+
+Figure S4 Total cost of the optimized energy system, in billion euro, depending on the number of typical
+days used for the time series aggregation. Red cross corresponds to our selected 25 typical days.
+
+
+
+
+Figure S5 Solution time of the energy system optimization depending on the number of typical days used
+for the time series aggregation. Red cross corresponds to our selected 25 typical days.
+
+
+
+
+Frontiers                                                                                               11
+Supplementary Material
+
+
+
+
+Figure S6 New Low-Cost Dispatch scenario: yearly profiles for CO2 captured (top row) and natural gas
+imports (bottom row) for varying storage capacities (columns). The Reference case corresponds to no
+industrial DSM (if lex = 0). The 12-hour and 6-month storage capacity plots assume 100% load-shifting
+potential (if lex = 1) and 100% discharge efficiency (η = 1).
+
+
+
+
+                                                                                                  12
+                                                                                           Supplementary Material
+
+
+
+
+Figure S7 % cost reduction for the net-zero sector-coupled system for different values of load-varying
+potential, if lex, and discharge efficiency, η, vs. the reference case of no industrial DSM. Rows correspond
+to scenarios and columns correspond to the storage capacity in terms of the storage capacity time
+interval, tSC , over which the demand for goods, dbase goods , can accumulate. Red lines indicate the efficiency
+corresponding to 20% of the maximum cost reduction for the respective storage size, when considering
+iflex = 1.
+
+
+
+
+Frontiers                                                                                                     13
+Supplementary Material
+
+
+
+
+References
+[Dataset] Antoni, O., Sager, C., and Gerhardt, N. (2015). Wärme-Roadmap und Handlungsempfehlungen.
+  Fraunhofer-Institut für Energiewirtschaft und Energiesystemtechnik (IEE)
+[Dataset] Arpagaus, C., Bless, F., Schiffmann, J., and Bertsch, S. (2017). Review on High Temperature
+  Heat Pumps – Market Overview and Research Status. doi:10.13140/RG.2.2.32913.94564
+Bauer, C., Hirschberg, S., Bäuerle, Y., Biollaz, S., Calbry-Muzyka, A., Cox, B., et al. (2017). Potentials,
+  costs and environmental assessment of electricity generation technologies. Tech. rep., PSI, WSL, ETHZ,
+  EPFL
+[Dataset] Bauer, C., Hirschberg, S., Bäuerle, Y., Biollaz, S., Calbry-Muzyka, A., Cox, B., et al. (2019).
+  Potentials, costs and environmental assessment of electricity generation technologies, dataset version
+  2019-03-29
+[Dataset] Bauer, C., Hirschberg, S., Bäuerle, Y., Biollaz, S., Calbry-Muzyka, A., Cox, B., et al. (2020).
+  Potentials, costs and environmental assessment of electricity generation technologies, dataset version
+  2020-03-05
+Baumgärtner, N., Deutz, S., Reinert, C., Nolzen, N., Kuepper, L. E., Hennen, M., et al. (2021). Life-Cycle
+  Assessment of Sector-Coupled National Energy Systems: Environmental Impacts of Electricity, Heat,
+  and Transportation in Germany Till 2050. Frontiers in Energy Research 9, 27. doi:10.3389/fenrg.2021.
+  621502
+Berger, M., Radu, D., Fonteneau, R., Deschuyteneer, T., Detienne, G., and Ernst, D. (2020). The role of
+  power-to-gas and carbon capture technologies in cross-sector decarbonisation strategies. Electric Power
+  Systems Research 180, 106039. doi:https://doi.org/10.1016/j.epsr.2019.106039
+Brauner, G. (2019). Systemeffizienz bei regenerativer Stromerzeugung (Springer Vieweg, Wiesbaden), 1
+  edn. doi:10.1007/978-3-658-24854-3
+Bundesministerium für Verkehr und digitale Infrastruktur (2020). Verkehr in Zahlen 2020/2021. Tech. rep.
+[Dataset] co2online (2021). Accessed: June 19, 2021
+[Dataset] Deutsche Energie-Agentur GmbH (dena) (2018). dena-Leitstudie Integrierte Energiewende -
+  Impulse für die Gestaltung des Energiesystems bis 2050
+Deutz, S. and Bardow, A. (2021). Life-cycle assessment of an industrial direct air capture process based on
+  temperature–vacuum swing adsorption. Nature Energy 6, 203–213. doi:10.1038/s41560-020-00771-9
+[Dataset] Energieheld Schweiz (2021). Dämmung in der Schweiz - so können Sie sparen. Accessed: June
+  19, 2021
+Fasihi, M., Efimova, O., and Breyer, C. (2019). Techno-economic assessment of CO2 direct air capture
+  plants. Journal of Cleaner Production 224, 957–980. doi:https://doi.org/10.1016/j.jclepro.2019.03.086
+[Dataset] Federal Department of the Environment, Transport, Energy and Communications (DETEC)
+  (2018). Solarenergiepotenziale der Schweizer Gemeinden - Version 01.01.2021
+[Dataset] Federal Statistical Office (FSO) (2014). DE/FRAutomatische Strassenverkehrszählung
+Federal Statistical Office (FSO) (2020). DE/FRSzenarien zur Bevölkerungsentwicklung der Schweiz und
+  der Kantone 2020-2050 , 84
+[Dataset] Federal Tax Administration (FTA) (2020). Jahresmittelkurse 2019
+Felix, D., Müller-Hagmann, M., and Boes, R. (2020). Ausbaupotenzial der bestehendenSpeicherseen in
+  der Schweiz. Wasser Energie Luft 1/2020, 1–10
+[Dataset] Forschungsstelle für Energiewirtschaft e.V. (FfE) (2017). Kurzstudie Power-to-X
+Furre, A.-K., Meneguolo, R., Ringrose, P., and Kassold, S. (2019). Building confidence in CCS: From
+  Sleipner to the Northern Lights Project. First Break 37, 81–87. doi:10.3997/1365-2397.n0038
+
+                                                                                                        14
+                                                                                        Supplementary Material
+
+
+
+Gelaro, R. and et al., W. M. (2017). The Modern-Era Retrospective Analysis for Research and Applications,
+  Version 2 (MERRA-2). Journal of Climate 30, 5419 – 5454. doi:10.1175/JCLI-D-16-0758.1
+Henning, H.-M. and Sauer, D. U. (2015).                   Demand-Side-Management im Wärmemarkt -
+  Technologiesteckbrief zur Analyse ”Flexibilitätskonzepte für die Stromversorgung 2050”. Tech. rep.
+Jakobsen, J., Roussanaly, S., and Anantharaman, R. (2016). A techno-economic case study of CO2 capture,
+  transport and storage chain from a cement plant in Norway. Journal of Cleaner Production 144, 523–539.
+  doi:10.1016/j.jclepro.2016.12.120
+Kannan, R. and Turton, H. (2011). Documentation on the Development of the Swiss TIMES Electricity
+  Model (STEM-E). Tech. rep., Paul Scherrer Institut (PSI)
+Lord, A. S., Kobos, P. H., and Borns, D. J. (2014). Geologic storage of hydrogen: Scaling up to meet
+  city transportation demands. International Journal of Hydrogen Energy 39, 15570–15582. doi:https:
+  //doi.org/10.1016/j.ijhydene.2014.07.121
+Metz, B., Davidson, O., de Coninck, H., Loos, M., and Meyer, L. (2005). IPCC Special Report on Carbon
+  Dioxide Capture and Storage. Tech. rep., Intergovernmental Panel on Climate Change (IPCC)
+[Dataset] Moret, S. (2017a). Energy conversion technologies in SES - version 2017-12-12
+Moret, S. (2017b). Strategic planning under uncertainty. Ph.D. thesis, École polytechnique fédérale de
+  Lausanne (EPFL). doi:10.5075/epfl-thesis-7961
+[Dataset] Open Power System Data (2020a). Data Package Conventional power plants - Version 2020-10-01.
+  doi:10.25832/conventional power plants/2020-10-01
+[Dataset] Open Power System Data (2020b). Data Package Renewable power plants - Version 2020-05-20.
+  doi:10.25832/renewable power plants/2020-08-25
+Palzer, A. (2016). Sektorübergreifende Modellierung und Optimierung eines zukünftigen deutschen
+  Energiesystems unter Berücksichtigung von Energieeffizienzmaßnahmen im Gebäudesektor. Tech. rep.,
+  Fraunhofer-Institut für Solare Energiesysteme ISE
+[Dataset] Panos, E. and Ramachandran, K. (2017). Transport demand in stem, version 2017-12-15
+Papadias, D. and Ahluwalia, R. (2021). Bulk storage of hydrogen. International Journal of Hydrogen
+  Energy 46, 34527–34541. doi:https://doi.org/10.1016/j.ijhydene.2021.08.028
+[Dataset] PARAT Halvorsen AS (2021). PARAT Elektrodenkessel Referenzen. Accessed: June 28, 2021
+Pfenninger, S. and Staffell, I. (2016). Long-term patterns of European PV output using 30 years of validated
+  hourly reanalysis and satellite data. Energy 114, 1251–1265. doi:10.1016/j.energy.2016.08.060
+Prognos AG (2012). Die Energieperspektiven für die Schweiz bis 2050. Tech. rep.
+Reinert, C., Deutz, S., Minten, H., Dörpinghaus, L., von Pfingsten, S., Baumgärtner, N., et al. (2021).
+  Environmental impacts of the future German energy system from integrated energy systems optimization
+  and dynamic life cycle assessment. Computers & Chemical Engineering 153, 107406. doi:10.1016/j.
+  compchemeng.2021.107406
+[Dataset] Renewables.ninja (2021). Renewables.ninja. Accessed: April 22, 2021
+[Dataset] Sacchi, R., Bauer, C., Cox, B., and Mutel, C. (2020a). Car technicoeconomic data and
+  performance projections - version 2020-04-27
+Sacchi, R., Bauer, C., Cox, B., and Mutel, C. (2020b). carculator: an open-source tool for prospective
+  environmental and economic life cycle assessment of vehicles. When, Where and How can battery-
+  electric vehicles help reduce greenhouse gas emissions? In review
+Schmidt, O., Melchior, S., Hawkes, A., and Staffell, I. (2019). Projecting the future levelized cost of
+  electricity storage technologies. Joule 3, 81–100. doi:https://doi.org/10.1016/j.joule.2018.12.008
+Staffell, I. and Pfenninger, S. (2016). Using bias-corrected reanalysis to simulate current and future wind
+  power output. Energy 114, 1224–1239. doi:10.1016/j.energy.2016.08.068
+
+Frontiers                                                                                                  15
+Supplementary Material
+
+
+
+Swiss Federal Office of Energy (SFOE) (2013). Energieperspektiven 2050 Zusammenfassung. Tech. rep.
+[Dataset] Swiss Federal Office of Energy (SFOE) (2018). Statistik der Wasserkraftanlagen der Schweiz.
+  Stand 1.1.2018
+[Dataset] Swiss Federal Office of Energy (SFOE) (2019a). Gesamte Erzeugung und Abgabe elektrischer
+  Energie in der Schweiz 2018
+Swiss Federal Office of Energy (SFOE) (2019b). Sonnendach.ch und Sonnenfassade.ch: Berechnung von
+  Potenzialen in Gemeinden. Tech. rep., Swiss Federal Office of Energy (SFOE)
+Swiss Federal Office of Energy (SFOE) (2019c). Wasserkraftpotenzial der Schweiz - Abschätzung des
+  Ausbaupotenzials der Wasserkraftnutzung im Rahmen der Energiestrategie 2050. Tech. rep.
+Swiss Federal Office of Energy (SFOE) (2020a). Schweizerische Elektrizitätsstatistik 2019. Tech. rep.
+Swiss Federal Office of Energy (SFOE) (2020b). Schweizerische Gesamtenergiestatistik 2019. Tech. rep.
+Swiss Federal Office of Energy (SFOE) (2021). Energieperspektiven 2050+. Kurzbericht. Tech. rep.
+Swiss Federal Office of Energy (SFOE), Prognos AG (2012). Die Energieperspektiven für die Schweiz bis
+  2050 Anhang III. Tech. rep.
+[Dataset] Swiss Federal Office of Energy (SFOE), Prognos AG, TEP Energy GmbH, INFRAS AG (2020).
+  Analyse des schweizerischen Energieverbrauchs 2000 - 2019 nach Verwendungszwecken
+[Dataset] Swissgrid AG (2020). Energy Statistic Switzerland 2019
+[Dataset] The Swiss Confederation, Fedlex - The publication platform for the federal law (2021).
+  Energiegesetz (EnG) vom 30. September 2016 (Stand am 1. Januar 2021)
+Volkart, K., Mutel, C. L., and Panos, E. (2018). Integrating life cycle assessment and energy system
+  modelling: Methodology and application to the world energy scenarios. Sustainable Production and
+  Consumption 16, 121–133. doi:10.1016/j.spc.2018.07.001
+Wernet, G., Bauer, C., Steubing, B., Reinhard, J., Moreno-Ruiz, E., and Weidmann, B. (2016). The
+  ecoinvent database version 3 (part I): overview and methodology. The International Journal of Life
+  Cycle Assessment 21, 1218–1230. doi:10.1007/s11367-016-1087-8
+
+
+
+
+                                                                                                   16
+

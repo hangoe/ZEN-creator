@@ -489,7 +489,8 @@ parametrized from Mayer et al. (2024), Table 3:
 
 - **`industry_TES_water`** (water tank): stores heat at the
   `heat_industry_0_100` temperature level. Water tanks are the lowest-cost
-  TES option; Mayer2024 reports zero investment cost and low fixed O&M.
+  TES option in Mayer2024, but not free — see corrected values below
+  (v5.2+; earlier versions incorrectly transcribed the investment cost as 0).
 - **`industry_TES_steam`** (steam accumulator): stores heat at the
   `heat_industry_100_150` temperature level.
 
@@ -497,14 +498,25 @@ parametrized from Mayer et al. (2024), Table 3:
 
 | Parameter                       | Water tank        | Steam accumulator |
 |---------------------------------|-------------------|-------------------|
-| Round-trip efficiency           | 0.97              | 0.97              |
-| → `efficiency_charge`           | √0.97 ≈ 0.985    | √0.97 ≈ 0.985    |
-| → `efficiency_discharge`        | √0.97 ≈ 0.985    | √0.97 ≈ 0.985    |
-| Investment cost (source)        | 0 EUR/kWh         | 117 EUR/kWh       |
-| → `capex_specific_storage_energy` | 0 EUR/MWh       | 117,000 EUR/MWh   |
-| Fixed O&M cost (source)         | 0.17 EUR/kWh      | 4.7 EUR/kWh       |
-| → `opex_specific_fixed_energy`  | 170 EUR/MWh       | 4,700 EUR/MWh     |
-| Lifetime                        | 40 years          | 25 years          |
+| Round-trip efficiency           | 0.9               | 0.95              |
+| → `efficiency_charge`           | √0.9 ≈ 0.949     | √0.95 ≈ 0.975    |
+| → `efficiency_discharge`        | √0.9 ≈ 0.949     | √0.95 ≈ 0.975    |
+| Investment cost (source)        | 10 EUR/kWh        | 114 EUR/kWh       |
+| → `capex_specific_storage_energy` | 10,000 EUR/MWh  | 114,000 EUR/MWh   |
+| Fixed O&M cost (source)         | 0.15 EUR/kWh      | 4.1 EUR/kWh       |
+| → `opex_specific_fixed_energy`  | 150 EUR/MWh       | 4,100 EUR/MWh     |
+| Lifetime                        | 30 years          | 25 years          |
+
+**Correction (v5.2+)**: the `Mayer2024_Table3.csv` water tank and steam
+accumulator rows were transcribed incorrectly (water tank investment cost
+was entered as 0 instead of 10 EUR/kWh; both rows' efficiency, fixed O&M,
+and water tank lifetime also had small transcription errors). Values above
+were re-checked directly against Mayer et al. (2024), Table 3, page 6
+(`input_data/Mayer2024/Mayer2024.pdf`). The `capex_specific_storage_energy`
+override of 1000 EUR/MWh previously applied to water tanks (rationalized as
+a "modeling friction cost" for an assumed zero-cost literature value) has
+been removed — water tanks now use the Mayer2024-sourced value like all
+other TES parameters.
 
 - **Efficiency split**: the round-trip efficiency from the source is split
   symmetrically between charge and discharge: `η_charge = η_discharge =
@@ -740,12 +752,12 @@ computed parameter values and model output are unchanged.
 
 ### TES water tanks (industry_TES_water_0_100, industry_TES_water_100_150)
 
-- **`capex_specific_storage_energy` = 1000 EUR/MWh** — Mayer et al. (2024) Table 3
-  reports 0 EUR/kWh for water tanks (no literature value available). 1000 EUR/MWh
-  (= 1 EUR/kWh) is applied as a modeling friction cost to prevent the optimizer from
-  installing unlimited capacity at zero cost.
-- Source: internal assumption; Mayer et al. (2024) Renewable and Sustainable Energy
-  Reviews, Table 3.
+- **`capex_specific_storage_energy` = 10,000 EUR/MWh** (v5.2+, corrected) — sourced
+  directly from Mayer et al. (2024) Table 3 (10 EUR/kWh, IRENA 2013), via
+  `Mayer2024_Table3.csv`. Prior versions used a 1000 EUR/MWh placeholder based on the
+  mistaken belief that Mayer2024 reported 0 EUR/kWh for water tanks; that was a
+  transcription error in the CSV, not an actual literature gap — see the
+  correction note above.
 
 ### TES — all technologies (water 0–100, water 100–150, steam 100–150, steam 150–200)
 
