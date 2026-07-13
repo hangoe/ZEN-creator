@@ -574,7 +574,8 @@ exist in the base Crystal Ball dataset — no new carrier classes are needed in 
 
 ### Parametrization
 
-DSM storages are modeled as perfect storages with no losses:
+DSM storages are modeled as perfect storages with no losses, **except `ammonia_DSM`**
+(see below):
 
 | Parameter                         | Value                        |
 |-----------------------------------|------------------------------|
@@ -591,7 +592,7 @@ DSM storages are modeled as perfect storages with no losses:
   ability to reschedule production within a planning period.
 - **Power unit**: `tonproduct/hour`, matching production technology capacity units.
 
-### Energy-to-power ratio bounds (v4.6+)
+### Energy-to-power ratio bounds (v4.6+; `ammonia_DSM` unbounded from v5.3+)
 
 | Technology | `energy_to_power_ratio_max` (h) | Rationale |
 |---|---|---|
@@ -599,7 +600,7 @@ DSM storages are modeled as perfect storages with no losses:
 | `ceramic_DSM` | 168 (1 week) | Thermally stable product; Mayer2024 tsc |
 | `paper_DSM` | 168 (1 week) | Stable inventory; Mayer2024 tsc |
 | `food_DSM` | 48 (2 days) | Perishability limits storage horizon |
-| `ammonia_DSM` | 168 (1 week) | Stable liquid/gas; typical industrial storage |
+| `ammonia_DSM` | inf (default, v5.3+) | See "Ammonia storage re-parametrization" below |
 | `clinker_DSM` | 168 (1 week) | Very stable cement intermediate |
 | `methanol_DSM` | 168 (1 week) | Stable liquid chemical |
 | `primary_steel_DSM` | 168 (1 week) | Stable material |
@@ -609,6 +610,65 @@ DSM storages are modeled as perfect storages with no losses:
 - `energy_to_power_ratio_min` is left at 0 (default) for all DSM techs — no minimum
   inventory depth is physically required.
 - Values follow the storage capacity time intervals (tsc) from Mayer et al. (2024).
+
+### Ammonia storage re-parametrization (v5.3+, from Liu2025)
+
+`ammonia_DSM` was re-parametrized from the internal placeholder assumptions above to
+real techno-economic data from Liu et al. (2025), *"Techno-economic analysis of using
+ammonia as an energy carrier for renewable energy conversion and storage"*, Int. J.
+Hydrogen Energy 162 (2025) 150784 (`input_data/Liu2025/`). The paper models a
+pressurized, ambient-temperature liquid ammonia storage tank (~11–15 bar), with
+identical cost/efficiency figures reported across all five power-route tables in the
+SI (Tables S2/S3/S7/S11/S15/S19):
+
+| Year | CAPEX (USD/kWh) | Fixed O&M (% of CAPEX/yr) | Energy loss | Lifetime |
+|---|---|---|---|---|
+| 2023 | 0.00910 | 2% | 4% | 30 yr |
+| 2030 | 0.00610 | 2% | 4% | 30 yr |
+| 2040 | 0.00485 | 2% | 4% | 30 yr |
+| 2050 | 0.00379 | 2% | 4% | 30 yr |
+
+Transcribed into `input_data/Liu2025/Liu2025_ammonia_storage.csv` and consumed via
+`zen_creator/datasets/datasets/liu2025.py::Liu2025Dataset`.
+
+**Before / after:**
+
+| Parameter | Old (internal assumption) | New (Liu2025, 2023 value) |
+|---|---|---|
+| `capex_specific_storage_energy` | 10 EUR/GWh | ≈8,372 EUR/GWh (declining to ≈3,487 EUR/GWh by 2050) |
+| `opex_specific_fixed_energy` | — (not set) | ≈167 EUR/GWh/yr (2% of capex; declining with capex) |
+| `opex_specific_variable` | 10 EUR/(GW·h) | — (removed; no variable/per-throughput cost in Liu2025) |
+| `efficiency_charge` / `efficiency_discharge` | 1.0 (perfect) | √0.96 ≈ 0.9798 each |
+| `lifetime` | 50 years | 30 years |
+| `capacity_limit` | 2 × per-node ammonia demand | unbounded (default; removed) |
+| `energy_to_power_ratio_max` | 168 h (1 week) | unbounded (default; removed) |
+
+**Unit conversions**: CAPEX is USD/kWh of ammonia energy content (5.17 kWh/kg NH3,
+per the paper's LHV-based conversion) → converted to EUR/GWh by ×0.92 (USD→EUR,
+internal assumption — Liu2025 gives no EUR figures or base year, and no such
+conversion existed elsewhere in this repo) ×1e6 (kWh→GWh). Fixed O&M is computed as
+2% of the (already-converted) CAPEX for each year.
+
+**Efficiency ambiguity**: the paper's narrative text describes the 4% loss as
+covering "the transportation and storage process" jointly, but the SI tables list a
+separate, identically-valued "Energy loss (%)" row for the storage stage alone. This
+re-parametrization treats the 4% as a storage-only round-trip loss (96% round-trip
+efficiency), split symmetrically as `η_charge = η_discharge = √0.96`, matching the
+convention used for `industry_TES` (Mayer2024). If the 4% turns out to be a
+transport+storage combined figure, the true storage-only efficiency would be higher
+than modeled here.
+
+**Removed friction bounds**: the old `capacity_limit` (2× demand) and
+`energy_to_power_ratio_max` (168 h) existed only to stop the optimizer from
+over-building a near-free virtual storage. Liu2025 states that ammonia storage cost
+"is independent of annual operating hours and capacity factor... solely related to
+the mass" — i.e. there is no power-basis cost and no stated duration limit. With real
+energy-basis CAPEX now driving sizing, these bounds are unnecessary and were removed,
+matching `industry_TES` (which has no `capacity_limit` override either).
+
+**Expected effect**: the new CAPEX is roughly 800× the old placeholder, so built
+`ammonia_DSM` capacity is expected to drop substantially compared to earlier versions
+— this reflects the storage no longer being artificially cheap, not a bug.
 
 ## Existing capacity spread over vintage cohorts (v4.4+)
 

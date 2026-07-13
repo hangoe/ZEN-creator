@@ -4,6 +4,7 @@ from .faostat_food import FaostatFoodDataset
 from .heat_tech_parametrization import HeatTechParametrizationDataset
 from .industry_carrier_data import IndustryCarrierDataset
 from .jrc_idees_industry import JrcIdeesIndustryDataset
+from .liu2025 import Liu2025Dataset
 from .mayer2024 import Mayer2024Dataset
 from .metadata import MetaData, SourceInformation
 from .process_parametrization import ProcessParametrizationDataset
@@ -14,6 +15,7 @@ __all__ = [
     "HeatTechParametrizationDataset",
     "IndustryCarrierDataset",
     "JrcIdeesIndustryDataset",
+    "Liu2025Dataset",
     "Mayer2024Dataset",
     "MetaData",
     "ProcessParametrizationDataset",

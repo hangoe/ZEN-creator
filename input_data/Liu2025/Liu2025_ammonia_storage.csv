@@ -1,0 +1,5 @@
+year,capex_usd_per_kwh,opex_pct_of_capex,energy_loss_pct,lifetime_years
+2023,0.00910,2,4,30
+2030,0.00610,2,4,30
+2040,0.00485,2,4,30
+2050,0.00379,2,4,30

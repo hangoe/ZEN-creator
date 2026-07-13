@@ -1,9 +1,14 @@
 """Industry demand-side management (DSM) storage technologies.
 
 Product carriers get a DSM storage that allows the optimizer to shift production
-in time. The storages are modeled as perfect (no losses, efficiency=1.0) with an
+in time. Most storages are modeled as perfect (no losses, efficiency=1.0) with an
 energy capex of 1.0 EUR/(tonproduct/hour*h) to prevent economically unjustified
 over-building while still allowing cost-effective flexibility.
+
+`ammonia_DSM` is the exception: it is parametrized from Liu2025's real ammonia
+storage tank data (CAPEX, fixed O&M, efficiency, lifetime) instead of the internal
+placeholder assumptions used by its siblings, so it has real losses and real capex
+rather than perfect/near-free flexibility.
 
 Covered carriers:
   - glass, ceramic, paper, food  (industry_heat sector products)
@@ -20,6 +25,7 @@ if TYPE_CHECKING:
 
 import numpy as np
 
+from zen_creator.datasets.datasets.liu2025 import Liu2025Dataset
 from zen_creator.datasets.datasets.metadata import MetaData, SourceInformation
 from zen_creator.elements.storage_technologies.storage_technology import (
     StorageTechnology,
@@ -224,6 +230,15 @@ class FoodDSM(StorageTechnology):
 # ---------------------------------------------------------------------------
 
 class AmmoniaDSM(StorageTechnology):
+    """Ammonia storage, parametrized from Liu2025's real ammonia storage tank data.
+
+    Unlike the other DSM technologies in this module, this is not a perfect/
+    near-free virtual flexibility instrument: it has real capex, fixed O&M, and
+    charge/discharge losses derived from Liu2025's techno-economic ammonia
+    storage data. `capacity_limit` and `energy_to_power_ratio_max` are left at
+    their base-class defaults (unbounded) since Liu2025 states storage cost is
+    independent of capacity factor/duration and real capex now drives sizing.
+    """
 
     name: str = "ammonia_DSM"
 
@@ -233,28 +248,20 @@ class AmmoniaDSM(StorageTechnology):
     def _set_reference_carrier(self) -> Attribute:
         return Attribute(name="reference_carrier", default_value=["ammonia"], element=self)
 
-    def _set_capacity_limit(self) -> Attribute:
-        return _dsm_capacity_limit(self, "ammonia")
-
     def _set_lifetime(self) -> Attribute:
-        attr = Attribute("lifetime", element=self)
-        attr.set_data(default_value=_DSM_LIFETIME, unit="1", source=_DSM_SOURCE)
-        return attr
+        return Liu2025Dataset().get_lifetime(element=self)
+
+    def _set_efficiency_charge(self) -> Attribute:
+        return Liu2025Dataset().get_efficiency_charge(element=self)
+
+    def _set_efficiency_discharge(self) -> Attribute:
+        return Liu2025Dataset().get_efficiency_discharge(element=self)
 
     def _set_capex_specific_storage_energy(self) -> Attribute:
-        attr = Attribute("capex_specific_storage_energy", element=self)
-        attr.set_data(default_value=_CAPEX, unit="Euro/(GW*h)", source=_DSM_SOURCE)
-        return attr
+        return Liu2025Dataset().get_capex_specific_storage_energy(element=self)
 
-    def _set_opex_specific_variable(self) -> Attribute:
-        attr = Attribute("opex_specific_variable", element=self)
-        attr.set_data(default_value=_OPEX_VAR, unit=f"Euro/({self.power_unit}*h)", source=_DSM_SOURCE)
-        return attr
-
-    def _set_energy_to_power_ratio_max(self) -> Attribute:
-        attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=_E2P_MAX, unit="h", source=_DSM_E2P_SOURCE)
-        return attr
+    def _set_opex_specific_fixed_energy(self) -> Attribute:
+        return Liu2025Dataset().get_opex_specific_fixed_energy(element=self)
 
 
 class ClinkerDSM(StorageTechnology):
