@@ -11,7 +11,7 @@ GENERATE_NO_FLEXIBILITY = True
 
 data_path = "/Users/hannegoericke/ZEN-models/data/Crystal_Ball"
 output_path = Path(__file__).parent.parent / "outputs"
-VERSION = "Crystal_Ball_HG_v5_2"
+VERSION = "Crystal_Ball_HG_v5_3"
 
 # --- full version (with DSM + TES) ---
 model = Model.from_existing(data_path)

@@ -420,10 +420,51 @@ low-temp heat demand share at that level:
 
 This sets the waste heat input (GW) as the capacity limit. The physically correct bound
 on HP heat output is `WH × COP/(COP-1)` (1.17–2.26× larger, depending on temperature
-level), so this assumption is conservative by up to a factor of ~2.3 at the 150–200°C level.
+level), so this assumption is conservative by up to a factor of ~2.3 at the 150–200°C level
+*before* the Mathiesen2026 correction described below.
 
 Implemented in `ProcessParametrizationDataset.get_waste_heat_capacity_limit()` and
 called via `_set_capacity_addition_max()` in each `WasteHeat` HP class.
+
+#### Mathiesen2026 correction factor (0.5×)
+
+The Rehfeldt2017-based `WH[s, n]` estimate above was cross-checked against
+`Mathiesen2026` (Heat Roadmap Europe, Ch. 2 "Waste heat potential and data for EU"),
+which reports actual industrial waste-heat quantities by country and sub-sector
+(Tables 9–12), independent of the Rehfeldt2017 fuel-demand method used here.
+
+Mathiesen2026 splits industrial waste heat into three fixed source-temperature tiers
+— 25°C (low), 55°C (medium), 95°C (high) — rather than a single value. Summing all
+three tiers per country (matching this model's single flat 50°C source-temperature
+assumption, which does not itself distinguish between tiers) and restricting to the
+sub-sectors comparable to this model's scope ("Non-metallic minerals" ≈ glass +
+ceramic, "Paper and pulp" ≈ paper; food/beverage is not broken out separately in
+Mathiesen2026 and could not be checked) gives, for the five countries with sub-sector
+detail (base year 2015, TJ → average GW via `/(3.6 × 8760)`):
+
+| Node | `WH` from Rehfeldt2017 proxy (GW) | Mathiesen2026 glass+ceramic+paper (GW) | Ratio |
+|---|---|---|---|
+| DE | 8.87 | 3.87 | 2.29× |
+| FR | 8.49 | 2.42 | 3.50× |
+| HU | 0.58 | 0.26 | 2.24× |
+| PL | 3.25 | 1.58 | 2.06× |
+| ES | 6.74 | 2.38 | 2.83× |
+
+The Rehfeldt2017 proxy overestimates Mathiesen2026's reported waste heat by
+**2.0–3.5× (avg. ~2.6×) consistently across all five countries** — and the proxy
+total above still includes food, which Mathiesen2026 could not validate, so the true
+gap for the directly comparable sectors (glass/ceramic + paper only) is likely larger
+still. This is a substantial and consistent overestimate, not a country-specific
+outlier, suggesting a systematic issue in using total high-temperature fuel *input*
+as a stand-in for actually recoverable waste heat.
+
+Pending a full per-sector recalibration against Mathiesen2026 (which would require
+extending the sub-sector breakdown to all model nodes, not just the five with
+detailed tables), a flat **0.5× correction factor** is applied to `WH[s, n]` via
+`ProcessParametrizationDataset.WASTE_HEAT_MATHIESEN_CORRECTION`. This roughly halves
+the capacity limit, bringing it closer to (though still somewhat above) the
+Mathiesen2026-implied availability, while avoiding overclaiming precision the
+current comparison doesn't support.
 
 ### Previous parametrization (v4.2–v4.4, now superseded)
 

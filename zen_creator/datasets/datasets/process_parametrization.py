@@ -272,6 +272,13 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         grand_total = sum(totals.values())
         return {level: totals[level] / grand_total for level in HEAT_TEMP_LEVELS}
 
+    # Rehfeldt2017-based waste heat (demand x high-temp fuel fraction) was benchmarked
+    # against Mathiesen2026 (Heat Roadmap Europe) industrial waste-heat figures for
+    # DE/FR/HU/PL/ES and found to overestimate by 2.0-3.5x (avg. ~2.6x) consistently
+    # across all five countries. Applied as a flat derating factor pending a proper
+    # per-sector recalibration; see ASSUMPTIONS.md.
+    WASTE_HEAT_MATHIESEN_CORRECTION = 0.5
+
     def get_waste_heat_capacity_limit(self, element: "Element", temp_level: str) -> Attribute:
         """Per-node capacity_limit for waste-heat HPs at a given temperature level.
 
@@ -280,9 +287,10 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         tonproduct/hr). This is distributed to each temperature level proportionally
         to the sector's low-temp heat demand share at that level.
 
-        capacity_limit is set equal to the available waste heat input (GW),
-        which is a conservative bound on the HP heat output (true max output is
-        waste_heat × COP/(COP-1), i.e. 1.17–2.26× larger depending on temperature level).
+        capacity_limit is set equal to the available waste heat input (GW) times
+        WASTE_HEAT_MATHIESEN_CORRECTION (0.5), which is a conservative bound on the HP
+        heat output (true max output is waste_heat × COP/(COP-1), i.e. 1.17–2.26×
+        larger depending on temperature level) before applying the correction.
         """
         demands = {
             "glass":   industry_demand_df("glass",   FEC_YEAR).set_index("node")["demand"],
@@ -297,12 +305,15 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
             share_at_level[s] = (self._heat_cfs[s][temp_level] / total_lt) if total_lt > 0 else 0.0
 
         wh_series = sum(demands[s] * cf_fuel[s] * share_at_level[s] for s in demands)
+        wh_series = wh_series * self.WASTE_HEAT_MATHIESEN_CORRECTION
         df = wh_series.rename("capacity_limit").to_frame()
 
         attr = Attribute("capacity_limit", default_value=np.inf, unit="GW", element=element)
         attr.set_data(df=df, source=self._source_info(
             f"Waste-heat HP capacity limit for {temp_level}: sector high-temp fuel demand "
-            "(glass/ceramic/paper/food) × sector-specific low-temp heat share at this level. "
-            "Source: Rehfeldt2017 temperature distributions, AIDRES2023 (glass)."
+            "(glass/ceramic/paper/food) × sector-specific low-temp heat share at this level, "
+            f"× {self.WASTE_HEAT_MATHIESEN_CORRECTION} correction factor. "
+            "Source: Rehfeldt2017 temperature distributions, AIDRES2023 (glass); correction "
+            "factor derived from comparison with Mathiesen2026 (Heat Roadmap Europe)."
         ))
         return attr
