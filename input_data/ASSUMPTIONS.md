@@ -79,21 +79,18 @@ not the history of how they were derived.
   "Ceramics: Thermal kiln", "Ceramics: Thermal furnace"), divided by Rehfeldt's
   activity-weighted specific fuel energy:
 
-        demand [t/hr] = Σ thermal_FEC_ktoe × 41 868 GJ/ktoe
-                        ÷ (rehfeldt_fuel_GJ_t × 1 000 t/kt)
-                        ÷ 8 760 h/yr
+        capacity_existing [t/hr] = Σ thermal_FEC_ktoe × 41 868 GJ/ktoe
+                                   ÷ (rehfeldt_fuel_GJ_t × 1 000 t/kt)
+                                   ÷ 8 000 h/yr
 
-        capacity_existing [t/hr] = same kt/yr ÷ 8 000 h/yr
+        demand [t/hr] = capacity_existing
 
   This is self-consistent: the thermal FEC represents energy consumed by high-fired
   ceramic kilns, and dividing by Rehfeldt's specific energy returns the equivalent
-  production volume for the same sub-processes. Because demand uses an 8760 h/yr
-  divisor and `capacity_existing` uses 8000 h/yr on the same kt/yr numerator, ceramic
-  demand is **not exactly equal** to `capacity_existing` (demand ≈ 0.913 ×
-  capacity_existing) — unlike glass, paper and food, whose demand is set exactly equal
-  to `capacity_existing` (see "Product carrier demand = capacity_existing" below).
-  CH/NO/UK nodes (without JRC-IDEES coverage) retain the same population-based scaling
-  as glass: CH ← AT, NO ← FI, UK ← DE × (69.9/83.5).
+  production volume for the same sub-processes. As with glass, paper and food, demand
+  is set exactly equal to `capacity_existing` (see "Product carrier demand =
+  capacity_existing" below). CH/NO/UK nodes (without JRC-IDEES coverage) retain the
+  same population-based scaling as glass: CH ← AT, NO ← FI, UK ← DE × (69.9/83.5).
 - **Waste-heat-capacity-limit and heat-pump-capacity-split inputs** (`ceramic` demand
   volume used in `ProcessParametrizationDataset.get_waste_heat_capacity_limit()` and
   `get_heat_capacity_split()`) use this same FEC-derived demand series — not the plain
@@ -396,11 +393,9 @@ reflecting the thermodynamic advantage of heat pumps at low temperatures:
 - **Temperature conversion cascade** — two conversion technologies allow
   higher-temperature heat to supply lower-temperature demand:
   - `heat_industry_temp_conversion_150_100`: converts `heat_industry_150_200` →
-    `heat_industry_100_150` (conversion factor 1.0, lossless; placeholder, to be
-    calibrated).
+    `heat_industry_100_150` (conversion factor 1.0, lossless).
   - `heat_industry_temp_conversion_100_0`: converts `heat_industry_100_150` →
-    `heat_industry_0_100` (conversion factor 1.0, lossless; placeholder, to be
-    calibrated).
+    `heat_industry_0_100` (conversion factor 1.0, lossless).
 
   No capex or existing capacity — the optimizer can freely build these bridge
   technologies.
@@ -612,14 +607,12 @@ and are not affected by this vintaging. TES and DSM technologies also have
 
 ## Product carrier demand = capacity_existing
 
-The demand for glass, paper and food carriers is set equal to their corresponding
-`capacity_existing` value, via each carrier's `_set_demand` method
+The demand for all four product carriers (glass, ceramic, paper, food) is set equal to
+their corresponding `capacity_existing` value, via each carrier's `_set_demand` method
 (`zen_creator/elements/carriers/industry_carriers.py`) calling
-`JrcIdeesIndustryDataset.get_demand_as_capacity_existing` (glass, paper) or
-`FaostatFoodDataset.get_food_demand_as_capacity_existing` (food). **Ceramic is the
-exception**: its demand uses a separate FEC-derived calculation with an 8760 h/yr
-divisor rather than `capacity_existing`'s 8000 h/yr divisor, so ceramic demand is
-~0.913× its `capacity_existing` rather than exactly equal (see "Ceramic" above).
+`JrcIdeesIndustryDataset.get_demand_as_capacity_existing` (glass, paper),
+`JrcIdeesIndustryDataset.get_ceramic_demand_as_capacity_existing` (ceramic), or
+`FaostatFoodDataset.get_food_demand_as_capacity_existing` (food).
 
 **Rationale**: setting demand = capacity_existing ensures the optimizer starts from a
 state where existing capacity exactly meets demand, with no implicit overcapacity or
@@ -638,5 +631,5 @@ underutilization assumption baked into two independently-sourced numbers.
 - **Food**: demand = FAOSTAT production-weighted Rehfeldt activity (Mt) × 1e6 / 8000 h
   — identical to `food_capacity_existing_df`.
 - **Ceramic**: demand = JRC-IDEES thermal FEC ÷ Rehfeldt specific energy (kt/yr) ×
-  1000 / **8760** h — see "Ceramic" above for the full derivation and why it differs
-  from `capacity_existing`.
+  1000 / 8000 h — identical to `capacity_existing`; see "Ceramic" above for the full
+  derivation.

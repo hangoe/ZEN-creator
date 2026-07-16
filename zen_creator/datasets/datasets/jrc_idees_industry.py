@@ -12,7 +12,6 @@ if TYPE_CHECKING:
 
 from zen_creator.datasets.datasets._industry_heat_utils import (
     INPUT_DATA,
-    HOURS_PER_YEAR,
     OPERATING_HOURS,
     SECTOR_LIFETIMES,
     capacity_existing_df,
@@ -106,17 +105,17 @@ class JrcIdeesIndustryDataset(Dataset[pd.DataFrame]):
         )
         return attr
 
-    def get_ceramic_demand_from_fec(self, element: Element, year: int) -> Attribute:
-        """Ceramic demand from JRC-IDEES thermal FEC ÷ Rehfeldt weighted specific energy (v4.3)."""
+    def get_ceramic_demand_as_capacity_existing(self, element: Element, year: int) -> Attribute:
+        """Ceramic demand set equal to capacity_existing (FEC-derived production volume)."""
         df = ceramic_demand_from_fec_df(year)
-        demand_series = df.set_index("node")["kt_yr"] * 1000 / HOURS_PER_YEAR
+        demand_series = df.set_index("node")["kt_yr"] * 1000 / OPERATING_HOURS
         attr = Attribute("demand", default_value=0.0, unit="tonproduct/hour", element=element)
         attr.set_data(
             df=demand_series,
             source=self._source_info(
                 "Ceramic demand from JRC-IDEES-2023 NMM_fec thermal FEC "
-                "(kiln/furnace rows) ÷ Rehfeldt-2017 weighted specific energy; "
-                "resolves kt-bricks-eq. volume mismatch (v4.3)."
+                "(kiln/furnace rows) ÷ Rehfeldt-2017 weighted specific energy, "
+                "set equal to capacity_existing."
             ),
         )
         return attr
