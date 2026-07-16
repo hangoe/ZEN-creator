@@ -400,10 +400,28 @@ reflecting the thermodynamic advantage of heat pumps at low temperatures:
   No capex or existing capacity — the optimizer can freely build these bridge
   technologies.
 
+## Case study scenarios
+
+`my_scripts/my_model.py` generates the case-study scenarios from the SI (see
+`MT_report_HG/Sections/03_SI.tex`, table:SIScenarios) as combinations of sectors:
+`industry_heat` (+`industry_low_temp_heat`) for heat supply and production,
+`industry_tes`/`industry_dsm` for flexibility. No-flexibility, DSM-only and TES-only
+simply omit the corresponding sector(s).
+
+- **Single temperature level** (`_single_temp`) omits `industry_low_temp_heat`, so
+  `heat_industry_0_100`/`heat_industry_100_150` demand is served only via the
+  temperature-downgrade cascade from `heat_industry_150_200`, not by dedicated
+  low/mid-band heat pumps. This means all industrial heat-pump electricity use is
+  costed at the 150–200°C band's (lower) COP, even for demand that in reality would be
+  met at a lower, more efficient temperature level — the COP penalty of always
+  producing at the highest level is intentionally not avoided, so this scenario is a
+  worst-case bound on heat-pump electricity demand relative to the temperature-resolved
+  scenarios.
+
 ## Industry thermal energy storage (TES)
 
 Two thermal energy storage (TES) technologies are added for industry heat (in the
-`industry_flexibility` sector), parametrized from Mayer et al. (2024), Table 3:
+`industry_tes` sector), parametrized from Mayer et al. (2024), Table 3:
 
 - **`industry_TES_water`** (water tank): stores heat at the `heat_industry_0_100` and
   `heat_industry_100_150` temperature levels.
@@ -459,7 +477,7 @@ Two thermal energy storage (TES) technologies are added for industry heat (in th
 ## Industry demand-side management (DSM)
 
 DSM storage technologies allow the optimizer to shift production in time for each
-industry product carrier. DSM techs live in the `industry_flexibility` sector, which
+industry product carrier. DSM techs live in the `industry_dsm` sector, which
 allows them to cover carriers from any industrial sector.
 
 ### Covered carriers
