@@ -814,7 +814,9 @@ def total_industry_heat_demand_gw(year: int) -> dict[str, float]:
     )
     glass_demand = industry_demand_df("glass", year).set_index("node")["demand"]   # ton/hr
     paper_demand = industry_demand_df("paper", year).set_index("node")["demand"]   # ton/hr
-    food_demand_s = food_demand_df(year).set_index("node")["demand"]               # ton/hr
+    # Production-based (FAOSTAT "Production"), matching the food carrier's own
+    # demand; see get_waste_heat_capacity_limit() in process_parametrization.py.
+    food_demand_s = food_capacity_existing_df(year).set_index("node")["capacity_existing"]  # ton/hr
     ceramic_demand = (
         ceramic_demand_from_fec_df(year).set_index("node")["kt_yr"] * 1000.0 / HOURS_PER_YEAR
     )  # ton/hr
