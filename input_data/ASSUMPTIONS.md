@@ -242,8 +242,9 @@ Each boiler technology's `capacity_existing` (GW, one row per node,
    "Gross heat production": "Primary solid biofuels" (Sheet 74, biomass), "Natural
    gas" (Sheet 72), "Electricity" (Sheet 83, electrode). Each is converted to GW via
    `/ OPERATING_HOURS`, and the three are normalized to shares
-   (`share_bio + share_ng + share_elec = 1`). If a node has no Eurostat entry (e.g.
-   Switzerland), it falls back to 100% natural gas.
+   (`share_bio + share_ng + share_elec = 1`). If a node has no Eurostat entry, it
+   falls back to 100% natural gas — except Switzerland, which uses Austria's
+   fuel-mix shares (see below).
 2. **Total boiler capacity per node** = `total_industry_heat_demand_gw(node)` (summed
    heat-carrier demand across glass/ceramic/paper/food, all 3 temperature levels) ×
    that node's fuel-mix share. This sizes total existing boiler capacity to match
@@ -251,9 +252,15 @@ Each boiler technology's `capacity_existing` (GW, one row per node,
    Eurostat, ensuring enough boiler capacity exists to meet demand at every temperature
    level.
 
-- **Switzerland ("CH")** has no entry in the Eurostat extract, so its fuel-mix share
-  falls back to 100% natural gas — `natural_gas_boiler_industry` gets the node's full
-  modeled heat demand as `capacity_existing`, while biomass and electrode boilers get 0.
+- **Switzerland ("CH")** has no entry in the Eurostat extract, so it falls back to
+  Austria's fuel-mix shares instead of the generic 100%-natural-gas default —
+  Austria is the closest neighboring energy system among the covered nodes, and
+  unlike most of Europe it is not dominated by natural gas, so 100% NG was a poor
+  proxy. Austria 2023 gross heat production: natural gas 6581.12 GWh, primary solid
+  biofuels 11208.557 GWh, electricity 3.398 GWh, giving shares of
+  biomass ≈ 63.0%, natural gas ≈ 37.0%, electrode ≈ 0.02%. These shares are applied
+  to Switzerland's own modeled heat demand (`total_industry_heat_demand_gw("CH")`)
+  to split its `capacity_existing` across the three boiler technologies.
 - **United Kingdom**: the Eurostat extract has no 2023 (or later) value for the UK in
   any of the three sheets (coverage ends after 2019 post-Brexit); the latest available
   year (2019) is used instead for the fuel-mix shares (Natural gas: 16321.438 GWh,

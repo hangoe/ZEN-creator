@@ -831,26 +831,38 @@ def total_industry_heat_demand_gw(year: int) -> dict[str, float]:
     }
 
 
+def _eurostat_fuel_shares(
+    biomass_gwh: dict[str, float], ng_gwh: dict[str, float], elec_gwh: dict[str, float], country: str
+) -> tuple[float, float, float]:
+    bio_gw = biomass_gwh.get(country, 0.0) / OPERATING_HOURS
+    ng_gw = ng_gwh.get(country, 0.0) / OPERATING_HOURS
+    elec_gw = elec_gwh.get(country, 0.0) / OPERATING_HOURS
+    total_euro = bio_gw + ng_gw + elec_gw
+    if total_euro > 0.0:
+        return bio_gw / total_euro, ng_gw / total_euro, elec_gw / total_euro
+    return 0.0, 1.0, 0.0
+
+
 @functools.lru_cache(maxsize=4)
 def _demand_based_boiler_capacity_gw(year: int) -> dict[str, dict[str, float]]:
     """Per-node boiler capacity (GW) scaled to total heat demand with Eurostat fuel shares.
 
     Returns {node: {"biomass": GW, "natural_gas": GW, "electrode": GW}}.
-    Nodes without Eurostat coverage (e.g. CH) fall back to 100% natural_gas.
+    CH has no Eurostat entry; it falls back to Austria's fuel-mix shares (closest
+    neighboring energy system among covered nodes).
     """
     total_demand = total_industry_heat_demand_gw(year)
     biomass_gwh = eurostat_gross_heat_gwh(EUROSTAT_BIOMASS_HEAT_SHEET, year)
     ng_gwh = eurostat_gross_heat_gwh(EUROSTAT_NATURAL_GAS_HEAT_SHEET, year)
     elec_gwh = eurostat_gross_heat_gwh(EUROSTAT_ELECTRICITY_HEAT_SHEET, year)
+    at_shares = _eurostat_fuel_shares(biomass_gwh, ng_gwh, elec_gwh, NODE_TO_EUROSTAT_COUNTRY["AT"])
     result: dict[str, dict[str, float]] = {}
     for node in MODEL_NODES:
         country = NODE_TO_EUROSTAT_COUNTRY.get(node)
-        bio_gw = (biomass_gwh.get(country, 0.0) / OPERATING_HOURS) if country else 0.0
-        ng_gw = (ng_gwh.get(country, 0.0) / OPERATING_HOURS) if country else 0.0
-        elec_gw = (elec_gwh.get(country, 0.0) / OPERATING_HOURS) if country else 0.0
-        total_euro = bio_gw + ng_gw + elec_gw
-        if total_euro > 0.0:
-            share_bio, share_ng, share_elec = bio_gw / total_euro, ng_gw / total_euro, elec_gw / total_euro
+        if country is not None:
+            share_bio, share_ng, share_elec = _eurostat_fuel_shares(biomass_gwh, ng_gwh, elec_gwh, country)
+        elif node == "CH":
+            share_bio, share_ng, share_elec = at_shares
         else:
             share_bio, share_ng, share_elec = 0.0, 1.0, 0.0
         total = total_demand[node]
