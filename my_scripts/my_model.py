@@ -7,23 +7,31 @@ from zen_creator.model import Model
 from zen_creator.sectors.industry_heat import IndustryHeat  # noqa: F401
 from zen_creator.sectors.industry_low_temp_heat import IndustryLowTempHeat  # noqa: F401
 from zen_creator.sectors.industry_tes import IndustryTES  # noqa: F401
-from zen_creator.sectors.industry_dsm import IndustryDSM  # noqa: F401
+from zen_creator.sectors.industry_dsm import (  # noqa: F401
+    IndustryDSMOptimistic,
+    IndustryDSMPessimistic,
+)
 
 data_path = "/Users/hannegoericke/ZEN-models/data/Crystal_Ball"
 output_path = Path(__file__).parent.parent / "outputs"
-VERSION = "Crystal_Ball_HG_v5_3"
+VERSION = "Crystal_Ball_HG_v6_0"
 
 # Case-study scenarios from MT_report_HG/Sections/03_SI.tex (table:SIScenarios).
 # industry_heat must come first in every combination: glass/ceramic/paper/food
 # carriers are defined there and referenced by the DSM/TES/low-temp-heat technologies.
+# DSM sectors use the optimistic demand-shiftability category assumptions by default
+# (see input_data/DSM_parametrization/DSM_literature_review.md); "_DSM_pessimistic"
+# reruns the full-flexibility case with the pessimistic assumptions instead.
 SCENARIOS = [
-    ("", ["industry_heat", "industry_low_temp_heat", "industry_tes", "industry_dsm"]),  # full flexibility (main version)
+    ("", ["industry_heat", "industry_low_temp_heat", "industry_tes", "industry_dsm_optimistic"]),  # full flexibility (main version)
     ("_no_flexibility", ["industry_heat", "industry_low_temp_heat"]),
-    ("_DSM_only", ["industry_heat", "industry_low_temp_heat", "industry_dsm"]),
+    ("_DSM_only", ["industry_heat", "industry_low_temp_heat", "industry_dsm_optimistic"]),
     ("_TES_only", ["industry_heat", "industry_low_temp_heat", "industry_tes"]),
     # single temperature level: only the highest-band heat pumps (no industry_low_temp_heat),
     # everything else including full flexibility stays the same
-    ("_single_temp", ["industry_heat", "industry_tes", "industry_dsm"]),
+    ("_single_temp", ["industry_heat", "industry_tes", "industry_dsm_optimistic"]),
+    # full flexibility, but with pessimistic DSM demand-shiftability assumptions
+    ("_DSM_pessimistic", ["industry_heat", "industry_low_temp_heat", "industry_tes", "industry_dsm_pessimistic"]),
 ]
 
 

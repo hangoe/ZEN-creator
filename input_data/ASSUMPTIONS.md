@@ -412,8 +412,8 @@ reflecting the thermodynamic advantage of heat pumps at low temperatures:
 `my_scripts/my_model.py` generates the case-study scenarios from the SI (see
 `MT_report_HG/Sections/03_SI.tex`, table:SIScenarios) as combinations of sectors:
 `industry_heat` (+`industry_low_temp_heat`) for heat supply and production,
-`industry_tes`/`industry_dsm` for flexibility. No-flexibility, DSM-only and TES-only
-simply omit the corresponding sector(s).
+`industry_tes`/`industry_dsm_optimistic` for flexibility. No-flexibility, DSM-only and
+TES-only simply omit the corresponding sector(s).
 
 - **Single temperature level** (`_single_temp`) omits `industry_low_temp_heat`, so
   `heat_industry_0_100`/`heat_industry_100_150` demand is served only via the
@@ -424,6 +424,11 @@ simply omit the corresponding sector(s).
   producing at the highest level is intentionally not avoided, so this scenario is a
   worst-case bound on heat-pump electricity demand relative to the temperature-resolved
   scenarios.
+- **DSM pessimistic** (`_DSM_pessimistic`) reruns the full-flexibility case with
+  `industry_dsm_pessimistic` instead of `industry_dsm_optimistic`, i.e. every DSM
+  technology uses the pessimistic demand-shiftability category from
+  `input_data/DSM_parametrization/DSM_literature_review.md` instead of the optimistic
+  one (see "Industry demand-side management (DSM)" below).
 
 ## Industry thermal energy storage (TES)
 
@@ -484,8 +489,14 @@ Two thermal energy storage (TES) technologies are added for industry heat (in th
 ## Industry demand-side management (DSM)
 
 DSM storage technologies allow the optimizer to shift production in time for each
-industry product carrier. DSM techs live in the `industry_dsm` sector, which
-allows them to cover carriers from any industrial sector.
+industry product carrier. Every DSM technology is parametrized from one of three
+demand-shiftability categories (Cat 1/2/3), assigned per carrier and per
+optimistic/pessimistic variant in
+`input_data/DSM_parametrization/DSM_literature_review.md`. Two sectors —
+`industry_dsm_optimistic` and `industry_dsm_pessimistic` — cover the same carriers
+with the optimistic or pessimistic category assumption respectively; only one is
+normally added to a given model. Both live in
+`zen_creator/sectors/industry_dsm.py` / `zen_creator/elements/storage_technologies/industry_DSM.py`.
 
 ### Covered carriers
 
@@ -506,91 +517,66 @@ The six carriers originating in the Crystal Ball base model (ammonia, clinker,
 methanol, primary/secondary steel, olefin) already exist in the base Crystal Ball
 dataset — no new carrier classes are needed in zen_creator.
 
-### Parametrization
+### Demand-shiftability categories
 
-DSM storages are modeled as perfect storages with no losses, **except `ammonia_DSM`**
-(see below):
+- **Cat 1 = fully flexible**: low cost, long shifting horizon.
+- **Cat 2 = partially flexible / short timescales**: moderate cost and horizon.
+- **Cat 3 = not flexible at all**: very high cost (effectively priced out of the
+  optimum) and a short horizon.
 
-| Parameter                         | Value                        |
-|-----------------------------------|------------------------------|
-| `efficiency_charge`               | 1.0 (default)                |
-| `efficiency_discharge`            | 1.0 (default)                |
-| `self_discharge`                  | 0.0 (default)                |
-| `capex_specific_storage_energy`   | 10 EUR/(tonproduct/hour·h)   |
-| `opex_specific_variable`          | 10 EUR/(tonproduct/hour·h)   |
-| `lifetime`                        | 50 years                     |
-| `energy_to_power_ratio_max`       | 168 h (1 week)               |
-| `capacity_limit`                  | 2 × per-node carrier demand  |
+| Category | `capex_specific_storage_energy` / `opex_specific_variable` (EUR/(power_unit·h)) | `energy_to_power_ratio_max` (h) |
+|---|---|---|
+| Cat 1 | 1 | 336 (2 weeks) |
+| Cat 2 | 20 | 48 (2 days) |
+| Cat 3 | 1,000 | 2 |
+
+These are internal placeholder assumptions (no literature-derived cost source per
+category yet) chosen to give Cat 1 a near-free, long-horizon shape, Cat 3 a
+priced-out, short-horizon shape, and Cat 2 something in between.
+
+| Carrier | Pessimistic | Optimistic | Key source(s) |
+|---|---|---|---|
+| Glass | Cat 3 | Cat 3 | Lehigh IMI-NFG [1]; Henan Hongtai [2] |
+| Ceramic | Cat 3 (continuous kilns) | Cat 2 (batch kilns) | Tangram [3] |
+| Paper | Cat 2 | Cat 1 | Helin et al. 2017 [4] |
+| Food | Cat 3 | Cat 2 | interview conducted by Ana [5] (primary source; placeholder citation, needs last name + date) |
+| Methanol | Cat 2 | Cat 1 | Schneider & Lagoni 2023 [6]; Chen & Yang 2021 [7] |
+| Primary steel | Cat 3 (BF-BOF, NG-DRI) | Cat 2 (H2-DRI-EAF) | Boldrini et al. 2024 [8]; Golmohamadi 2021 [9] |
+| Secondary steel | Cat 2 | Cat 1 | Boldrini et al. 2024 [8]; Golmohamadi 2021 [9] |
+| Olefin | Cat 3 (conventional cracker) | Cat 2 (electrified cracker) | Tiggeloven et al. 2023 [10] |
+| Ammonia | Cat 3 | Cat 2 | Salmon & Bañares-Alcántara 2023 [11]; Fahr et al. 2025 [12] |
+| Clinker | Cat 3 | Cat 3 | Golmohamadi 2021 [9] (Table 5: cement/clinker classified "Uninterruptible") |
+
+Numbered citations refer to `input_data/DSM_parametrization/DSM_literature_review.md`,
+which carries full source verification notes and BibTeX for each entry. [12] (ammonia,
+optimistic) is still only backed by a search-engine snippet, not independently fetched
+full text. [5] (food) is a placeholder citation pending Ana's last name and interview
+date.
+
+### Shared parametrization
+
+| Parameter                         | Value                                  |
+|-----------------------------------|-----------------------------------------|
+| `efficiency_charge`               | 1.0 (default)                          |
+| `efficiency_discharge`            | 1.0 (default)                          |
+| `self_discharge`                  | 0.0 (default)                          |
+| `capex_specific_storage_energy`   | by category (see table above)          |
+| `opex_specific_variable`          | by category (see table above)          |
+| `lifetime`                        | 50 years                               |
+| `energy_to_power_ratio_max`       | by category (see table above)          |
+| `capacity_limit`                  | 2 × per-node carrier demand            |
 
 - **No losses**: efficiency = 1.0 and self_discharge = 0.0, representing an idealized
   ability to reschedule production within a planning period.
 - **Power unit**: `tonproduct/hour`, matching production technology capacity units
-  (`GW` for `methanol_DSM`).
-- **`capex_specific_storage_energy` / `opex_specific_variable` = 10**: a small but
-  non-trivial cost representing the opportunity cost of carrying inventory, and a
-  small friction cost discouraging unnecessary charge/discharge cycling, without
-  distorting the optimal flexibility dispatch.
-- **`energy_to_power_ratio_max` = 168 h (1 week)** for all DSM technologies including
-  food — the food sector in this model also includes durable products such as milk
-  powder, sugar, and beer.
+  (`GW` for `ammonia_DSM` and `methanol_DSM`).
 - **`capacity_limit` = 2 × per-node carrier demand** (200% of the carrier's annual
   demand rate at each node), derived at model build time from the carrier element's
   demand attribute. Prevents unrealistically large DSM stocks while allowing full
   flexibility within the demand range.
 - `energy_to_power_ratio_min` is left at 0 (default) for all DSM techs — no minimum
   inventory depth is physically required.
-
-### Ammonia DSM storage parametrization (from Liu2025)
-
-`ammonia_DSM` is parametrized from real techno-economic data in Liu et al. (2025),
-*"Techno-economic analysis of using ammonia as an energy carrier for renewable energy
-conversion and storage"*, Int. J. Hydrogen Energy 162 (2025) 150784
-(`input_data/Liu2025/`), rather than the internal placeholder assumptions used by the
-other DSM technologies above. The paper models a pressurized, ambient-temperature
-liquid ammonia storage tank (~11–15 bar), with identical cost/efficiency figures
-reported across all five power-route tables in the SI (Tables S2/S3/S7/S11/S15/S19):
-
-| Year | CAPEX (USD/kWh) | Fixed O&M (% of CAPEX/yr) | Energy loss | Lifetime |
-|---|---|---|---|---|
-| 2023 | 0.00910 | 2% | 4% | 30 yr |
-| 2030 | 0.00610 | 2% | 4% | 30 yr |
-| 2040 | 0.00485 | 2% | 4% | 30 yr |
-| 2050 | 0.00379 | 2% | 4% | 30 yr |
-
-Transcribed into `input_data/Liu2025/Liu2025_ammonia_storage.csv` and consumed via
-`zen_creator/datasets/datasets/liu2025.py::Liu2025Dataset`.
-
-**Current parametrization:**
-
-| Parameter | Value |
-|---|---|
-| `capex_specific_storage_energy` | ≈8,372 EUR/GWh in 2023 (declining to ≈3,487 EUR/GWh by 2050) |
-| `opex_specific_fixed_energy` | ≈167 EUR/GWh/yr in 2023 (2% of capex; declining with capex) |
-| `efficiency_charge` / `efficiency_discharge` | √0.96 ≈ 0.9798 each |
-| `lifetime` | 30 years |
-| `capacity_limit` | unbounded (base-class default) |
-| `energy_to_power_ratio_max` | unbounded (base-class default) |
-
-**Unit conversions**: CAPEX is USD/kWh of ammonia energy content (5.17 kWh/kg NH3, per
-the paper's LHV-based conversion) → converted to EUR/GWh by ×0.92 (USD→EUR, internal
-assumption — Liu2025 gives no EUR figures or base year) ×1e6 (kWh→GWh). Fixed O&M is
-computed as 2% of the (already-converted) CAPEX for each year.
-
-**Efficiency ambiguity**: the paper's narrative text describes the 4% loss as covering
-"the transportation and storage process" jointly, but the SI tables list a separate,
-identically-valued "Energy loss (%)" row for the storage stage alone. This
-parametrization treats the 4% as a storage-only round-trip loss (96% round-trip
-efficiency), split symmetrically as `η_charge = η_discharge = √0.96`, matching the
-convention used for `industry_TES` (Mayer2024). If the 4% turns out to be a
-transport+storage combined figure, the true storage-only efficiency would be higher
-than modeled here.
-
-**No capacity/duration bounds**: `capacity_limit` and `energy_to_power_ratio_max` are
-left at their base-class defaults (unbounded), matching `industry_TES`. Liu2025 states
-that ammonia storage cost "is independent of annual operating hours and capacity
-factor... solely related to the mass" — i.e. there is no power-basis cost and no
-stated duration limit, so real energy-basis CAPEX drives sizing without an artificial
-bound.
+- `lifetime` does not vary by category — no literature basis yet to differentiate it.
 
 ## Existing capacity spread over vintage cohorts
 
