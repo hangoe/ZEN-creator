@@ -63,9 +63,8 @@ _CATEGORY_PARAMS: dict[int, tuple[float, float, float]] = {
 }
 
 # carrier_name -> {"pessimistic": category, "optimistic": category}, transcribed from
-# input_data/DSM_parametrization/DSM_literature_review.md. Clinker has no row in that
-# table (it predates the categorization plan); it is assigned Cat 3 in both variants,
-# matching Golmohamadi2021's characterization of clinker production as an
+# input_data/DSM_parametrization/DSM_literature_review.md. Clinker is assigned Cat 3 in
+# both variants, matching Golmohamadi2021's characterization of clinker production as an
 # uninterruptible process with only low/very-low/medium flexibility potential.
 _SECTOR_CATEGORIES: dict[str, dict[str, int]] = {
     "glass": {"pessimistic": 3, "optimistic": 3},

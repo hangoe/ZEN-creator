@@ -536,22 +536,20 @@ priced-out, short-horizon shape, and Cat 2 something in between.
 
 | Carrier | Pessimistic | Optimistic | Key source(s) |
 |---|---|---|---|
-| Glass | Cat 3 | Cat 3 | Lehigh IMI-NFG [1]; Henan Hongtai [2] |
-| Ceramic | Cat 3 (continuous kilns) | Cat 2 (batch kilns) | Tangram [3] |
-| Paper | Cat 2 | Cat 1 | Helin et al. 2017 [4] |
-| Food | Cat 3 | Cat 2 | interview conducted by Ana [5] (primary source; placeholder citation, needs last name + date) |
-| Methanol | Cat 2 | Cat 1 | Schneider & Lagoni 2023 [6]; Chen & Yang 2021 [7] |
-| Primary steel | Cat 3 (BF-BOF, NG-DRI) | Cat 2 (H2-DRI-EAF) | Boldrini et al. 2024 [8]; Golmohamadi 2021 [9] |
-| Secondary steel | Cat 2 | Cat 1 | Boldrini et al. 2024 [8]; Golmohamadi 2021 [9] |
-| Olefin | Cat 3 (conventional cracker) | Cat 2 (electrified cracker) | Tiggeloven et al. 2023 [10] |
-| Ammonia | Cat 3 | Cat 2 | Salmon & Bañares-Alcántara 2023 [11]; Fahr et al. 2025 [12] |
-| Clinker | Cat 3 | Cat 3 | Golmohamadi 2021 [9] (Table 5: cement/clinker classified "Uninterruptible") |
+| Glass | Cat 3 | Cat 3 | Hubert2015 [1]; Hongtai2024 [2] |
+| Ceramic | Cat 3 (continuous kilns) | Cat 2 (batch kilns) | Tangram2026 [3] |
+| Paper | Cat 2 | Cat 1 | Helin2017 [4] |
+| Food | Cat 3 | Cat 2 | AnaInterview2026 [5] (primary source; placeholder citation, needs last name + date) |
+| Methanol | Cat 2 | Cat 1 | Schneider2023 [6]; ChenYang2021 [7] |
+| Primary steel | Cat 3 (BF-BOF, NG-DRI) | Cat 2 (H2-DRI-EAF) | Boldrini2024 [8]; Golmohamadi2021 [9] |
+| Secondary steel | Cat 2 | Cat 1 | Boldrini2024 [8]; Golmohamadi2021 [9] |
+| Olefin | Cat 3 (conventional cracker) | Cat 2 (electrified cracker) | Tiggeloven2023 [10] |
+| Ammonia | Cat 3 | Cat 2 | Salmon2023 [11]; Fahr2025 [12] |
+| Clinker | Cat 3 | Cat 3 | Golmohamadi2021 [9] (Table 5: cement/clinker classified "Uninterruptible") |
 
 Numbered citations refer to `input_data/DSM_parametrization/DSM_literature_review.md`,
-which carries full source verification notes and BibTeX for each entry. [12] (ammonia,
-optimistic) is still only backed by a search-engine snippet, not independently fetched
-full text. [5] (food) is a placeholder citation pending Ana's last name and interview
-date.
+which carries full source verification notes and BibTeX for each entry. [5] (food) is a
+placeholder citation pending Ana's last name and interview date.
 
 ### Shared parametrization
 
