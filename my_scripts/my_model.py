@@ -2,6 +2,7 @@ import shutil
 from pathlib import Path
 
 from zen_creator.model import Model
+from zen_creator.utils.default_config import Config
 
 # import sectors (triggers auto-registration via __init_subclass__)
 from zen_creator.sectors.industry_heat import IndustryHeat  # noqa: F401
@@ -10,6 +11,13 @@ from zen_creator.sectors.industry_tes import IndustryTES  # noqa: F401
 from zen_creator.sectors.industry_dsm import (  # noqa: F401
     IndustryDSMOptimistic,
     IndustryDSMPessimistic,
+)
+
+# import energy system (triggers auto-registration via __init_subclass__);
+# extends carbon_emissions_budget to credit the new industry sectors, see
+# carbon_budget_allocation.py and ASSUMPTIONS.md ("Carbon emissions budget")
+from zen_creator.elements.energy_systems.crystal_ball_industry import (  # noqa: F401
+    CrystalBallIndustryEnergySystem,
 )
 
 data_path = "/Users/hannegoericke/ZEN-models/data/Crystal_Ball"
@@ -62,7 +70,9 @@ archive_existing_outputs(
 )
 
 for suffix, sectors in SCENARIOS:
-    model = Model.from_existing(data_path)
+    config = Config.load_from_existing_model(data_path)
+    config.elements.insert.energy_system = "crystal_ball_industry_energy_system"
+    model = Model.from_existing(data_path, config=config)
     for sector_name in sectors:
         model.add_sector_by_name(sector_name)
     model.build()

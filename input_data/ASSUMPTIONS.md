@@ -642,3 +642,61 @@ underutilization assumption baked into two independently-sourced numbers.
 - **Ceramic**: demand = JRC-IDEES thermal FEC ÷ Rehfeldt specific energy (kt/yr) ×
   1000 / 8000 h — identical to `capacity_existing`; see "Ceramic" above for the full
   derivation.
+
+## Carbon emissions budget
+
+`carbon_emissions_budget` (`energy_system/attributes.json`) is `23.152036605496253`
+gigatons in the base Crystal Ball dataset — Mannhardt (2026)'s Chapter 5/6 figure
+(dissertation Appendix A.2, printed pp. 124-127): an IPCC AR6 remaining global carbon
+budget, allocated per-capita to 28 European countries, then reduced to the ~90.0% share
+of those countries' 2021 direct CO2 emissions attributable to her 11 modeled sectors
+(electricity, res./comm. heat, passenger/truck transport, aviation, shipping, refining,
+chemicals, steel, cement). That figure does not credit the glass/ceramic/paper/food
+sectors added in this model (via `industry_heat`), since they were not part of her
+case study.
+
+`CrystalBallIndustryEnergySystem` (`zen_creator/elements/energy_systems/
+crystal_ball_industry.py`, wired in via `my_scripts/my_model.py`) extends the budget:
+
+```
+new_budget = old_budget × (1 + E_new_sectors / E_old_sectors)
+```
+
+where `E_old_sectors`/`E_new_sectors` are 2022 direct CO2 emissions (EEA/UNFCCC CRF
+data, 28 countries minus UK — UK is not covered by the available EEA extract) for
+Mannhardt's 11 sectors and for the newly credited sectors respectively. This avoids
+needing to recover the unrounded IPCC/per-capita constants, since
+`old_budget = B_countries × f_old` is already known exactly.
+
+**Finding**: Mannhardt's Table A.2 defines "Cement" as CRF `1.A.2.f + 2.A`, where `2.A`
+("Mineral Industry") already includes glass (`2.A.3`) and ceramics (`2.A.4`) as
+sub-categories, and `1.A.2.f` combustion is a bucket shared across cement/glass/
+ceramics that EEA does not split further. So glass's and ceramics' emissions appear to
+already be nested inside the existing "cement" budget line. Three variants for
+crediting the new sectors were computed from `input_data/Mannhardt2026/
+sector_emissions_2022.csv` (derived from `UNFCCC_v30.csv`, an EEA GHG-inventory export;
+see `input_data/Mannhardt2026/extract_sector_emissions.py`), `E_old_sectors =
+2,563,680.16` kt CO2:
+
+| Variant | `E_new_sectors` composition | ΔB | new budget |
+|---|---|---|---|
+| A — zero increment | paper + food only | 0.4916 Gt | 23.6437 Gt |
+| C — process-only | + glass/ceramic process (`2.A.3`, `2.A.4` as ceramics proxy) | 0.6194 Gt | 23.7715 Gt |
+| **B — naive full-add (chosen)** | + the entire shared combustion bucket (`1.A.2.f`) added again | **1.3373 Gt** | **24.4893 Gt** |
+
+**Decision**: Variant B is implemented (`DEFAULT_VARIANT = "B"` in
+`carbon_budget_allocation.py`) — a +5.78% budget increase, judged a reasonable
+estimate of additional European industry emissions for these sectors, while
+acknowledging it is the least methodologically clean of the three (it re-adds
+combustion emissions already implicit in cement's existing budget share). This
+question was raised on the ZEN community forum and is unresolved as of writing (2026);
+**the choice may need to be revisited** once a reply is received. All three variants
+remain available via the `variant` argument to
+`Mannhardt2026CarbonBudgetDataset.get_carbon_emissions_budget()`/
+`get_new_sector_emissions()` — switching does not require recomputing the CSV.
+
+Other caveats: UK is absent from the EEA extract (both numerator and denominator
+consistently exclude it); ceramics-specific process emissions (CRF `2.A.4.a`) are not
+broken out in `UNFCCC_v30.csv`, so the coarser `2.A.4` aggregate (which also includes
+soda ash and magnesium production) is used as a proxy, slightly overstating ceramics
+alone.
