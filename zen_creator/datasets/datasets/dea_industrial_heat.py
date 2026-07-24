@@ -158,14 +158,28 @@ class DeaIndustrialHeatDataset(Dataset[pd.DataFrame]):
         return attr
 
     def get_opex_specific_variable(self, element: Element, tech: str) -> Attribute:
+        """opex_specific_variable is read by ZEN-garden with index_sets
+        [node, time] (intra-year dispatch), not [node, year] — unlike
+        capex_specific_conversion/opex_specific_fixed, which ARE read with
+        [node, year] directly. So year-to-year variation here can't go through
+        the plain `{name}.csv` (`df=`) mechanism used for those two (ZEN-garden
+        would look for "time"/"node" columns, find neither, and raise "More than
+        one of the requested index sets are missing"); it has to go through
+        ZEN-garden's separate yearly-variation multiplier file
+        (`{name}_yearly_variation.csv`, index "year", value relative to the
+        `default_value` at MODEL_FIRST_YEAR) — the same mechanism already used
+        e.g. for the `oil` carrier's `price_import_yearly_variation.csv`.
+        """
         sheet = DEA_SHEET_FOR_TECH[tech]
         year_values = _year_values(sheet, _OPEX_VARIABLE_LABEL[sheet])
         series = _interpolate_to_model_years(year_values)
+        base_value = float(series.loc[MODEL_FIRST_YEAR])
+        multiplier = (series / base_value).rename("opex_specific_variable")
         attr = Attribute("opex_specific_variable", element=element)
         attr.set_data(
-            default_value=float(series.loc[MODEL_FIRST_YEAR]), unit="Euro/MWh",
-            df=series.to_frame("opex_specific_variable"),
-            source=self._source_info(f"Variable O&M for {tech} from DEA sheet {sheet!r}, interpolated over {MODEL_FIRST_YEAR}-{MODEL_LAST_YEAR}."),
+            default_value=base_value, unit="Euro/MWh",
+            yearly_variations_df=multiplier.to_frame(),
+            source=self._source_info(f"Variable O&M for {tech} from DEA sheet {sheet!r}, interpolated over {MODEL_FIRST_YEAR}-{MODEL_LAST_YEAR}, expressed as a yearly-variation multiplier on the {MODEL_FIRST_YEAR} value."),
         )
         return attr
 

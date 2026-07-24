@@ -87,13 +87,27 @@ never industry-specific. They're now sourced from
   from the base non-industry tech).
 - **Time-varying costs**: DEA gives values at 5 sample years (2025, 2030, 2035,
   2040, 2050), all in real 2025€. Capex/opex are interpolated (linear) onto every
-  calendar year 2022–2050, using the same mechanism already used for `battery` in
-  the base model (a `{attribute_name}.csv` file with a `year` index, alongside the
-  scalar `attributes.json` default — see `Attribute.df`/`_load_time_series_data` in
-  `zen_creator/utils/attribute.py`). Years before 2025 (2022–2024) hold flat at the
-  2025 value, since DEA has no earlier data. The gas/oil boiler (DEA sheet 6.1) is
-  flat across all 5 DEA years (mature technology, no assumed learning curve), so it
-  keeps a plain scalar `default_value` with no time series.
+  calendar year 2022–2050. Years before 2025 (2022–2024) hold flat at the 2025
+  value, since DEA has no earlier data. The gas/oil boiler (DEA sheet 6.1) is flat
+  across all 5 DEA years (mature technology, no assumed learning curve), so its
+  time series is a constant 1.0 multiplier/flat value throughout.
+  - `capex_specific_conversion` and `opex_specific_fixed` use the same mechanism
+    already used for `battery` in the base model (a `{attribute_name}.csv` file
+    with a `year` index, alongside the scalar `attributes.json` default — see
+    `Attribute.df`/`_load_time_series_data` in `zen_creator/utils/attribute.py`).
+    ZEN-garden reads both of these with index sets `[node, year]` directly, so a
+    year-indexed file (node omitted, broadcast to all nodes) is valid.
+  - `opex_specific_variable` is different: ZEN-garden reads it with index sets
+    `[node, time]` (intra-year dispatch resolution), not `[node, year]` — a bare
+    `opex_specific_variable.csv` with only a `year` column has neither `time` nor
+    `node`, which trips ZEN-garden's `extract_general_input_data` assertion
+    ("More than one of the requested index sets are missing"). Year-to-year
+    variation for this attribute instead has to go through ZEN-garden's separate
+    yearly-variation mechanism — `opex_specific_variable_yearly_variation.csv`, a
+    *multiplier* on the `attributes.json` default value, indexed by `year` (the
+    same mechanism already used for e.g. the `oil` carrier's
+    `price_import_yearly_variation.csv`) — via `Attribute.yearly_variations_df`,
+    not `Attribute.df`.
 - **Lifetime**: also switched to DEA's technical lifetime (heat pumps 20 yr, all
   boilers 25 yr) — a real change from the previous placeholders (heat pump 19,
   natural gas/oil 21, biomass 20, electrode 30). `BOILER_LIFETIMES` in
