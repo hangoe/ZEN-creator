@@ -66,17 +66,31 @@ _CATEGORY_PARAMS: dict[int, tuple[float, float, float]] = {
 # input_data/DSM_parametrization/DSM_literature_review.md. Clinker is assigned Cat 3 in
 # both variants, matching Golmohamadi2021's characterization of clinker production as an
 # uninterruptible process with only low/very-low/medium flexibility potential.
+#
+# primary_steel is Cat 3 in both variants — a new evaluation, not what
+# DSM_literature_review.md's cited sources (Boldrini2024, Golmohamadi2021) would give
+# for the optimistic (H2-DRI-EAF) case (Cat 2); see _CATEGORY_OVERRIDE_NOTES below.
 _SECTOR_CATEGORIES: dict[str, dict[str, int]] = {
     "glass": {"pessimistic": 3, "optimistic": 3},
     "ceramic": {"pessimistic": 3, "optimistic": 2},
     "paper": {"pessimistic": 2, "optimistic": 1},
     "food": {"pessimistic": 3, "optimistic": 2},
     "methanol": {"pessimistic": 2, "optimistic": 1},
-    "primary_steel": {"pessimistic": 3, "optimistic": 2},
+    "primary_steel": {"pessimistic": 3, "optimistic": 3},
     "secondary_steel": {"pessimistic": 2, "optimistic": 1},
     "olefin": {"pessimistic": 3, "optimistic": 2},
     "ammonia": {"pessimistic": 3, "optimistic": 2},
     "clinker": {"pessimistic": 3, "optimistic": 3},
+}
+
+# Per-carrier/variant notes appended to the source description where the assigned
+# category deviates from a literal reading of DSM_literature_review.md's cited
+# sources — e.g. a newer internal re-evaluation rather than a new citation.
+_CATEGORY_OVERRIDE_NOTES: dict[tuple[str, str], str] = {
+    ("primary_steel", "optimistic"): (
+        " Re-evaluated to Cat 3 (from Cat 2) as a new evaluation; sources "
+        "(Boldrini2024, Golmohamadi2021) unchanged."
+    ),
 }
 
 
@@ -86,18 +100,19 @@ def _category(carrier_name: str, variant: str) -> int:
 
 def _category_source(carrier_name: str, variant: str) -> SourceInformation:
     category = _category(carrier_name, variant)
+    note = _CATEGORY_OVERRIDE_NOTES.get((carrier_name, variant), "")
     return SourceInformation(
         description=(
             f"{carrier_name} DSM, {variant} variant: Cat {category} per "
             "DSM_literature_review.md (Cat 1 = fully flexible, Cat 2 = partially "
-            "flexible/short timescales, Cat 3 = not flexible at all)."
+            f"flexible/short timescales, Cat 3 = not flexible at all).{note}"
         ),
         metadata=_CATEGORY_METADATA,
     )
 
 
 def _dsm_capacity_limit(element, carrier_name: str) -> Attribute:
-    """Per-node capacity_limit = 2 × carrier demand (200% buffer)."""
+    """Per-node capacity_limit = 1 × carrier demand."""
     carrier = element.model.elements.get(carrier_name)
     attr = Attribute("capacity_limit", element=element)
     if carrier is None or carrier.demand.df is None:
@@ -105,15 +120,15 @@ def _dsm_capacity_limit(element, carrier_name: str) -> Attribute:
     raw = carrier.demand.df
     # df may be a Series (node index) or a DataFrame (node index, "demand" column)
     demand_series = raw if hasattr(raw, "iloc") and raw.ndim == 1 else raw.iloc[:, 0]
-    limit_df = (demand_series * 2.0).rename("capacity_limit").to_frame()
+    limit_df = (demand_series * 1.0).rename("capacity_limit").to_frame()
     attr.set_data(
         default_value=np.inf,
         unit=element.power_unit,
         df=limit_df,
         source=SourceInformation(
             description=(
-                f"capacity_limit = 2 × per-node {carrier_name} carrier demand "
-                "(200% of demand — bounds DSM stock without blocking flexibility)."
+                f"capacity_limit = 1 × per-node {carrier_name} carrier demand "
+                "(100% of demand — bounds DSM stock without blocking flexibility)."
             ),
             metadata=_DSM_METADATA,
         ),

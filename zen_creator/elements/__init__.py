@@ -61,7 +61,6 @@ from .storage_technologies.industry_DSM import (
     SecondarysteelDSMPessimistic,
 )
 from .storage_technologies.industry_TES import (
-    IndustryTESSteam100150,
     IndustryTESSteam150200,
     IndustryTESWater0100,
     IndustryTESWater100150,
@@ -132,7 +131,6 @@ __all__ = [
     "OlefinDSMPessimistic",
     "IndustryTESWater0100",
     "IndustryTESWater100150",
-    "IndustryTESSteam100150",
     "IndustryTESSteam150200",
     "TransportTechnology",
     "GenericTransportTechnology",

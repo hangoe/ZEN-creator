@@ -341,7 +341,7 @@ class HeatIndustryTempConversion150(ConversionTechnology):
         return Attribute("lifetime", default_value=30, unit="1", element=self)
 
     def _set_opex_specific_variable(self) -> Attribute:
-        return Attribute("opex_specific_variable", default_value=0.1, unit="Euro/GWh", element=self)
+        return Attribute("opex_specific_variable", default_value=0.0, unit="Euro/GWh", element=self)
 
 
 class HeatIndustryTempConversion100(ConversionTechnology):
@@ -366,4 +366,4 @@ class HeatIndustryTempConversion100(ConversionTechnology):
         return Attribute("lifetime", default_value=30, unit="1", element=self)
 
     def _set_opex_specific_variable(self) -> Attribute:
-        return Attribute("opex_specific_variable", default_value=0.1, unit="Euro/GWh", element=self)
+        return Attribute("opex_specific_variable", default_value=0.0, unit="Euro/GWh", element=self)

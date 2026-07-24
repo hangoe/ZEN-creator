@@ -43,6 +43,23 @@ _TES_COST_SOURCE = SourceInformation(
     ),
 )
 
+_TES_EFFICIENCY_SOURCE = SourceInformation(
+    description=(
+        "efficiency_charge = efficiency_discharge = 1.0 (no charge/discharge losses) "
+        "for all TES technologies, v7.0 onward — all standing/thermal losses are "
+        "represented via self_discharge instead of splitting them across charge and "
+        "discharge. Replaces the previous sqrt(round-trip efficiency) values derived "
+        "from Mayer2024 Table 3."
+    ),
+    metadata=MetaData(
+        name="industry_TES_efficiency",
+        title="Industrial TES charge/discharge efficiency assumption",
+        author=["ZEN Creator"],
+        publication="Internal assumption",
+        publication_year=2026,
+    ),
+)
+
 
 class IndustryTESWater0100(StorageTechnology):
 
@@ -58,10 +75,14 @@ class IndustryTESWater0100(StorageTechnology):
         return Mayer2024Dataset().get_lifetime(element=self)
 
     def _set_efficiency_charge(self) -> Attribute:
-        return Mayer2024Dataset().get_efficiency_charge(element=self)
+        attr = Attribute("efficiency_charge", element=self)
+        attr.set_data(default_value=1.0, unit="1", source=_TES_EFFICIENCY_SOURCE)
+        return attr
 
     def _set_efficiency_discharge(self) -> Attribute:
-        return Mayer2024Dataset().get_efficiency_discharge(element=self)
+        attr = Attribute("efficiency_discharge", element=self)
+        attr.set_data(default_value=1.0, unit="1", source=_TES_EFFICIENCY_SOURCE)
+        return attr
 
     def _set_capex_specific_storage_energy(self) -> Attribute:
         return Mayer2024Dataset().get_capex_specific_storage_energy(element=self)
@@ -104,10 +125,14 @@ class IndustryTESWater100150(StorageTechnology):
         return Mayer2024Dataset().get_lifetime(element=self)
 
     def _set_efficiency_charge(self) -> Attribute:
-        return Mayer2024Dataset().get_efficiency_charge(element=self)
+        attr = Attribute("efficiency_charge", element=self)
+        attr.set_data(default_value=1.0, unit="1", source=_TES_EFFICIENCY_SOURCE)
+        return attr
 
     def _set_efficiency_discharge(self) -> Attribute:
-        return Mayer2024Dataset().get_efficiency_discharge(element=self)
+        attr = Attribute("efficiency_discharge", element=self)
+        attr.set_data(default_value=1.0, unit="1", source=_TES_EFFICIENCY_SOURCE)
+        return attr
 
     def _set_capex_specific_storage_energy(self) -> Attribute:
         return Mayer2024Dataset().get_capex_specific_storage_energy(element=self)
@@ -136,52 +161,6 @@ class IndustryTESWater100150(StorageTechnology):
         return attr
 
 
-class IndustryTESSteam100150(StorageTechnology):
-
-    name: str = "industry_TES_steam_100_150"
-
-    def __init__(self, model: Model, power_unit: str = "MW"):
-        super().__init__(model=model, power_unit=power_unit)
-
-    def _set_reference_carrier(self) -> Attribute:
-        return Attribute(name="reference_carrier", default_value=["heat_industry_100_150"], element=self)
-
-    def _set_lifetime(self) -> Attribute:
-        return Mayer2024Dataset().get_lifetime(element=self)
-
-    def _set_efficiency_charge(self) -> Attribute:
-        return Mayer2024Dataset().get_efficiency_charge(element=self)
-
-    def _set_efficiency_discharge(self) -> Attribute:
-        return Mayer2024Dataset().get_efficiency_discharge(element=self)
-
-    def _set_capex_specific_storage_energy(self) -> Attribute:
-        return Mayer2024Dataset().get_capex_specific_storage_energy(element=self)
-
-    def _set_opex_specific_fixed_energy(self) -> Attribute:
-        return Mayer2024Dataset().get_opex_specific_fixed_energy(element=self)
-
-    def _set_opex_specific_variable(self) -> Attribute:
-        attr = Attribute("opex_specific_variable", element=self)
-        attr.set_data(default_value=1.0, unit="Euro/GWh", source=_TES_COST_SOURCE)
-        return attr
-
-    def _set_self_discharge(self) -> Attribute:
-        attr = Attribute("self_discharge", element=self)
-        attr.set_data(default_value=0.95, unit="1", source=_TES_COST_SOURCE)
-        return attr
-
-    def _set_energy_to_power_ratio_min(self) -> Attribute:
-        attr = Attribute("energy_to_power_ratio_min", element=self)
-        attr.set_data(default_value=0.25, unit="h", source=_TES_E2P_SOURCE)
-        return attr
-
-    def _set_energy_to_power_ratio_max(self) -> Attribute:
-        attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=4.0, unit="h", source=_TES_E2P_SOURCE)
-        return attr
-
-
 class IndustryTESSteam150200(StorageTechnology):
 
     name: str = "industry_TES_steam_150_200"
@@ -196,10 +175,14 @@ class IndustryTESSteam150200(StorageTechnology):
         return Mayer2024Dataset().get_lifetime(element=self)
 
     def _set_efficiency_charge(self) -> Attribute:
-        return Mayer2024Dataset().get_efficiency_charge(element=self)
+        attr = Attribute("efficiency_charge", element=self)
+        attr.set_data(default_value=1.0, unit="1", source=_TES_EFFICIENCY_SOURCE)
+        return attr
 
     def _set_efficiency_discharge(self) -> Attribute:
-        return Mayer2024Dataset().get_efficiency_discharge(element=self)
+        attr = Attribute("efficiency_discharge", element=self)
+        attr.set_data(default_value=1.0, unit="1", source=_TES_EFFICIENCY_SOURCE)
+        return attr
 
     def _set_capex_specific_storage_energy(self) -> Attribute:
         return Mayer2024Dataset().get_capex_specific_storage_energy(element=self)

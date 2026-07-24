@@ -111,6 +111,43 @@ never industry-specific. They're now sourced from
   vapor recompression, 5 K lift only), 6.3 (coal boiler), and 7.1–7.3 (direct
   firing) don't map onto the model's existing technologies and weren't used.
 
+### Other v7.0 changes
+
+- **`primary_steel_DSM` is Cat 3 in both the optimistic and pessimistic variant**
+  (previously Cat 2 optimistic / Cat 3 pessimistic). This is a new evaluation, not
+  a change in what the cited literature says — the sources
+  (`Boldrini2024`/`Golmohamadi2021`) are unchanged; see
+  `_CATEGORY_OVERRIDE_NOTES` in `zen_creator/elements/storage_technologies/industry_DSM.py`.
+- **`heat_industry_temp_conversion_150`/`_100` now have `opex_specific_variable = 0`**
+  (previously a nominal 0.1 EUR/GWh friction cost). These are lossless
+  temperature-downgrade cascade technologies (see "Heat technology
+  temperature-level structure" below); the small opex was not meaningful and made
+  no difference to results, so it was removed.
+- **`industry_TES_steam_100_150` (steam accumulator, 100–150°C) was removed** from
+  the model and from `Mayer2024Dataset`'s `TECH_NAME_MAP` — it was never chosen by
+  the optimizer and doesn't represent a sensible standalone technology once the
+  100–150°C water tank (`industry_TES_water_100_150`) and the 150–200°C steam
+  accumulator (`industry_TES_steam_150_200`) already cover that range. Only two
+  TES technologies remain at the 100–150°C level's boundaries: the water tank
+  (100–150°C) and the high-temperature steam accumulator (150–200°C).
+- **DSM `capacity_limit` is now 1× per-node carrier demand** (previously 2×) — see
+  `_dsm_capacity_limit` in `industry_DSM.py`. Halves the maximum DSM storage stock
+  the optimizer can build per carrier per node relative to v6.1.
+- **All TES technologies now have `efficiency_charge = efficiency_discharge = 1.0`**
+  (previously `√round-trip-efficiency` from Mayer2024 Table 3, ≈0.949 for water
+  tanks, ≈0.975 for the steam accumulator) — all TES losses are now represented
+  purely via `self_discharge` instead of being split across charge/discharge.
+  `self_discharge` itself **stays flat at 0.95 for all techs and all temperature
+  levels, unchanged from v6.1** — a temperature-dependent self-discharge (higher
+  standing loss at higher storage temperatures, following Newton's law of cooling)
+  was considered but deliberately deferred: Mayer2024 has no heat-loss/insulation
+  data to derive it from, and the right basis for "temperature-dependent" is itself
+  unsettled (whether stored energy should be measured relative to ambient — in
+  which case the fractional loss rate is roughly temperature-*independent* — or
+  relative to the carrier's useful floor temperature, in which case it does grow
+  with band). To be decided and implemented later; for now every TES tech uses the
+  same uniform, temperature-independent 0.95.
+
 ## General
 
 - **Temperature-level heat split**: each sector's fuel heat demand is split into three
@@ -547,23 +584,21 @@ Two thermal energy storage (TES) technologies are added for industry heat (in th
 - **`industry_TES_water`** (water tank): stores heat at the `heat_industry_0_100` and
   `heat_industry_100_150` temperature levels.
 - **`industry_TES_steam`** (steam accumulator): stores heat at the
-  `heat_industry_100_150` and `heat_industry_150_200` temperature levels.
+  `heat_industry_150_200` temperature level. A `heat_industry_100_150` steam variant
+  also existed through v6.1 but was removed in v7.0 (see "New in sector v7.0"
+  above) — never chosen by the optimizer, and redundant with the water tank already
+  covering that level.
 
 ### Parametrization (from Mayer2024 Table 3)
 
 | Parameter                       | Water tank        | Steam accumulator |
 |---------------------------------|-------------------|-------------------|
-| Round-trip efficiency           | 0.9               | 0.95              |
-| → `efficiency_charge`           | √0.9 ≈ 0.949     | √0.95 ≈ 0.975    |
-| → `efficiency_discharge`        | √0.9 ≈ 0.949     | √0.95 ≈ 0.975    |
 | Investment cost (source)        | 10 EUR/kWh        | 114 EUR/kWh       |
 | → `capex_specific_storage_energy` | 10,000 EUR/MWh  | 114,000 EUR/MWh   |
 | Fixed O&M cost (source)         | 0.15 EUR/kWh      | 4.1 EUR/kWh       |
 | → `opex_specific_fixed_energy`  | 150 EUR/MWh       | 4,100 EUR/MWh     |
 | Lifetime                        | 30 years          | 25 years          |
 
-- **Efficiency split**: the round-trip efficiency from the source is split
-  symmetrically between charge and discharge: `η_charge = η_discharge = √η_roundtrip`.
 - **Unit conversion**: costs in the source CSV are in EUR/kWh (energy capacity);
   these are converted to EUR/MWh (×1000) to match the ZEN-garden storage technology
   unit convention (`power_unit = MW`).
@@ -572,13 +607,20 @@ Two thermal energy storage (TES) technologies are added for industry heat (in th
 - **`opex_specific_variable` = 1 EUR/GWh** for all TES technologies — small friction
   cost to prevent spurious charge/discharge cycling. Mayer2024 does not report a
   variable O&M cost for heat storage cycling.
-- **`self_discharge` = 0.95** for all TES technologies — standing thermal loss per
-  time step. Mayer et al. (2024) does not report self-discharge rates for industrial
-  TES; this value is an internal assumption.
+- **`efficiency_charge` = `efficiency_discharge` = 1.0** for all TES technologies
+  (v7.0 onward; see "New in sector v7.0" above) — no charge/discharge losses. Mayer
+  2024's round-trip efficiency (0.9 water tank, 0.95 steam accumulator) was
+  previously split symmetrically (`η_charge = η_discharge = √η_roundtrip`) but is no
+  longer used; all losses are represented via `self_discharge` instead.
+- **`self_discharge` = 0.95** for all TES technologies, uniform across every
+  temperature level — standing thermal loss per time step. Mayer et al. (2024) does
+  not report self-discharge rates for industrial TES; this value is an internal
+  assumption. A temperature-dependent self-discharge (higher loss at higher storage
+  temperature) is a deliberate future extension, not yet implemented — see "New in
+  sector v7.0" above for why it was deferred.
 - **Reference carriers**: each TES variant is assigned to one temperature level.
   - `industry_TES_water_0_100` → `heat_industry_0_100`
   - `industry_TES_water_100_150` → `heat_industry_100_150`
-  - `industry_TES_steam_100_150` → `heat_industry_100_150`
   - `industry_TES_steam_150_200` → `heat_industry_150_200`
 
 ### Energy-to-power ratio bounds
@@ -650,7 +692,7 @@ priced-out, short-horizon shape, and Cat 2 something in between.
 | Paper | Cat 2 | Cat 1 | Helin2017 [4] |
 | Food | Cat 3 | Cat 2 | AnaInterview2026 [5] (primary source; placeholder citation, needs last name + date) |
 | Methanol | Cat 2 | Cat 1 | Schneider2023 [6]; ChenYang2021 [7] |
-| Primary steel | Cat 3 (BF-BOF, NG-DRI) | Cat 2 (H2-DRI-EAF) | Boldrini2024 [8]; Golmohamadi2021 [9] |
+| Primary steel | Cat 3 (BF-BOF, NG-DRI) | Cat 3 [†] | Boldrini2024 [8]; Golmohamadi2021 [9] |
 | Secondary steel | Cat 2 | Cat 1 | Boldrini2024 [8]; Golmohamadi2021 [9] |
 | Olefin | Cat 3 (conventional cracker) | Cat 2 (electrified cracker) | Tiggeloven2023 [10] |
 | Ammonia | Cat 3 | Cat 2 | Salmon2023 [11]; Fahr2025 [12] |
@@ -658,7 +700,9 @@ priced-out, short-horizon shape, and Cat 2 something in between.
 
 Numbered citations refer to `input_data/DSM_parametrization/DSM_literature_review.md`,
 which carries full source verification notes and BibTeX for each entry. [5] (food) is a
-placeholder citation pending Ana's last name and interview date.
+placeholder citation pending Ana's last name and interview date. [†] Primary steel
+optimistic was re-evaluated to Cat 3 in v7.0 (from Cat 2 for the H2-DRI-EAF route) —
+a new evaluation, not a change in what [8]/[9] say; see "New in sector v7.0" above.
 
 ### Shared parametrization
 
@@ -671,16 +715,17 @@ placeholder citation pending Ana's last name and interview date.
 | `opex_specific_variable`          | by category (see table above)          |
 | `lifetime`                        | 50 years                               |
 | `energy_to_power_ratio_max`       | by category (see table above)          |
-| `capacity_limit`                  | 2 × per-node carrier demand            |
+| `capacity_limit`                  | 1 × per-node carrier demand            |
 
 - **No losses**: efficiency = 1.0 and self_discharge = 0.0, representing an idealized
   ability to reschedule production within a planning period.
 - **Power unit**: `tonproduct/hour`, matching production technology capacity units
   (`GW` for `ammonia_DSM` and `methanol_DSM`).
-- **`capacity_limit` = 2 × per-node carrier demand** (200% of the carrier's annual
-  demand rate at each node), derived at model build time from the carrier element's
-  demand attribute. Prevents unrealistically large DSM stocks while allowing full
-  flexibility within the demand range.
+- **`capacity_limit` = 1 × per-node carrier demand** (100% of the carrier's annual
+  demand rate at each node, reduced from 200% in v6.1 — see "New in sector v7.0"
+  above), derived at model build time from the carrier element's demand attribute.
+  Prevents unrealistically large DSM stocks while allowing full flexibility within
+  the demand range.
 - `energy_to_power_ratio_min` is left at 0 (default) for all DSM techs — no minimum
   inventory depth is physically required.
 - `lifetime` does not vary by category — no literature basis yet to differentiate it.

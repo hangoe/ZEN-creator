@@ -11,7 +11,6 @@ heat carrier objects are registered before the TES elements are built.
 from zen_creator.sectors import Sector
 
 from zen_creator.elements.storage_technologies.industry_TES import (
-    IndustryTESSteam100150,
     IndustryTESSteam150200,
     IndustryTESWater0100,
     IndustryTESWater100150,
@@ -26,6 +25,5 @@ class IndustryTES(Sector):
         self.elements = [
             IndustryTESWater0100,
             IndustryTESWater100150,
-            IndustryTESSteam100150,
             IndustryTESSteam150200,
         ]
