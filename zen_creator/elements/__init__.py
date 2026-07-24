@@ -24,6 +24,7 @@ from .conversion_technologies.industry_heat_supply import (
     HeatPumpIndustry150200WasteHeat,
     HeatPumpIndustry150200Water,
     NaturalGasBoilerIndustry,
+    OilBoilerIndustry,
 )
 from .conversion_technologies.industry_production import (
     CeramicProduction,
@@ -104,6 +105,7 @@ __all__ = [
     "BiomassBoilerIndustry",
     "ElectrodeBoilerIndustry",
     "NaturalGasBoilerIndustry",
+    "OilBoilerIndustry",
     "HeatIndustryTempConversion150",
     "HeatIndustryTempConversion100",
     "StorageTechnology",

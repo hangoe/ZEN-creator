@@ -22,7 +22,7 @@ from zen_creator.elements.energy_systems.crystal_ball_industry import (  # noqa:
 
 data_path = "/Users/hannegoericke/ZEN-models/data/Crystal_Ball"
 output_path = Path(__file__).parent.parent / "outputs"
-VERSION = "Crystal_Ball_HG_v6_1"
+VERSION = "Crystal_Ball_HG_v7_0"
 
 # Case-study scenarios from MT_report_HG/Sections/03_SI.tex (table:SIScenarios).
 # industry_heat must come first in every combination: glass/ceramic/paper/food

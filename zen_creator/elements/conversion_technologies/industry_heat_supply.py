@@ -267,6 +267,46 @@ class NaturalGasBoilerIndustry(ConversionTechnology):
         return EurostatBoilerDataset().get_natural_gas_boiler_capacity(self, FEC_YEAR, CAPACITY_YEAR)
 
 
+class OilBoilerIndustry(ConversionTechnology):
+    name = "oil_boiler_industry"
+
+    def __init__(self, model: Model):
+        super().__init__(model=model, power_unit="GW")
+
+    def _set_reference_carrier(self) -> Attribute:
+        return Attribute("reference_carrier", default_value=["heat_industry_150_200"], element=self)
+
+    def _set_input_carrier(self) -> Attribute:
+        return Attribute("input_carrier", default_value=["oil"], element=self)
+
+    def _set_output_carrier(self) -> Attribute:
+        return Attribute("output_carrier", default_value=["heat_industry_150_200"], element=self)
+
+    def _set_conversion_factor(self) -> Attribute:
+        return HeatTechParametrizationDataset().get_conversion_factor(self, "oil_boiler_industry", "150_200")
+
+    def _set_lifetime(self) -> Attribute:
+        return HeatTechParametrizationDataset().get_lifetime(self, "oil_boiler_industry")
+
+    def _set_capex_specific_conversion(self) -> Attribute:
+        return HeatTechParametrizationDataset().get_capex_specific_conversion(self, "oil_boiler_industry")
+
+    def _set_opex_specific_fixed(self) -> Attribute:
+        return HeatTechParametrizationDataset().get_opex_specific_fixed(self, "oil_boiler_industry")
+
+    def _set_opex_specific_variable(self) -> Attribute:
+        return HeatTechParametrizationDataset().get_opex_specific_variable(self, "oil_boiler_industry")
+
+    def _set_carbon_intensity_technology(self) -> Attribute:
+        return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, "oil_boiler_industry")
+
+    def _set_max_diffusion_rate(self) -> Attribute:
+        return HeatTechParametrizationDataset().get_max_diffusion_rate(self, "oil_boiler_industry")
+
+    def _set_capacity_existing(self) -> Attribute:
+        return EurostatBoilerDataset().get_oil_boiler_capacity(self, FEC_YEAR, CAPACITY_YEAR)
+
+
 # -- Temperature conversion cascade ------------------------------------------
 
 class HeatIndustryTempConversion150(ConversionTechnology):

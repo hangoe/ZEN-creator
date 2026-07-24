@@ -25,6 +25,7 @@ from zen_creator.elements.conversion_technologies.industry_heat_supply import (
     HeatPumpIndustry150200WasteHeat,
     HeatPumpIndustry150200Water,
     NaturalGasBoilerIndustry,
+    OilBoilerIndustry,
 )
 
 
@@ -43,7 +44,7 @@ class IndustryHeat(Sector):
             # the 0-100 and 100-150 level heat pumps live in industry_low_temp_heat)
             HeatPumpIndustry150200WasteHeat, HeatPumpIndustry150200Water,
             # boilers (150-200 only)
-            BiomassBoilerIndustry, ElectrodeBoilerIndustry, NaturalGasBoilerIndustry,
+            BiomassBoilerIndustry, ElectrodeBoilerIndustry, NaturalGasBoilerIndustry, OilBoilerIndustry,
             # temperature downgrade cascade
             HeatIndustryTempConversion150,
             HeatIndustryTempConversion100,

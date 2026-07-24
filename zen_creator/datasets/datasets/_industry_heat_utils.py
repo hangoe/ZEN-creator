@@ -553,6 +553,7 @@ BOILER_LIFETIMES: dict[str, int] = {
     "biomass_boiler_industry": 20,
     "natural_gas_boiler_industry": 21,
     "electrode_boiler_industry": 30,
+    "oil_boiler_industry": 21,
 }
 
 INSTALLED_CAPACITY_HEADER = "Installed capacity (kt production)"
@@ -598,6 +599,11 @@ EUROSTAT_NATURAL_GAS_HEAT_SHEET = "Sheet 72"
 EUROSTAT_BIOMASS_HEAT_SHEET = "Sheet 74"
 EUROSTAT_ELECTRICITY_HEAT_SHEET = "Sheet 83"
 EUROSTAT_HEAT_FIRST_YEAR = 2015
+
+# Separate extract (custom_22192472) that additionally includes oil products,
+# which the original custom_21840385 query (EUROSTAT_EB_XLSX) never selected.
+EUROSTAT_NEW_EB_XLSX = "Eurostat_new.xlsx"
+EUROSTAT_OIL_HEAT_SHEET = "Sheet 23"  # "Oil and petroleum products (excluding biofuel portion)"
 
 
 def section_by_label(df: pd.DataFrame, year: int, header: str) -> dict[str, float]:
@@ -752,8 +758,8 @@ def heat_pump_capacity_existing_df():
     ])
 
 
-def eurostat_gross_heat_gwh(sheet, year):
-    df = pd.read_excel(INPUT_DATA / "Eurostat" / EUROSTAT_EB_XLSX, sheet_name=sheet, header=None)
+def eurostat_gross_heat_gwh(sheet, year, xlsx=EUROSTAT_EB_XLSX):
+    df = pd.read_excel(INPUT_DATA / "Eurostat" / xlsx, sheet_name=sheet, header=None)
     [header_row] = df.index[df[0] == "TIME"]
     values: dict[str, float] = {}
     for i in range(header_row + 1, len(df)):
@@ -832,22 +838,24 @@ def total_industry_heat_demand_gw(year: int) -> dict[str, float]:
 
 
 def _eurostat_fuel_shares(
-    biomass_gwh: dict[str, float], ng_gwh: dict[str, float], elec_gwh: dict[str, float], country: str
-) -> tuple[float, float, float]:
+    biomass_gwh: dict[str, float], ng_gwh: dict[str, float], elec_gwh: dict[str, float],
+    oil_gwh: dict[str, float], country: str,
+) -> tuple[float, float, float, float]:
     bio_gw = biomass_gwh.get(country, 0.0) / OPERATING_HOURS
     ng_gw = ng_gwh.get(country, 0.0) / OPERATING_HOURS
     elec_gw = elec_gwh.get(country, 0.0) / OPERATING_HOURS
-    total_euro = bio_gw + ng_gw + elec_gw
+    oil_gw = oil_gwh.get(country, 0.0) / OPERATING_HOURS
+    total_euro = bio_gw + ng_gw + elec_gw + oil_gw
     if total_euro > 0.0:
-        return bio_gw / total_euro, ng_gw / total_euro, elec_gw / total_euro
-    return 0.0, 1.0, 0.0
+        return bio_gw / total_euro, ng_gw / total_euro, elec_gw / total_euro, oil_gw / total_euro
+    return 0.0, 1.0, 0.0, 0.0
 
 
 @functools.lru_cache(maxsize=4)
 def _demand_based_boiler_capacity_gw(year: int) -> dict[str, dict[str, float]]:
     """Per-node boiler capacity (GW) scaled to total heat demand with Eurostat fuel shares.
 
-    Returns {node: {"biomass": GW, "natural_gas": GW, "electrode": GW}}.
+    Returns {node: {"biomass": GW, "natural_gas": GW, "electrode": GW, "oil": GW}}.
     CH has no Eurostat entry; it falls back to Austria's fuel-mix shares (closest
     neighboring energy system among covered nodes).
     """
@@ -855,21 +863,23 @@ def _demand_based_boiler_capacity_gw(year: int) -> dict[str, dict[str, float]]:
     biomass_gwh = eurostat_gross_heat_gwh(EUROSTAT_BIOMASS_HEAT_SHEET, year)
     ng_gwh = eurostat_gross_heat_gwh(EUROSTAT_NATURAL_GAS_HEAT_SHEET, year)
     elec_gwh = eurostat_gross_heat_gwh(EUROSTAT_ELECTRICITY_HEAT_SHEET, year)
-    at_shares = _eurostat_fuel_shares(biomass_gwh, ng_gwh, elec_gwh, NODE_TO_EUROSTAT_COUNTRY["AT"])
+    oil_gwh = eurostat_gross_heat_gwh(EUROSTAT_OIL_HEAT_SHEET, year, xlsx=EUROSTAT_NEW_EB_XLSX)
+    at_shares = _eurostat_fuel_shares(biomass_gwh, ng_gwh, elec_gwh, oil_gwh, NODE_TO_EUROSTAT_COUNTRY["AT"])
     result: dict[str, dict[str, float]] = {}
     for node in MODEL_NODES:
         country = NODE_TO_EUROSTAT_COUNTRY.get(node)
         if country is not None:
-            share_bio, share_ng, share_elec = _eurostat_fuel_shares(biomass_gwh, ng_gwh, elec_gwh, country)
+            share_bio, share_ng, share_elec, share_oil = _eurostat_fuel_shares(biomass_gwh, ng_gwh, elec_gwh, oil_gwh, country)
         elif node == "CH":
-            share_bio, share_ng, share_elec = at_shares
+            share_bio, share_ng, share_elec, share_oil = at_shares
         else:
-            share_bio, share_ng, share_elec = 0.0, 1.0, 0.0
+            share_bio, share_ng, share_elec, share_oil = 0.0, 1.0, 0.0, 0.0
         total = total_demand[node]
         result[node] = {
             "biomass": total * share_bio,
             "natural_gas": total * share_ng,
             "electrode": total * share_elec,
+            "oil": total * share_oil,
         }
     return result
 
@@ -892,4 +902,11 @@ def electrode_boiler_capacity_existing_df(year, lifetime=None, year_construction
     caps = _demand_based_boiler_capacity_gw(year)
     return _boiler_capacity_df_from_node_caps(
         {node: caps[node]["electrode"] for node in MODEL_NODES}, year, lifetime, year_construction
+    )
+
+
+def oil_boiler_capacity_existing_df(year, lifetime=None, year_construction=None):
+    caps = _demand_based_boiler_capacity_gw(year)
+    return _boiler_capacity_df_from_node_caps(
+        {node: caps[node]["oil"] for node in MODEL_NODES}, year, lifetime, year_construction
     )

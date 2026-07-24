@@ -8,6 +8,40 @@ files (`process_parametrization.xlsx`, `industry_carriers.xlsx`,
 `source`/`comment` columns. This file describes only the current version's assumptions,
 not the history of how they were derived.
 
+## New in sector v7.0
+
+- **`oil_boiler_industry`**: a fourth 150–200°C boiler technology, alongside
+  `biomass_boiler_industry`, `natural_gas_boiler_industry`, and
+  `electrode_boiler_industry`. Parametrized identically to
+  `natural_gas_boiler_industry` (lifetime, capex, opex, efficiency,
+  `max_diffusion_rate`) — only `input_carrier` differs (`oil` instead of
+  `natural_gas`). No coal-fired boiler was added: coal is a minor EU industrial
+  heating fuel and is already represented as a *process* fuel for glass/ceramic/
+  paper/food (`Solids` → `hard_coal` in the JRC-IDEES thermal-FEC shares), not as
+  boiler technology.
+- **Oil data source**: `input_data/Eurostat/Eurostat_new.xlsx` is a second Eurostat
+  `nrg_bal_c` extract (custom_22192472) that, unlike `Eurostat_EB_GWh.xlsx`
+  (custom_21840385), includes oil products under "Gross heat production". Sheet 23,
+  "Oil and petroleum products (excluding biofuel portion)" — the full oil
+  aggregate — was chosen over the narrower "Fuel oil" (Sheet 39). Comparison of
+  EU27 fuel-mix shares (natural_gas/biomass/electricity/oil only), 2023:
+
+  | carrier | Eurostat, oil = full aggregate (Sheet 23) | Eurostat, oil = "Fuel oil" only (Sheet 39) | Fraunhofer2012, industry-specific (glass+ceramic+paper+food, <100/100–200°C) |
+  |---|---|---|---|
+  | natural_gas | 53.0% | 55.0% | 48.2% |
+  | biomass | 41.5% | 43.0% | 43.2% |
+  | electricity | 0.9% | 0.9% | 1.2% |
+  | oil | **4.6%** | 1.0% | 7.4% (fuel oil) |
+
+  The full aggregate (4.6%) is closer to Fraunhofer's industry-specific fuel-oil
+  share (7.4%) than the narrow "Fuel oil" sheet (1.0%) — Eurostat's economy-wide
+  "Gross heat production" statistic is dominated by district-heating/CHP plants
+  rather than industrial boilers, and industrial oil use spans gas oil/diesel,
+  LPG and refinery gas alongside heavy fuel oil, not just fuel oil narrowly. Using
+  the full aggregate also keeps oil consistent with how biomass is already
+  defined (`Primary solid biofuels`, itself a broad aggregate, not one narrow
+  sub-product).
+
 ## General
 
 - **Temperature-level heat split**: each sector's fuel heat demand is split into three
@@ -233,18 +267,22 @@ input data but is currently not used to compute any capacity value.
 
 ## Boiler (industry) capacity
 
-(`biomass_boiler_industry`, `natural_gas_boiler_industry`, `electrode_boiler_industry`)
+(`biomass_boiler_industry`, `natural_gas_boiler_industry`, `electrode_boiler_industry`,
+`oil_boiler_industry`)
 
 Each boiler technology's `capacity_existing` (GW, one row per node,
 `year_construction = FEC_YEAR = 2023`) is computed in two steps:
 
 1. **Fuel-mix shares per node**, from `input_data/Eurostat/Eurostat_EB_GWh.xlsx`
    "Gross heat production": "Primary solid biofuels" (Sheet 74, biomass), "Natural
-   gas" (Sheet 72), "Electricity" (Sheet 83, electrode). Each is converted to GW via
-   `/ OPERATING_HOURS`, and the three are normalized to shares
-   (`share_bio + share_ng + share_elec = 1`). If a node has no Eurostat entry, it
-   falls back to 100% natural gas — except Switzerland, which uses Austria's
-   fuel-mix shares (see below).
+   gas" (Sheet 72), "Electricity" (Sheet 83, electrode), plus "Oil and petroleum
+   products (excluding biofuel portion)" from the separate extract
+   `input_data/Eurostat/Eurostat_new.xlsx` (Sheet 23, oil — see "New in sector
+   v7.0" above for why this sheet/extract). Each is converted to GW via
+   `/ OPERATING_HOURS`, and the four are normalized to shares
+   (`share_bio + share_ng + share_elec + share_oil = 1`). If a node has no Eurostat
+   entry, it falls back to 100% natural gas — except Switzerland, which uses
+   Austria's fuel-mix shares (see below).
 2. **Total boiler capacity per node** = `total_industry_heat_demand_gw(node)` (summed
    heat-carrier demand across glass/ceramic/paper/food, all 3 temperature levels) ×
    that node's fuel-mix share. This sizes total existing boiler capacity to match
@@ -257,14 +295,16 @@ Each boiler technology's `capacity_existing` (GW, one row per node,
   Austria is the closest neighboring energy system among the covered nodes, and
   unlike most of Europe it is not dominated by natural gas, so 100% NG was a poor
   proxy. Austria 2023 gross heat production: natural gas 6581.12 GWh, primary solid
-  biofuels 11208.557 GWh, electricity 3.398 GWh, giving shares of
-  biomass ≈ 63.0%, natural gas ≈ 37.0%, electrode ≈ 0.02%. These shares are applied
-  to Switzerland's own modeled heat demand (`total_industry_heat_demand_gw("CH")`)
-  to split its `capacity_existing` across the three boiler technologies.
-- **United Kingdom**: the Eurostat extract has no 2023 (or later) value for the UK in
-  any of the three sheets (coverage ends after 2019 post-Brexit); the latest available
-  year (2019) is used instead for the fuel-mix shares (Natural gas: 16321.438 GWh,
-  Primary solid biofuels: 1168.056 GWh, Electricity: 0.0 GWh).
+  biofuels 11208.557 GWh, electricity 3.398 GWh, oil 1121.159 GWh, giving shares of
+  biomass ≈ 59.3%, natural gas ≈ 34.8%, electrode ≈ 0.02%, oil ≈ 5.9%. These shares
+  are applied to Switzerland's own modeled heat demand
+  (`total_industry_heat_demand_gw("CH")`) to split its `capacity_existing` across
+  the four boiler technologies.
+- **United Kingdom**: neither Eurostat extract has a 2023 (or later) value for the
+  UK in any of the four sheets (coverage ends after 2019 post-Brexit); the latest
+  available year (2019) is used instead for the fuel-mix shares (Natural gas:
+  16321.438 GWh, Primary solid biofuels: 1168.056 GWh, Electricity: 0.0 GWh, Oil:
+  307.701 GWh).
 
 ## Heat pump COP parametrization
 
