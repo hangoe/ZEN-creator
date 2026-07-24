@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from zen_creator.model import Model
 
+from zen_creator.datasets.datasets.dea_industrial_heat import DeaIndustrialHeatDataset
 from zen_creator.datasets.datasets.eurostat_boiler import EurostatBoilerDataset
 from zen_creator.datasets.datasets.heat_tech_parametrization import (
     HP_COP_WASTE_HEAT,
@@ -47,8 +48,17 @@ def _hp_waste_heat_limit(element, temp_level: str) -> Attribute:
 #   _waste_heat: source = waste heat at 50°C (Bever2024, Agora_IGE2023); capacity limited
 #   _water:      source = water at 15°C (Agora_IGE2023); unconstrained
 
-def _hp_methods(base_tech: str, temp_level: str, cop: float):
-    """Return a dict of _set_* methods shared across all HP variants."""
+def _hp_methods(base_tech: str, dea_tech: str, temp_level: str, cop: float):
+    """Return a dict of _set_* methods shared across all HP variants.
+
+    `base_tech` (always "heat_pump_industry") still parametrizes conversion_factor
+    (via the Carnot-based `cop` override, unrelated to DEA), carbon intensity, and
+    max_diffusion_rate. `dea_tech` selects which DEA temperature tier backs capex/
+    opex/lifetime: "heat_pump_industry_0_100" (DEA "up to 125°C") for the 0-100°C
+    band, "heat_pump_industry_100_200" (DEA "up to 150°C") for both 100-150°C and
+    150-200°C — DEA has no tier above 150°C, so its highest tier is reused as the
+    cost proxy for the top band too (see ASSUMPTIONS.md, "New in sector v7.0").
+    """
     carrier = f"heat_industry_{temp_level}"
 
     class _Mixin:
@@ -65,16 +75,16 @@ def _hp_methods(base_tech: str, temp_level: str, cop: float):
             return HeatTechParametrizationDataset().get_conversion_factor(self, base_tech, temp_level, cop_override=cop)
 
         def _set_lifetime(self) -> Attribute:
-            return HeatTechParametrizationDataset().get_lifetime(self, base_tech)
+            return DeaIndustrialHeatDataset().get_lifetime(self, dea_tech)
 
         def _set_capex_specific_conversion(self) -> Attribute:
-            return HeatTechParametrizationDataset().get_capex_specific_conversion(self, base_tech)
+            return DeaIndustrialHeatDataset().get_capex_specific_conversion(self, dea_tech)
 
         def _set_opex_specific_fixed(self) -> Attribute:
-            return HeatTechParametrizationDataset().get_opex_specific_fixed(self, base_tech)
+            return DeaIndustrialHeatDataset().get_opex_specific_fixed(self, dea_tech)
 
         def _set_opex_specific_variable(self) -> Attribute:
-            return HeatTechParametrizationDataset().get_opex_specific_variable(self, base_tech)
+            return DeaIndustrialHeatDataset().get_opex_specific_variable(self, dea_tech)
 
         def _set_carbon_intensity_technology(self) -> Attribute:
             return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, base_tech)
@@ -90,7 +100,7 @@ def _hp_methods(base_tech: str, temp_level: str, cop: float):
 
 # --- 0–100°C ---
 
-class HeatPumpIndustry0100WasteHeat(_hp_methods("heat_pump_industry", "0_100", HP_COP_WASTE_HEAT["0_100"]), ConversionTechnology):
+class HeatPumpIndustry0100WasteHeat(_hp_methods("heat_pump_industry", "heat_pump_industry_0_100", "0_100", HP_COP_WASTE_HEAT["0_100"]), ConversionTechnology):
     name = "heat_pump_industry_0_100_waste_heat"
 
     def __init__(self, model: Model):
@@ -100,7 +110,7 @@ class HeatPumpIndustry0100WasteHeat(_hp_methods("heat_pump_industry", "0_100", H
         return _hp_waste_heat_limit(self, "0_100")
 
 
-class HeatPumpIndustry0100Water(_hp_methods("heat_pump_industry", "0_100", HP_COP_WATER["0_100"]), ConversionTechnology):
+class HeatPumpIndustry0100Water(_hp_methods("heat_pump_industry", "heat_pump_industry_0_100", "0_100", HP_COP_WATER["0_100"]), ConversionTechnology):
     name = "heat_pump_industry_0_100_water"
 
     def __init__(self, model: Model):
@@ -109,7 +119,7 @@ class HeatPumpIndustry0100Water(_hp_methods("heat_pump_industry", "0_100", HP_CO
 
 # --- 100–150°C ---
 
-class HeatPumpIndustry100150WasteHeat(_hp_methods("heat_pump_industry", "100_150", HP_COP_WASTE_HEAT["100_150"]), ConversionTechnology):
+class HeatPumpIndustry100150WasteHeat(_hp_methods("heat_pump_industry", "heat_pump_industry_100_200", "100_150", HP_COP_WASTE_HEAT["100_150"]), ConversionTechnology):
     name = "heat_pump_industry_100_150_waste_heat"
 
     def __init__(self, model: Model):
@@ -119,7 +129,7 @@ class HeatPumpIndustry100150WasteHeat(_hp_methods("heat_pump_industry", "100_150
         return _hp_waste_heat_limit(self, "100_150")
 
 
-class HeatPumpIndustry100150Water(_hp_methods("heat_pump_industry", "100_150", HP_COP_WATER["100_150"]), ConversionTechnology):
+class HeatPumpIndustry100150Water(_hp_methods("heat_pump_industry", "heat_pump_industry_100_200", "100_150", HP_COP_WATER["100_150"]), ConversionTechnology):
     name = "heat_pump_industry_100_150_water"
 
     def __init__(self, model: Model):
@@ -128,7 +138,7 @@ class HeatPumpIndustry100150Water(_hp_methods("heat_pump_industry", "100_150", H
 
 # --- 150–200°C ---
 
-class HeatPumpIndustry150200WasteHeat(_hp_methods("heat_pump_industry", "150_200", HP_COP_WASTE_HEAT["150_200"]), ConversionTechnology):
+class HeatPumpIndustry150200WasteHeat(_hp_methods("heat_pump_industry", "heat_pump_industry_100_200", "150_200", HP_COP_WASTE_HEAT["150_200"]), ConversionTechnology):
     name = "heat_pump_industry_150_200_waste_heat"
 
     def __init__(self, model: Model):
@@ -138,7 +148,7 @@ class HeatPumpIndustry150200WasteHeat(_hp_methods("heat_pump_industry", "150_200
         return _hp_waste_heat_limit(self, "150_200")
 
 
-class HeatPumpIndustry150200Water(_hp_methods("heat_pump_industry", "150_200", HP_COP_WATER["150_200"]), ConversionTechnology):
+class HeatPumpIndustry150200Water(_hp_methods("heat_pump_industry", "heat_pump_industry_100_200", "150_200", HP_COP_WATER["150_200"]), ConversionTechnology):
     name = "heat_pump_industry_150_200_water"
 
     def __init__(self, model: Model):
@@ -163,19 +173,19 @@ class BiomassBoilerIndustry(ConversionTechnology):
         return Attribute("output_carrier", default_value=["heat_industry_150_200"], element=self)
 
     def _set_conversion_factor(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_conversion_factor(self, "biomass_boiler_industry", "150_200")
+        return DeaIndustrialHeatDataset().get_conversion_factor(self, "biomass_boiler_industry", "biomass")
 
     def _set_lifetime(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_lifetime(self, "biomass_boiler_industry")
+        return DeaIndustrialHeatDataset().get_lifetime(self, "biomass_boiler_industry")
 
     def _set_capex_specific_conversion(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_capex_specific_conversion(self, "biomass_boiler_industry")
+        return DeaIndustrialHeatDataset().get_capex_specific_conversion(self, "biomass_boiler_industry")
 
     def _set_opex_specific_fixed(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_opex_specific_fixed(self, "biomass_boiler_industry")
+        return DeaIndustrialHeatDataset().get_opex_specific_fixed(self, "biomass_boiler_industry")
 
     def _set_opex_specific_variable(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_opex_specific_variable(self, "biomass_boiler_industry")
+        return DeaIndustrialHeatDataset().get_opex_specific_variable(self, "biomass_boiler_industry")
 
     def _set_carbon_intensity_technology(self) -> Attribute:
         return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, "biomass_boiler_industry")
@@ -203,19 +213,19 @@ class ElectrodeBoilerIndustry(ConversionTechnology):
         return Attribute("output_carrier", default_value=["heat_industry_150_200"], element=self)
 
     def _set_conversion_factor(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_conversion_factor(self, "electrode_boiler_industry", "150_200")
+        return DeaIndustrialHeatDataset().get_conversion_factor(self, "electrode_boiler_industry", "electricity")
 
     def _set_lifetime(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_lifetime(self, "electrode_boiler_industry")
+        return DeaIndustrialHeatDataset().get_lifetime(self, "electrode_boiler_industry")
 
     def _set_capex_specific_conversion(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_capex_specific_conversion(self, "electrode_boiler_industry")
+        return DeaIndustrialHeatDataset().get_capex_specific_conversion(self, "electrode_boiler_industry")
 
     def _set_opex_specific_fixed(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_opex_specific_fixed(self, "electrode_boiler_industry")
+        return DeaIndustrialHeatDataset().get_opex_specific_fixed(self, "electrode_boiler_industry")
 
     def _set_opex_specific_variable(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_opex_specific_variable(self, "electrode_boiler_industry")
+        return DeaIndustrialHeatDataset().get_opex_specific_variable(self, "electrode_boiler_industry")
 
     def _set_carbon_intensity_technology(self) -> Attribute:
         return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, "electrode_boiler_industry")
@@ -243,19 +253,19 @@ class NaturalGasBoilerIndustry(ConversionTechnology):
         return Attribute("output_carrier", default_value=["heat_industry_150_200"], element=self)
 
     def _set_conversion_factor(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_conversion_factor(self, "natural_gas_boiler_industry", "150_200")
+        return DeaIndustrialHeatDataset().get_conversion_factor(self, "natural_gas_boiler_industry", "natural_gas")
 
     def _set_lifetime(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_lifetime(self, "natural_gas_boiler_industry")
+        return DeaIndustrialHeatDataset().get_lifetime(self, "natural_gas_boiler_industry")
 
     def _set_capex_specific_conversion(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_capex_specific_conversion(self, "natural_gas_boiler_industry")
+        return DeaIndustrialHeatDataset().get_capex_specific_conversion(self, "natural_gas_boiler_industry")
 
     def _set_opex_specific_fixed(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_opex_specific_fixed(self, "natural_gas_boiler_industry")
+        return DeaIndustrialHeatDataset().get_opex_specific_fixed(self, "natural_gas_boiler_industry")
 
     def _set_opex_specific_variable(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_opex_specific_variable(self, "natural_gas_boiler_industry")
+        return DeaIndustrialHeatDataset().get_opex_specific_variable(self, "natural_gas_boiler_industry")
 
     def _set_carbon_intensity_technology(self) -> Attribute:
         return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, "natural_gas_boiler_industry")
@@ -283,19 +293,19 @@ class OilBoilerIndustry(ConversionTechnology):
         return Attribute("output_carrier", default_value=["heat_industry_150_200"], element=self)
 
     def _set_conversion_factor(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_conversion_factor(self, "oil_boiler_industry", "150_200")
+        return DeaIndustrialHeatDataset().get_conversion_factor(self, "oil_boiler_industry", "oil")
 
     def _set_lifetime(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_lifetime(self, "oil_boiler_industry")
+        return DeaIndustrialHeatDataset().get_lifetime(self, "oil_boiler_industry")
 
     def _set_capex_specific_conversion(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_capex_specific_conversion(self, "oil_boiler_industry")
+        return DeaIndustrialHeatDataset().get_capex_specific_conversion(self, "oil_boiler_industry")
 
     def _set_opex_specific_fixed(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_opex_specific_fixed(self, "oil_boiler_industry")
+        return DeaIndustrialHeatDataset().get_opex_specific_fixed(self, "oil_boiler_industry")
 
     def _set_opex_specific_variable(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_opex_specific_variable(self, "oil_boiler_industry")
+        return DeaIndustrialHeatDataset().get_opex_specific_variable(self, "oil_boiler_industry")
 
     def _set_carbon_intensity_technology(self) -> Attribute:
         return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, "oil_boiler_industry")

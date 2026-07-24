@@ -12,13 +12,15 @@ not the history of how they were derived.
 
 - **`oil_boiler_industry`**: a fourth 150–200°C boiler technology, alongside
   `biomass_boiler_industry`, `natural_gas_boiler_industry`, and
-  `electrode_boiler_industry`. Parametrized identically to
-  `natural_gas_boiler_industry` (lifetime, capex, opex, efficiency,
-  `max_diffusion_rate`) — only `input_carrier` differs (`oil` instead of
-  `natural_gas`). No coal-fired boiler was added: coal is a minor EU industrial
-  heating fuel and is already represented as a *process* fuel for glass/ceramic/
-  paper/food (`Solids` → `hard_coal` in the JRC-IDEES thermal-FEC shares), not as
-  boiler technology.
+  `electrode_boiler_industry`. `input_carrier` is `oil` instead of `natural_gas`;
+  capex/opex/lifetime/efficiency are DEA-sourced like the other three boilers (see
+  "Heat pump & boiler cost/efficiency parametrization (DEA)" below) — DEA's
+  gas-and-oil boiler sheet covers both fuels with one set of techno-economics, so
+  `natural_gas_boiler_industry` and `oil_boiler_industry` share identical
+  capex/opex/lifetime/efficiency, differing only in `input_carrier`. No coal-fired
+  boiler was added: coal is a minor EU industrial heating fuel and is already
+  represented as a *process* fuel for glass/ceramic/paper/food (`Solids` →
+  `hard_coal` in the JRC-IDEES thermal-FEC shares), not as boiler technology.
 - **Oil data source**: `input_data/Eurostat/Eurostat_new.xlsx` is a second Eurostat
   `nrg_bal_c` extract (custom_22192472) that, unlike `Eurostat_EB_GWh.xlsx`
   (custom_21840385), includes oil products under "Gross heat production". Sheet 23,
@@ -41,6 +43,73 @@ not the history of how they were derived.
   the full aggregate also keeps oil consistent with how biomass is already
   defined (`Primary solid biofuels`, itself a broad aggregate, not one narrow
   sub-product).
+
+### Heat pump & boiler cost/efficiency parametrization (DEA)
+
+`heat_pump_industry` (all 6 temperature-level/source variants),
+`biomass_boiler_industry`, `natural_gas_boiler_industry`, `oil_boiler_industry`,
+and `electrode_boiler_industry` previously borrowed `capex_specific_conversion`,
+`opex_specific_fixed`, `opex_specific_variable`, and `lifetime` from the base
+(non-industry) Crystal_Ball techs (`heat_pump`, `natural_gas_boiler`,
+`biomass_boiler`, `electrode_boiler`) — a placeholder, since those numbers were
+never industry-specific. They're now sourced from
+`input_data/DanishEnergyAgency/technology_data_for_industrial_process_heat.xlsx`
+(Danish Energy Agency, "Technology Data for Industrial Process Heat"), via the new
+`zen_creator/datasets/datasets/dea_industrial_heat.py`.
+
+- **Sheet-to-tech mapping** (central (`ctrl`) estimates only):
+
+  | model tech | DEA sheet | capex (2025) | fixed O&M (2025) | variable O&M | lifetime | efficiency/COP |
+  |---|---|---|---|---|---|---|
+  | `heat_pump_industry_0_100` (both waste-heat/water variants) | 2.a, up to 125°C | 1,200 €/kW | 2.49 €/kW/yr | 3.6 €/MWh | 20 yr | Carnot formula (unchanged) |
+  | `heat_pump_industry_100_150`, `heat_pump_industry_150_200` (4 remaining variants) | 2.b, up to 150°C | 1,550 €/kW | 2.49 €/kW/yr | 3.6 €/MWh | 20 yr | Carnot formula (unchanged) |
+  | `electrode_boiler_industry` | 5.1a, electric boiler, steam, 2 MW | 250 €/kW | 1.44 €/kW/yr | 0.674 €/MWh | 25 yr | 99% |
+  | `natural_gas_boiler_industry`, `oil_boiler_industry` | 6.1, boiler, gas and oil, 5 MW | 90 €/kW | 2.0 €/kW/yr | 1.23 €/MWh | 25 yr | 94% |
+  | `biomass_boiler_industry` | 6.2, boiler, biomass, 6.5 MW | 878 €/kW | 39.5 €/kW/yr | 1.45 €/MWh | 25 yr | 89% |
+
+- **Heat pump temperature tiering**: DEA has no tier above 150°C, so the 150°C
+  sheet (2.b) is reused as the cost proxy for the 150–200°C band too (not just
+  100–150°C). This only borrows *cost* — heat pump COP is untouched, still computed
+  independently via the model's own Carnot-fraction formula
+  (`HP_COP_WASTE_HEAT`/`HP_COP_WATER` in `heat_tech_parametrization.py`, see "Heat
+  pump COP parametrization" below), so reusing 2.b's cost for the top band doesn't
+  imply a 150°C-rated unit can literally reach 200°C output — only that its cost is
+  the best available proxy.
+- **Electric boiler size**: DEA gives two unit-size variants per electric-boiler
+  sheet (2 MW vs 15 MW, materially different capex due to economies of scale); the
+  2 MW variant (5.1a, 250 €/kW) was chosen over the 15 MW variant (5.1b, 110 €/kW)
+  because the larger unit would price electricity-based heat *below* the fuel-fired
+  gas/oil boiler (90 €/kW), which doesn't hold up against its peers. Gas/oil and
+  biomass boilers only have one DEA size each, so no such choice was needed there.
+- **Boiler efficiency**: `conversion_factor` (`1 / efficiency`) for all 4 boilers
+  now comes from DEA's `Total efficiency, net [%], nominel load`, replacing the
+  previous placeholder values (e.g. `natural_gas_boiler_industry`'s ~99.5%, copied
+  from the base non-industry tech).
+- **Time-varying costs**: DEA gives values at 5 sample years (2025, 2030, 2035,
+  2040, 2050), all in real 2025€. Capex/opex are interpolated (linear) onto every
+  calendar year 2022–2050, using the same mechanism already used for `battery` in
+  the base model (a `{attribute_name}.csv` file with a `year` index, alongside the
+  scalar `attributes.json` default — see `Attribute.df`/`_load_time_series_data` in
+  `zen_creator/utils/attribute.py`). Years before 2025 (2022–2024) hold flat at the
+  2025 value, since DEA has no earlier data. The gas/oil boiler (DEA sheet 6.1) is
+  flat across all 5 DEA years (mature technology, no assumed learning curve), so it
+  keeps a plain scalar `default_value` with no time series.
+- **Lifetime**: also switched to DEA's technical lifetime (heat pumps 20 yr, all
+  boilers 25 yr) — a real change from the previous placeholders (heat pump 19,
+  natural gas/oil 21, biomass 20, electrode 30). `BOILER_LIFETIMES` in
+  `_industry_heat_utils.py` (used to spread *existing* capacity across
+  construction-year vintage cohorts, independent of the optimization `lifetime`
+  attribute) was updated to match (25 for all 4 boilers).
+- **Out of scope**: `input_data/Parametrization/heat_tech_parametrization.xlsx`
+  still holds the old placeholder numbers for `lifetime`/`capex_specific_conversion`/
+  `opex_specific_fixed`/`opex_specific_variable` (and, for boilers,
+  `conversion_factor`) in the 5 affected tech columns — they're no longer read for
+  these params, kept only as a record of what used to be assumed. All other
+  parameters for these techs (capacity bounds, load bounds, `construction_time`,
+  `max_diffusion_rate`, carrier lists) are unaffected and still come from that
+  file. DEA sheets 1.1/1.2 (traditional/combi heat pump, ≤60/80°C), 4 (mechanical
+  vapor recompression, 5 K lift only), 6.3 (coal boiler), and 7.1–7.3 (direct
+  firing) don't map onto the model's existing technologies and weren't used.
 
 ## General
 

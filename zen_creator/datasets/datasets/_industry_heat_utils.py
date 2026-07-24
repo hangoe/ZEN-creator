@@ -550,10 +550,10 @@ KTOE_TO_GJ = 41868.0  # 1 ktoe = 1000 toe × 41.868 GJ/toe
 # Boiler lifetimes from heat_tech_parametrization.xlsx (Crystal Ball values).
 SECTOR_LIFETIMES: dict[str, int] = {"glass": 28, "ceramic": 20, "paper": 25, "food": 20}
 BOILER_LIFETIMES: dict[str, int] = {
-    "biomass_boiler_industry": 20,
-    "natural_gas_boiler_industry": 21,
-    "electrode_boiler_industry": 30,
-    "oil_boiler_industry": 21,
+    "biomass_boiler_industry": 25,
+    "natural_gas_boiler_industry": 25,
+    "electrode_boiler_industry": 25,
+    "oil_boiler_industry": 25,
 }
 
 INSTALLED_CAPACITY_HEADER = "Installed capacity (kt production)"
