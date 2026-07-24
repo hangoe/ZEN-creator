@@ -28,11 +28,11 @@
         "unit": "1"
     },
     "opex_specific_variable": {
-        "default_value": 0.0,
+        "default_value": 3.6,
         "unit": "Euro/MWh"
     },
     "opex_specific_fixed": {
-        "default_value": 20.0,
+        "default_value": 2.494,
         "unit": "Euro/kW"
     },
     "carbon_intensity_technology": {
@@ -52,7 +52,7 @@
         "unit": "1"
     },
     "lifetime": {
-        "default_value": 19.0,
+        "default_value": 20.0,
         "unit": "1"
     },
     "reference_carrier": {
@@ -61,7 +61,7 @@
         ]
     },
     "capex_specific_conversion": {
-        "default_value": 930.1261448256167,
+        "default_value": 1200.0,
         "unit": "Euro/kW"
     },
     "input_carrier": {

@@ -61,11 +61,11 @@
         ]
     },
     "efficiency_charge": {
-        "default_value": 0.9486832980505138,
+        "default_value": 1.0,
         "unit": "1"
     },
     "efficiency_discharge": {
-        "default_value": 0.9486832980505138,
+        "default_value": 1.0,
         "unit": "1"
     },
     "self_discharge": {

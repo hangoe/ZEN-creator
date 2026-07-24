@@ -28,7 +28,7 @@
         "unit": "1"
     },
     "opex_specific_variable": {
-        "default_value": 20.0,
+        "default_value": 1000.0,
         "unit": "Euro/(tonproduct/hour*h)"
     },
     "opex_specific_fixed": {
@@ -77,7 +77,7 @@
         "unit": "Euro/(tonproduct/hour)"
     },
     "capex_specific_storage_energy": {
-        "default_value": 20.0,
+        "default_value": 1000.0,
         "unit": "Euro/(tonproduct/hour*h)"
     },
     "capacity_addition_min_energy": {
@@ -117,7 +117,7 @@
         "unit": "h"
     },
     "energy_to_power_ratio_max": {
-        "default_value": 48.0,
+        "default_value": 2.0,
         "unit": "h"
     },
     "flow_storage_inflow": {

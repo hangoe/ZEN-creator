@@ -28,7 +28,7 @@
         "unit": "1"
     },
     "opex_specific_variable": {
-        "default_value": 0.1,
+        "default_value": 0.0,
         "unit": "Euro/GWh"
     },
     "opex_specific_fixed": {
