@@ -1,0 +1,124 @@
+{
+    "capacity_addition_min": {
+        "default_value": 0.0,
+        "unit": "tonproduct/hour"
+    },
+    "capacity_addition_max": {
+        "default_value": "inf",
+        "unit": "tonproduct/hour"
+    },
+    "capacity_addition_unbounded": {
+        "default_value": 0.0,
+        "unit": "tonproduct/hour"
+    },
+    "capacity_existing": {
+        "default_value": 0.0,
+        "unit": "tonproduct/hour"
+    },
+    "capacity_limit": {
+        "default_value": "inf",
+        "unit": "tonproduct/hour"
+    },
+    "min_load": {
+        "default_value": 0.0,
+        "unit": "1"
+    },
+    "max_load": {
+        "default_value": 1.0,
+        "unit": "1"
+    },
+    "opex_specific_variable": {
+        "default_value": 59.34,
+        "unit": "Euro/tonproduct"
+    },
+    "opex_specific_fixed": {
+        "default_value": 166351.72,
+        "unit": "Euro/(tonproduct/h)"
+    },
+    "carbon_intensity_technology": {
+        "default_value": 0.1,
+        "unit": "ton/tonproduct"
+    },
+    "construction_time": {
+        "default_value": 0.0,
+        "unit": "1"
+    },
+    "capacity_investment_existing": {
+        "default_value": 0.0,
+        "unit": "tonproduct/hour"
+    },
+    "max_diffusion_rate": {
+        "default_value": "inf",
+        "unit": ""
+    },
+    "lifetime": {
+        "default_value": 28.0,
+        "unit": ""
+    },
+    "reference_carrier": {
+        "default_value": [
+            "glass"
+        ]
+    },
+    "capex_specific_conversion": {
+        "default_value": 2183366.39,
+        "unit": "Euro/(tonproduct/h)"
+    },
+    "input_carrier": {
+        "default_value": [
+            "hard_coal",
+            "natural_gas",
+            "heat_industry_0_100",
+            "heat_industry_100_150",
+            "heat_industry_150_200",
+            "electricity"
+        ]
+    },
+    "output_carrier": {
+        "default_value": [
+            "glass"
+        ]
+    },
+    "conversion_factor": [
+        {
+            "hard_coal": {
+                "default_value": 0.000197640637,
+                "unit": "GW/(tonproduct/hour)"
+            }
+        },
+        {
+            "natural_gas": {
+                "default_value": 0.000932843807,
+                "unit": "GW/(tonproduct/hour)"
+            }
+        },
+        {
+            "electricity": {
+                "default_value": 0.000305,
+                "unit": "GW/(tonproduct/hour)"
+            }
+        },
+        {
+            "heat_industry_0_100": {
+                "default_value": 2.8838889e-05,
+                "unit": "GW/(tonproduct/hour)"
+            }
+        },
+        {
+            "heat_industry_100_150": {
+                "default_value": 9.4207037e-05,
+                "unit": "GW/(tonproduct/hour)"
+            }
+        },
+        {
+            "heat_industry_150_200": {
+                "default_value": 0.000188414074,
+                "unit": "GW/(tonproduct/hour)"
+            }
+        }
+    ],
+    "min_full_load_hours_fraction": {
+        "default_value": 0.0,
+        "unit": "1"
+    }
+}
