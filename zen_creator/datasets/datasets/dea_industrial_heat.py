@@ -101,6 +101,18 @@ def _interpolate_to_model_years(year_values: dict[int, float]) -> pd.Series:
     return pd.Series(interpolated, index=pd.Index(model_years, name="year"))
 
 
+def _is_constant(series: pd.Series) -> bool:
+    """Whether a series is (numerically) the same value for every year.
+
+    DEA gives identical values across its sample years for some tech/param
+    combinations (e.g. gas/oil boiler capex); interpolating those still
+    produces a constant series. Writing that out as a `{attr}.csv` /
+    `{attr}_yearly_variation.csv` is pure noise on top of `attributes.json`'s
+    `default_value`, so callers use this to decide whether to attach a `df`.
+    """
+    return bool(np.allclose(series.to_numpy(), series.iloc[0]))
+
+
 class DeaIndustrialHeatDataset(Dataset[pd.DataFrame]):
 
     name = "dea_industrial_heat"
@@ -140,7 +152,7 @@ class DeaIndustrialHeatDataset(Dataset[pd.DataFrame]):
         attr = Attribute("capex_specific_conversion", element=element)
         attr.set_data(
             default_value=float(series.loc[MODEL_FIRST_YEAR]), unit="Euro/kW",
-            df=series.to_frame("capex_specific_conversion"),
+            df=None if _is_constant(series) else series.to_frame("capex_specific_conversion"),
             source=self._source_info(f"Nominal investment for {tech} from DEA sheet {sheet!r}, interpolated over {MODEL_FIRST_YEAR}-{MODEL_LAST_YEAR}."),
         )
         return attr
@@ -152,7 +164,7 @@ class DeaIndustrialHeatDataset(Dataset[pd.DataFrame]):
         attr = Attribute("opex_specific_fixed", element=element)
         attr.set_data(
             default_value=float(series.loc[MODEL_FIRST_YEAR]), unit="Euro/kW",
-            df=series.to_frame("opex_specific_fixed"),
+            df=None if _is_constant(series) else series.to_frame("opex_specific_fixed"),
             source=self._source_info(f"Fixed O&M for {tech} from DEA sheet {sheet!r}, interpolated over {MODEL_FIRST_YEAR}-{MODEL_LAST_YEAR}."),
         )
         return attr
@@ -178,7 +190,7 @@ class DeaIndustrialHeatDataset(Dataset[pd.DataFrame]):
         attr = Attribute("opex_specific_variable", element=element)
         attr.set_data(
             default_value=base_value, unit="Euro/MWh",
-            yearly_variations_df=multiplier.to_frame(),
+            yearly_variations_df=None if _is_constant(multiplier) else multiplier.to_frame(),
             source=self._source_info(f"Variable O&M for {tech} from DEA sheet {sheet!r}, interpolated over {MODEL_FIRST_YEAR}-{MODEL_LAST_YEAR}, expressed as a yearly-variation multiplier on the {MODEL_FIRST_YEAR} value."),
         )
         return attr

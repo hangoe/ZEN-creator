@@ -851,27 +851,77 @@ def _eurostat_fuel_shares(
     return 0.0, 1.0, 0.0, 0.0
 
 
+# BFE (2025) "Energieverbrauch in der Industrie und im Dienstleistungssektor" —
+# annual survey of ~13'000 Swiss establishments, hochgerechnet by BFS. Branch
+# groups matching this model's process-heat scope (cement, branch 5, is reported
+# separately and excluded): see BFE2025 in ASSUMPTIONS.md.
+BFE_CH_XLSX = "BFE2025.xlsx"
+BFE_CH_BRANCHES = (1, 3, 6)  # Nahrungsmittel (food), Papier und Druck (paper), Andere Nicht-Eisen-Mineralien (glass/ceramics)
+BFE_CH_GAS_SHEET = "Erdgas"
+BFE_CH_OIL_SHEETS = ("Heizöl extra-leicht", "Heizöl mittel und schwer")
+BFE_CH_BIOMASS_SHEET = "Holz"
+
+
+def _bfe_ch_branch_total_tj(sheet: str, year: int) -> float:
+    df = pd.read_excel(INPUT_DATA / "BFE2025" / BFE_CH_XLSX, sheet_name=sheet, header=None)
+    [header_row] = df.index[df[0] == "BranchenNr."]
+    header = df.iloc[header_row]
+    year_cols = [c for c in header.index if isinstance(header[c], (int, float)) and header[c] <= year]
+    if not year_cols:
+        return 0.0
+    col = max(year_cols, key=lambda c: header[c])
+    total = 0.0
+    for branch in BFE_CH_BRANCHES:
+        [row] = df.index[df[0] == branch]
+        value = df.iat[row, col]
+        total += float(value) if value is not None else 0.0
+    return total
+
+
+@functools.lru_cache(maxsize=4)
+def _bfe_ch_fuel_shares(year: int) -> tuple[float, float, float, float]:
+    """Switzerland-specific boiler fuel-mix shares (biomass, natural_gas, electrode, oil).
+
+    Derived from BFE2025, summing final energy consumption across the three branches
+    matching this model's process-heat scope (food, paper, glass/ceramics), restricted
+    to combustion carriers (Erdgas, Heizöl extra-leicht + mittel/schwer, Holz).
+    Electricity is excluded from the mix — in these branches it is dominated by drives
+    and lighting rather than boilers, and heat-pump/electrode boiler capacity is
+    assumed zero for Switzerland (see David2017, "Heat pump (industry) capacity").
+    Kohle (coal) is also excluded and the remaining three carriers renormalized to sum
+    to 1 — coal is consistently the smallest carrier (<3% of the combustion total in
+    both 2022 and 2023) and the model has no boiler technology for it.
+    """
+    ng = _bfe_ch_branch_total_tj(BFE_CH_GAS_SHEET, year)
+    oil = sum(_bfe_ch_branch_total_tj(sheet, year) for sheet in BFE_CH_OIL_SHEETS)
+    bio = _bfe_ch_branch_total_tj(BFE_CH_BIOMASS_SHEET, year)
+    total = ng + oil + bio
+    if total > 0.0:
+        return bio / total, ng / total, 0.0, oil / total
+    return 0.0, 1.0, 0.0, 0.0
+
+
 @functools.lru_cache(maxsize=4)
 def _demand_based_boiler_capacity_gw(year: int) -> dict[str, dict[str, float]]:
     """Per-node boiler capacity (GW) scaled to total heat demand with Eurostat fuel shares.
 
     Returns {node: {"biomass": GW, "natural_gas": GW, "electrode": GW, "oil": GW}}.
-    CH has no Eurostat entry; it falls back to Austria's fuel-mix shares (closest
-    neighboring energy system among covered nodes).
+    CH has no Eurostat entry; it uses Switzerland-specific fuel shares derived from
+    BFE's industry-energy survey (BFE2025) instead — see _bfe_ch_fuel_shares().
     """
     total_demand = total_industry_heat_demand_gw(year)
     biomass_gwh = eurostat_gross_heat_gwh(EUROSTAT_BIOMASS_HEAT_SHEET, year)
     ng_gwh = eurostat_gross_heat_gwh(EUROSTAT_NATURAL_GAS_HEAT_SHEET, year)
     elec_gwh = eurostat_gross_heat_gwh(EUROSTAT_ELECTRICITY_HEAT_SHEET, year)
     oil_gwh = eurostat_gross_heat_gwh(EUROSTAT_OIL_HEAT_SHEET, year, xlsx=EUROSTAT_NEW_EB_XLSX)
-    at_shares = _eurostat_fuel_shares(biomass_gwh, ng_gwh, elec_gwh, oil_gwh, NODE_TO_EUROSTAT_COUNTRY["AT"])
+    ch_shares = _bfe_ch_fuel_shares(year)
     result: dict[str, dict[str, float]] = {}
     for node in MODEL_NODES:
         country = NODE_TO_EUROSTAT_COUNTRY.get(node)
         if country is not None:
             share_bio, share_ng, share_elec, share_oil = _eurostat_fuel_shares(biomass_gwh, ng_gwh, elec_gwh, oil_gwh, country)
         elif node == "CH":
-            share_bio, share_ng, share_elec, share_oil = at_shares
+            share_bio, share_ng, share_elec, share_oil = ch_shares
         else:
             share_bio, share_ng, share_elec, share_oil = 0.0, 1.0, 0.0, 0.0
         total = total_demand[node]

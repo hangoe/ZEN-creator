@@ -401,8 +401,8 @@ Each boiler technology's `capacity_existing` (GW, one row per node,
    v7.0" above for why this sheet/extract). Each is converted to GW via
    `/ OPERATING_HOURS`, and the four are normalized to shares
    (`share_bio + share_ng + share_elec + share_oil = 1`). If a node has no Eurostat
-   entry, it falls back to 100% natural gas — except Switzerland, which uses
-   Austria's fuel-mix shares (see below).
+   entry, it falls back to 100% natural gas — except Switzerland, which uses its own
+   BFE-survey-derived fuel-mix shares (see below).
 2. **Total boiler capacity per node** = `total_industry_heat_demand_gw(node)` (summed
    heat-carrier demand across glass/ceramic/paper/food, all 3 temperature levels) ×
    that node's fuel-mix share. This sizes total existing boiler capacity to match
@@ -410,16 +410,41 @@ Each boiler technology's `capacity_existing` (GW, one row per node,
    Eurostat, ensuring enough boiler capacity exists to meet demand at every temperature
    level.
 
-- **Switzerland ("CH")** has no entry in the Eurostat extract, so it falls back to
-  Austria's fuel-mix shares instead of the generic 100%-natural-gas default —
-  Austria is the closest neighboring energy system among the covered nodes, and
-  unlike most of Europe it is not dominated by natural gas, so 100% NG was a poor
-  proxy. Austria 2023 gross heat production: natural gas 6581.12 GWh, primary solid
-  biofuels 11208.557 GWh, electricity 3.398 GWh, oil 1121.159 GWh, giving shares of
-  biomass ≈ 59.3%, natural gas ≈ 34.8%, electrode ≈ 0.02%, oil ≈ 5.9%. These shares
-  are applied to Switzerland's own modeled heat demand
-  (`total_industry_heat_demand_gw("CH")`) to split its `capacity_existing` across
-  the four boiler technologies.
+- **Switzerland ("CH")** has no entry in the Eurostat extract. It previously fell
+  back to Austria's fuel-mix shares (closest neighboring energy system among the
+  covered nodes) but now uses Switzerland-specific shares computed from
+  `input_data/BFE2025/BFE2025.xlsx` — the underlying data table (2013–2025, one
+  sheet per energy carrier × 19 NOGA branch groups) behind BFE's annual survey
+  report **BFE2025** ("Energieverbrauch in der Industrie und im
+  Dienstleistungssektor", Resultate 2024, an eidgenössische Erhebung of ~13'000
+  establishments extrapolated by BFS). See `_bfe_ch_fuel_shares()` and
+  `_bfe_ch_branch_total_tj()` in `_industry_heat_utils.py`.
+  - **Branches summed**: 1 "Nahrungsmittel" (food), 3 "Papier und Druck" (paper),
+    6 "Andere Nicht-Eisen-Mineralien" (glass/ceramics) — matching this model's
+    process-heat scope. Cement (branch 5, "Zement und Beton") is reported
+    separately by BFE and is out of scope here, so it is excluded.
+  - **Carriers summed**: Erdgas (→ natural_gas), Heizöl extra-leicht + Heizöl
+    mittel und schwer (→ oil), Holz (→ biomass). Electricity is excluded from the
+    mix — in these branches it is dominated by drives/lighting rather than
+    boilers — consistent with electrode/heat-pump `capacity_existing = 0` for
+    Switzerland (see "Heat pump (industry) capacity" above, David2017). Kohle
+    (coal) is also excluded and the remaining three carriers renormalized to sum
+    to 1: coal is consistently the smallest carrier (<3% of the combustion total
+    in both 2022 and 2023) and the model has no boiler technology for it.
+  - **2023 values** (the year passed as `FEC_YEAR`, summed across the three
+    branches): Erdgas 8596.23 TJ, Heizöl extra-leicht 2353.01 TJ, Heizöl mittel
+    und schwer 0 TJ, Holz 1107.70 TJ, Kohle 298.00 TJ (excluded). Renormalized
+    shares: natural gas ≈ 71.3%, oil ≈ 19.5%, biomass ≈ 9.2%, electrode = 0%.
+    (For comparison, 2022: natural gas ≈ 69.8%, oil ≈ 22.5%, biomass ≈ 7.8%.)
+    This is a substantially different mix from the Austria proxy it replaces
+    (natural gas ≈ 34.8%, biomass ≈ 59.3%, oil ≈ 5.9% — Austria's heat production
+    is comparatively biomass-heavy, e.g. district heating/CHP, which is not
+    representative of Swiss industrial process heat).
+  - These shares are applied to Switzerland's own modeled heat demand
+    (`total_industry_heat_demand_gw("CH")`) to split its `capacity_existing`
+    across the four boiler technologies, same as for Eurostat-covered nodes.
+  - **Citation key**: `BFE2025` (BibTeX entry maintained in the paper's own
+    `.bib` file, not in this repo — see chat/PR history for the full entry).
 - **United Kingdom**: neither Eurostat extract has a 2023 (or later) value for the
   UK in any of the four sheets (coverage ends after 2019 post-Brexit); the latest
   available year (2019) is used instead for the fuel-mix shares (Natural gas:
