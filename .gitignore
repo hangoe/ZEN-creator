@@ -3,12 +3,14 @@ test.py
 tests/end_to_end/outputs
 
 # Large raw GHG-inventory export (~1.9 GB); superseded by the small derived
-# input_data/Mannhardt2026/sector_emissions_2022.csv, will be deleted soon.
+# input_data/Emissionbudget/sector_emissions_2022.csv, will be deleted soon.
 *.sl3
 
-# Raw EEA/UNFCCC GHG inventory export (~95 MB); superseded by the small derived
-# input_data/Mannhardt2026/sector_emissions_2022.csv (see extract_sector_emissions.py).
-input_data/Mannhardt2026/UNFCCC_v30.csv
+# Raw EEA/UNFCCC + UK GHG inventory exports; superseded by the small derived
+# input_data/Emissionbudget/sector_emissions_2022.csv (see extract_sector_emissions.py).
+input_data/Emissionbudget/UNFCCC_v30.csv
+input_data/Emissionbudget/UK-final-greenhouse-gas-emissions-tables-2021.xlsx
+input_data/Emissionbudget/ONS_atmospheric_emissions_ghg.xlsx
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

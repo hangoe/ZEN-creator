@@ -45,6 +45,21 @@ _DSM_METADATA = MetaData(
 
 _DSM_LIFETIME = 50.0
 
+_DSM_EFFICIENCY = 0.999
+
+_DSM_EFFICIENCY_SOURCE = SourceInformation(
+    description=(
+        f"efficiency_charge = efficiency_discharge = {_DSM_EFFICIENCY} (not 1.0) for "
+        "all product DSM technologies — with lossless charge/discharge, simultaneous "
+        "charging and discharging of the same product stock is a free, physically "
+        "meaningless cycle for the optimizer, since it costs nothing and nets to zero "
+        "stock change. A small round-trip loss makes any such cycling strictly costly, "
+        "without materially affecting the shifting behaviour the DSM storage is meant "
+        "to represent."
+    ),
+    metadata=_DSM_METADATA,
+)
+
 _CATEGORY_METADATA = MetaData(
     name="dsm_literature_review",
     title="DSM demand-shiftability categorization plan",
@@ -164,6 +179,16 @@ class _IndustryDSMTechnology:
 
     def _set_capacity_limit(self) -> Attribute:
         return _dsm_capacity_limit(self, self._carrier_name)
+
+    def _set_efficiency_charge(self) -> Attribute:
+        attr = Attribute("efficiency_charge", element=self)
+        attr.set_data(default_value=_DSM_EFFICIENCY, unit="1", source=_DSM_EFFICIENCY_SOURCE)
+        return attr
+
+    def _set_efficiency_discharge(self) -> Attribute:
+        attr = Attribute("efficiency_discharge", element=self)
+        attr.set_data(default_value=_DSM_EFFICIENCY, unit="1", source=_DSM_EFFICIENCY_SOURCE)
+        return attr
 
     def _set_lifetime(self) -> Attribute:
         attr = Attribute("lifetime", element=self)

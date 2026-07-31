@@ -43,6 +43,37 @@ def _hp_waste_heat_limit(element, temp_level: str) -> Attribute:
     return ProcessParametrizationDataset().get_waste_heat_capacity_limit(element, temp_level)
 
 
+# -- Temperature conversion cascade diffusion rate ----------------------------
+# `HeatIndustryTempConversion150`/`100` have capacity_existing = 0 (no analogue
+# in Eurostat data - they are a modeling construct, not a deployed technology),
+# so leaving `max_diffusion_rate` unset falls back to the framework's `inf`
+# default. Because each tech's `reference_carrier` is the same carrier the heat
+# pumps at that (lower) temperature level also use, an unbounded diffusion rate
+# inflates that carrier's total market and - via `market_share_unbounded` -
+# loosens the effectively-enforced diffusion cap on those heat pumps too. See
+# ASSUMPTIONS.md ("Temperature conversion cascade diffusion rate") for the full
+# derivation.
+#
+# Back-solved (not assumed): starting from the same first-year
+# `market_share_unbounded` bootstrap the framework already grants any
+# zero-capacity technology, find the rate that - compounded over the model
+# horizon - reaches exactly the theoretical ceiling of the boiler fleet
+# feeding the top of the cascade (the `heat_industry_150_200` producers,
+# themselves compounding at their own 0.29/yr `max_diffusion_rate` over the
+# same horizon). `cascade_level` nests the second conversion tech's bootstrap
+# inside the first's derived (not the boilers') trajectory, since its own
+# nominal reference-carrier siblings (`heat_pump_industry_0_100_*`) also have
+# zero existing capacity, which would make a direct bootstrap undefined.
+MODEL_HORIZON_YEARS = 2050 - 2022  # system.json: reference_year=2022, runs to 2050
+UPSTREAM_MAX_DIFFUSION_RATE = 0.29  # heat_tech_parametrization.xlsx, all boilers/heat pumps
+
+
+def _temp_conversion_diffusion_rate(element, cascade_level: int) -> Attribute:
+    market_share_unbounded = element.model.energy_system.market_share_unbounded.default_value
+    rate = (1 + UPSTREAM_MAX_DIFFUSION_RATE) / market_share_unbounded ** (cascade_level / MODEL_HORIZON_YEARS) - 1
+    return Attribute("max_diffusion_rate", default_value=rate, unit="1", element=element)
+
+
 # -- Heat pumps ---------------------------------------------------------------
 # Two variants per temperature level:
 #   _waste_heat: source = waste heat at 50°C (Bever2024, Agora_IGE2023); capacity limited
@@ -343,6 +374,9 @@ class HeatIndustryTempConversion150(ConversionTechnology):
     def _set_opex_specific_variable(self) -> Attribute:
         return Attribute("opex_specific_variable", default_value=0.0, unit="Euro/GWh", element=self)
 
+    def _set_max_diffusion_rate(self) -> Attribute:
+        return _temp_conversion_diffusion_rate(self, cascade_level=1)
+
 
 class HeatIndustryTempConversion100(ConversionTechnology):
     name = "heat_industry_temp_conversion_100"
@@ -367,3 +401,6 @@ class HeatIndustryTempConversion100(ConversionTechnology):
 
     def _set_opex_specific_variable(self) -> Attribute:
         return Attribute("opex_specific_variable", default_value=0.0, unit="Euro/GWh", element=self)
+
+    def _set_max_diffusion_rate(self) -> Attribute:
+        return _temp_conversion_diffusion_rate(self, cascade_level=2)

@@ -257,8 +257,37 @@ never industry-specific. They're now sourced from
   kiln / product-line capex — no appropriate JRC-EU-TIMES proxy available. Values used
   (same as glass, see glass section for derivation): capex = 2,183,366.39 EUR/(t/h),
   opex_fixed = 166,351.72 EUR/(t/h)/yr, opex_variable = 59.34 EUR/t, lifetime = 20 yr.
-- **`carbon_intensity_technology = 0`**: ceramic process emissions (calcination CO2)
-  are not included in this parametrization.
+- **`carbon_intensity_technology = 0.064234` t/t** (previously `0`, "assumed negligible"):
+  back-calculated from a JRC BAT finding that process emissions are 15% of total ceramic
+  emissions, with the remaining 85% being combustion emissions already captured
+  automatically via the carriers `ceramic_production` consumes (no separate
+  `carbon_intensity_technology` needed for those — same convention as the heat-supply
+  boilers, whose own `carbon_intensity_technology = 0` because "combustion CO2 [is]
+  carried on the fuel carrier").
+
+  Method: take ceramic's total thermal energy per tonne (8.036 GJ/t — sum of the
+  `hard_coal`/`natural_gas`/`biomass`/`heat_industry_0_100`/`heat_industry_100_200`
+  `conversion_factor` rows in `process_parametrization.xlsx`, × 3600; matches the 8.04
+  GJ/t Rehfeldt figure above almost exactly). Apply the sector's own
+  hard_coal/natural_gas/biomass fuel-mix shares (the same JRC-IDEES-derived mix already
+  used for `ceramic_production`'s direct high-temperature fuel demand — see "Fuel mix
+  shares for X_production" above) uniformly across *all* of that thermal energy, as a
+  "representative heating tech mix" standing in for whichever boiler/heat-pump mix the
+  optimizer actually picks to supply `heat_industry_0_100`/`100_200`. Weight each fuel's
+  carbon intensity from the Crystal Ball carrier attributes (`natural_gas`: 0.20196
+  t/MWh; `hard_coal`: 0.3406 t/MWh; `biomass`: 0, biogenic — same treatment as paper's
+  black liquor) to get a weighted-average emission factor of 0.0453 tCO2/GJ, hence
+  combustion emissions = 8.036 × 0.0453 ≈ 0.364 tCO2/t (the 85% share). Process
+  emissions = 0.364 × (0.15/0.85) ≈ **0.0642 tCO2/t**.
+
+  As a robustness check, assuming the lower-temperature heat is instead supplied
+  entirely by a natural-gas boiler (rather than the sector fuel mix) gives ≈0.068 tCO2/t
+  — within ~5% of the primary estimate.
+
+  For comparison, glass's `carbon_intensity_technology = 0.1` t/t (raw-material
+  decomposition, AIDRES-derived, see "Glass" above) — ceramic's back-calculated value is
+  about 64% of glass's, which is directionally sensible: glass batches typically contain
+  more carbonate raw material (soda ash, limestone) than most ceramic feedstocks.
 
 ## Paper
 
@@ -747,8 +776,8 @@ a new evaluation, not a change in what [8]/[9] say; see "New in sector v7.0" abo
 
 | Parameter                         | Value                                  |
 |-----------------------------------|-----------------------------------------|
-| `efficiency_charge`               | 1.0 (default)                          |
-| `efficiency_discharge`            | 1.0 (default)                          |
+| `efficiency_charge`               | 0.999                                  |
+| `efficiency_discharge`            | 0.999                                  |
 | `self_discharge`                  | 0.0 (default)                          |
 | `capex_specific_storage_energy`   | by category (see table above)          |
 | `opex_specific_variable`          | by category (see table above)          |
@@ -756,8 +785,16 @@ a new evaluation, not a change in what [8]/[9] say; see "New in sector v7.0" abo
 | `energy_to_power_ratio_max`       | by category (see table above)          |
 | `capacity_limit`                  | 1 × per-node carrier demand            |
 
-- **No losses**: efficiency = 1.0 and self_discharge = 0.0, representing an idealized
-  ability to reschedule production within a planning period.
+- **Near-lossless, not lossless**: `efficiency_charge = efficiency_discharge = 0.999`
+  (not the framework default of 1.0), representing an essentially idealized ability to
+  reschedule production within a planning period while still closing off a modeling
+  loophole: at exactly 1.0, simultaneously charging and discharging the same product
+  stock is a free, physically meaningless cycle for the optimizer (net stock change
+  zero, net cost zero), so nothing in the model penalizes it. A 0.1% round-trip loss
+  makes any such cycling strictly costly without materially affecting real shifting
+  behaviour. `self_discharge` is left at 0.0 (default) — unlike TES (see below),
+  product stock held in a DSM technology is not physically decaying, only
+  time-shifted.
 - **Power unit**: `tonproduct/hour`, matching production technology capacity units
   (`GW` for `ammonia_DSM` and `methanol_DSM`).
 - **`capacity_limit` = 1 × per-node carrier demand** (100% of the carrier's annual
@@ -856,29 +893,31 @@ new_budget = old_budget × (1 + E_new_sectors / E_old_sectors)
 ```
 
 where `E_old_sectors`/`E_new_sectors` are 2022 direct CO2 emissions (EEA/UNFCCC CRF
-data, 28 countries minus UK — UK is not covered by the available EEA extract) for
-Mannhardt's 11 sectors and for the newly credited sectors respectively. This avoids
-needing to recover the unrounded IPCC/per-capita constants, since
-`old_budget = B_countries × f_old` is already known exactly.
+data, 28 countries) for Mannhardt's 11 sectors and for the newly credited sectors
+respectively — `E_new_sectors` additionally credits UK emissions for the four new
+sectors, see "UK data" below. This avoids needing to recover the unrounded
+IPCC/per-capita constants, since `old_budget = B_countries × f_old` is already known
+exactly.
 
 **Finding**: Mannhardt's Table A.2 defines "Cement" as CRF `1.A.2.f + 2.A`, where `2.A`
 ("Mineral Industry") already includes glass (`2.A.3`) and ceramics (`2.A.4`) as
 sub-categories, and `1.A.2.f` combustion is a bucket shared across cement/glass/
 ceramics that EEA does not split further. So glass's and ceramics' emissions appear to
 already be nested inside the existing "cement" budget line. Three variants for
-crediting the new sectors were computed from `input_data/Mannhardt2026/
-sector_emissions_2022.csv` (derived from `UNFCCC_v30.csv`, an EEA GHG-inventory export;
-see `input_data/Mannhardt2026/extract_sector_emissions.py`), `E_old_sectors =
-2,563,680.16` kt CO2:
+crediting the new sectors were computed from `input_data/Emissionbudget/
+sector_emissions_2022.csv` (derived from `UNFCCC_v30.csv`, an EEA GHG-inventory
+export, plus UK data — see below; see `input_data/Emissionbudget/
+extract_sector_emissions.py`), `E_old_sectors = 2,563,680.16` kt CO2 (28 countries,
+unchanged by the UK addition):
 
 | Variant | `E_new_sectors` composition | ΔB | new budget |
 |---|---|---|---|
-| A — zero increment | paper + food only | 0.4916 Gt | 23.6437 Gt |
-| C — process-only | + glass/ceramic process (`2.A.3`, `2.A.4` as ceramics proxy) | 0.6194 Gt | 23.7715 Gt |
-| **B — naive full-add (chosen)** | + the entire shared combustion bucket (`1.A.2.f`) added again | **1.3373 Gt** | **24.4893 Gt** |
+| A — zero increment | paper + food only | 0.5831 Gt | 23.7352 Gt |
+| C — process-only | + glass/ceramic process (`2.A.3`, `2.A.4` as ceramics proxy) | 0.7171 Gt | 23.8691 Gt |
+| **B — naive full-add (chosen)** | + the entire shared combustion bucket (`1.A.2.f`) added again | **1.4349 Gt** | **24.5869 Gt** |
 
 **Decision**: Variant B is implemented (`DEFAULT_VARIANT = "B"` in
-`carbon_budget_allocation.py`) — a +5.78% budget increase, judged a reasonable
+`carbon_budget_allocation.py`) — a +6.20% budget increase, judged a reasonable
 estimate of additional European industry emissions for these sectors, while
 acknowledging it is the least methodologically clean of the three (it re-adds
 combustion emissions already implicit in cement's existing budget share). This
@@ -888,8 +927,141 @@ remain available via the `variant` argument to
 `Mannhardt2026CarbonBudgetDataset.get_carbon_emissions_budget()`/
 `get_new_sector_emissions()` — switching does not require recomputing the CSV.
 
-Other caveats: UK is absent from the EEA extract (both numerator and denominator
-consistently exclude it); ceramics-specific process emissions (CRF `2.A.4.a`) are not
-broken out in `UNFCCC_v30.csv`, so the coarser `2.A.4` aggregate (which also includes
-soda ash and magnesium production) is used as a proxy, slightly overstating ceramics
-alone.
+Other caveats: ceramics-specific process emissions (CRF `2.A.4.a`) are not broken out
+in `UNFCCC_v30.csv`, so the coarser `2.A.4` aggregate (which also includes soda ash
+and magnesium production) is used as a proxy for the 28-country figure, slightly
+overstating ceramics alone (the UK component does not have this issue — see below).
+
+### UK data
+
+The EEA/UNFCCC extract above excludes the UK entirely. For the four *new* sectors
+only — glass, ceramic, paper, food — UK emissions are added on top of the 28-country
+total (`emissions_kt_co2_uk` column in `sector_emissions_2022.csv`); `E_old_sectors`
+(Mannhardt's 11 original sectors) is deliberately left 28-country-only, so
+`old_budget = B_countries × f_old` stays exactly reproducible from Mannhardt's
+published numbers.
+
+- **Glass/ceramic** — `BEIS2023`, sheet `1.2` ("Estimated territorial greenhouse gas
+  emissions by source category, UK 1990-2021"), 2021 values, cross-checked against
+  sheet `6.1`'s IPCC-code mapping. `Glass production` (IPCC `2A3`) is an exact match
+  to CRF `2.A.3` → 340.25 kt CO2e. Ceramic sums `Bricks production` + `Fletton brick
+  production` + `Other ceramics` (all IPCC `2A4a`) → 335.21 kt CO2e — this is cleaner
+  than the 28-country `2.A.4` proxy above, since the UK table separates out soda ash
+  (`2A4b`) into its own line instead of bundling it into ceramics.
+- **Food/paper** — `ONS2026` ("Atmospheric emissions: greenhouse gases by industry and
+  gas"), sheet `CO2`, 2022 values, CO2-only (matching the `Pollutant_name == "CO2"`
+  filter used for the EEA extract). Paper = SIC `17` ("Paper and paper products"),
+  matching CRF `1.A.2.d` → 3,035.70 kt CO2. Food = SIC `10.1`–`10.9` (food) + `11.01-
+  06`/`11.07` (beverages) + `12` (tobacco) → 7,099.60 kt CO2, matching CRF `1.A.2.e`'s
+  IPCC definition ("Food, Beverages and Tobacco") exactly.
+- `glass_ceramic_shared_combustion` (the CRF `1.A.2.f` bucket variant B re-adds) has
+  no clean UK equivalent — BEIS folds that combustion into a single aggregate row
+  ("Industrial combustion and electricity (excl. iron and steel)") together with
+  several other sub-sectors, so it is left 28-country-only.
+- Caveats: BEIS figures are MtCO2e (GHG total) rather than CO2-only like the EEA/ONS
+  figures — negligible in practice, since glass/ceramic process emissions are almost
+  entirely CO2. ONS figures are on a UK *residence* basis rather than *territorial*
+  like BEIS/EEA — immaterial for domestically produced-and-consumed goods like food
+  and paper. The BEIS (2021) and ONS (2022) reference years differ slightly, each
+  being the latest/closest year available from that source.
+
+Sources:
+
+```bibtex
+@techreport{BEIS2023,
+  author      = {{Department for Business, Energy and Industrial Strategy}},
+  title       = {Final UK Greenhouse Gas Emissions National Statistics: 1990 to 2021},
+  institution = {UK Government},
+  year        = {2023},
+  note        = {Accessed: 2023-06-19},
+  url         = {https://www.gov.uk/government/statistics/final-uk-greenhouse-gas-emissions-national-statistics-1990-to-2021}
+}
+```
+
+```bibtex
+@techreport{ONS2026,
+  author      = {{Office for National Statistics}},
+  title       = {Atmospheric Emissions: Greenhouse Gases by Industry and Gas},
+  institution = {Office for National Statistics (ONS), UK},
+  year        = {2026},
+  note        = {Released 5 June 2026; underlying data from the UK National Atmospheric Emissions Inventory (NAEI), apportioned to SIC 2007 industry codes on a residence basis; Crown copyright, Open Government Licence},
+  url         = {https://www.ons.gov.uk/economy/environmentalaccounts/datasets/ukenvironmentalaccountsatmosphericemissionsgreenhousegasemissionsbyeconomicsectorandgasunitedkingdom}
+}
+```
+
+## Temperature conversion cascade diffusion rate
+
+`HeatIndustryTempConversion150`/`HeatIndustryTempConversion100`
+(`zen_creator/elements/conversion_technologies/industry_heat_supply.py`) cascade
+excess heat down the temperature ladder (`heat_industry_150_200` →
+`heat_industry_100_150` → `heat_industry_0_100`, lossless, `conversion_factor = 1.0`).
+Unlike every other heat-supply technology in this model, they have no
+`capacity_existing` (they are a modeling construct, not a deployed technology), and
+originally had no `max_diffusion_rate` override either, so they fell back to the
+framework's `inf` default.
+
+**Problem**: `max_diffusion_rate` is a *proportional* growth cap on a technology's own
+capacity, but ZEN-garden also grants every technology a `market_share_unbounded`
+(energy-system-wide, `0.02`/yr in this model, `Mannhardt_2024`) bootstrap allowance
+each period, sized relative to the total market of its `reference_carrier` -
+independent of the technology's own `max_diffusion_rate`. Each temp-conversion tech's
+`reference_carrier` is set to its *output* carrier (`heat_industry_100_150` /
+`heat_industry_0_100`), the same carrier the heat pumps at that (lower) temperature
+level also reference. With `max_diffusion_rate = inf`, the temp-conversion tech's
+capacity is free to grow explosively, inflating the total market for that shared
+carrier and, via `market_share_unbounded`, loosening the effectively-enforced
+diffusion cap on the heat pumps at that level too - even though their own
+`max_diffusion_rate` is still nominally `0.29`.
+
+**Method**: back-solve `max_diffusion_rate` for each temp-conversion tech rather than
+assume it, by fixing two endpoints and inverting the compounding formula for the rate
+that connects them:
+
+- **Seed (2022)**: `market_share_unbounded × C_upstream(2022)` - the same first-year
+  bootstrap capacity the framework already grants any zero-capacity technology, made
+  explicit rather than left implicit.
+- **Ceiling (2050)**: the theoretical maximum of the boiler fleet feeding the top of
+  the cascade (`heat_industry_150_200` producers: the four `*_boiler_industry`
+  techs, plus `heat_pump_industry_150_200_*` which currently has zero installed
+  capacity), compounding at their own `max_diffusion_rate = 0.29` over the model
+  horizon: `C_upstream(2022) × 1.29^28` (`reference_year = 2022` to the model's final
+  year, `2050`, per `system.json`/the yearly-variation files - 28 elapsed years).
+- Solving `seed × (1+r)^28 = ceiling` gives `r = 1.29 / market_share_unbounded^(1/28) − 1`
+  - notably independent of the actual upstream capacity value, since it cancels out.
+
+Because the temp-conversion tech starts smaller than the boiler fleet by exactly the
+`market_share_unbounded` factor but must reach the same absolute ceiling by the same
+year, `r > 0.29` is required - the two exponential curves cross exactly once, at 2050,
+which also guarantees the temp-conversion capacity stays below the upstream ceiling
+for every year in between, not just at the endpoint.
+
+`HeatIndustryTempConversion100`'s own nominal reference-carrier siblings
+(`heat_pump_industry_0_100_*`) also have zero existing capacity, which would make a
+direct bootstrap off them undefined (target/seed = target/0). Its trajectory is
+instead nested one level inside `HeatIndustryTempConversion150`'s *derived* (not the
+boilers') trajectory, i.e. `cascade_level = 2` instead of `1`:
+`r = (1+0.29) / market_share_unbounded^(cascade_level / 28) − 1`.
+
+**Resulting values** (`_temp_conversion_diffusion_rate()` in
+`industry_heat_supply.py`, `market_share_unbounded = 0.02`):
+
+| Technology | cascade_level | `max_diffusion_rate` |
+|---|---|---|
+| `heat_industry_temp_conversion_150` | 1 | 0.4834 |
+| `heat_industry_temp_conversion_100` | 2 | 0.7059 |
+
+Both are notably *higher* than the 0.29 used everywhere else - counterintuitive at
+first glance, but correct: each cascade level starts from a smaller relative base (by
+a further factor of `market_share_unbounded` per level) and must close that gap
+within the same fixed horizon, so a higher nominal rate is required even though the
+absolute capacity stays bounded below the physical ceiling throughout. The key fix is
+not the specific magnitude but that the rate is now finite and tied to a real
+physical ceiling, rather than `inf`.
+
+**Caveats**: this is a system-wide (all 28 nodes summed) derivation - `max_diffusion_rate`
+is set as a single scalar for every other heat-supply technology in this model too, so
+this keeps the temp-conversion techs consistent with that convention rather than
+introducing per-node values. The ceiling calculation excludes the small/zero
+`capacity_existing` contributions of technologies other than the boiler fleet (the
+150_200-level heat pumps), which is conservative (smaller ceiling, tighter rate) rather
+than permissive.

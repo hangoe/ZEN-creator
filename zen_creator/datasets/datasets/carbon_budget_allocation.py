@@ -18,17 +18,23 @@ does not require recovering them:
                = old_budget x (1 + E_new_sectors / E_old_sectors)
 
 where E_old_sectors / E_new_sectors are 2022 direct CO2 emissions (EEA/UNFCCC CRF
-data, 28 countries minus UK - see below) for Mannhardt's 11 sectors and for the
-sectors newly credited, respectively. See `input_data/ASSUMPTIONS.md` ("Carbon
-emissions budget") for the full writeup, including the double-counting finding for
-glass/ceramics and the three compared variants.
+data, 28 countries - see below) for Mannhardt's 11 sectors and for the sectors newly
+credited, respectively; E_new_sectors additionally credits UK emissions for the four
+new sectors (see below). See `input_data/ASSUMPTIONS.md` ("Carbon emissions budget")
+for the full writeup, including the double-counting finding for glass/ceramics and
+the three compared variants.
 
-Data source: `input_data/Mannhardt2026/sector_emissions_2022.csv`, a small derived
-extract of `input_data/Mannhardt2026/UNFCCC_v30.csv` (EEA national GHG inventory,
-CRF-coded, EU-27 + CH + NO; UK is not covered by this EEA extract and is omitted from
-both E_old_sectors and E_new_sectors) produced by
-`input_data/Mannhardt2026/extract_sector_emissions.py`. 2022 is used as the reference
+Data source: `input_data/Emissionbudget/sector_emissions_2022.csv`, a small derived
+extract of `input_data/Emissionbudget/UNFCCC_v30.csv` (EEA national GHG inventory,
+CRF-coded, EU-27 + CH + NO; UK is not covered by this EEA extract) produced by
+`input_data/Emissionbudget/extract_sector_emissions.py`. 2022 is used as the reference
 year (closest available year to Mannhardt's 2021 vintage).
+
+The four new sectors additionally credit UK emissions (`emissions_kt_co2_uk` column,
+2021/2022 depending on source - see ASSUMPTIONS.md), pulled from two UK national
+sources not covered by the EEA extract: BEIS (`BEIS2023`, glass/ceramic) and ONS
+(`ONS2026`, food/paper). `E_old_sectors` is left 28-country-only, matching Mannhardt's
+original scope exactly.
 """
 
 from __future__ import annotations
@@ -46,8 +52,8 @@ from zen_creator.datasets.datasets.dataset import Dataset
 from zen_creator.datasets.datasets.metadata import MetaData, SourceInformation
 from zen_creator.utils.attribute import Attribute
 
-_MANNHARDT_DIR = INPUT_DATA / "Mannhardt2026"
-_SECTOR_EMISSIONS_CSV = _MANNHARDT_DIR / "sector_emissions_2022.csv"
+_EMISSIONBUDGET_DIR = INPUT_DATA / "Emissionbudget"
+_SECTOR_EMISSIONS_CSV = _EMISSIONBUDGET_DIR / "sector_emissions_2022.csv"
 
 # Which variant is currently applied when writing a new carbon_emissions_budget.
 # "A" = zero increment (paper+food only), "B" = naive full-add (chosen, see
@@ -89,6 +95,20 @@ class Mannhardt2026CarbonBudgetDataset(Dataset[pd.DataFrame]):
                     publication="EEA GHG data viewer (UNFCCC_v30 export, 2022 data)",
                     publication_year=2026,
                 ),
+                "beis_2023": MetaData(
+                    name="beis_2023",
+                    title="Final UK greenhouse gas emissions national statistics: 1990 to 2021",
+                    author=["Department for Business, Energy and Industrial Strategy"],
+                    publication="gov.uk statistical release (accessed 2023-06-19)",
+                    publication_year=2023,
+                ),
+                "ons_2026": MetaData(
+                    name="ons_2026",
+                    title="Atmospheric emissions: greenhouse gases by industry and gas",
+                    author=["Office for National Statistics"],
+                    publication="ONS dataset (released 2026-06-05)",
+                    publication_year=2026,
+                ),
             },
         )
 
@@ -101,10 +121,15 @@ class Mannhardt2026CarbonBudgetDataset(Dataset[pd.DataFrame]):
 
         variant: "A" (paper+food only), "B" (+ glass/ceramic process and the shared
             1.A.2.f combustion bucket, chosen), or "C" (+ glass/ceramic process only).
+
+        Includes each new sector's UK contribution (`emissions_kt_co2_uk`, BEIS/ONS
+        sourced) on top of the 28-country EEA total - see module docstring and
+        ASSUMPTIONS.md ("Carbon emissions budget").
         """
         new_rows = self.data[self.data["bucket"] == "new"]
         included = new_rows["variant_tags"].str.split(",").apply(lambda tags: variant in tags)
-        return new_rows.loc[included, "emissions_kt_co2_28countries"].sum()
+        rows = new_rows.loc[included]
+        return (rows["emissions_kt_co2_28countries"] + rows["emissions_kt_co2_uk"]).sum()
 
     def get_carbon_emissions_budget(
         self, element: Element, old_budget: Attribute, variant: str = DEFAULT_VARIANT
@@ -123,10 +148,10 @@ class Mannhardt2026CarbonBudgetDataset(Dataset[pd.DataFrame]):
                 f"Extended Mannhardt (2026) Appendix A.2 carbon budget "
                 f"({old_budget.default_value:.6f} Gt) to credit glass/ceramic/paper/"
                 f"food sectors using variant '{variant}' "
-                f"(E_old={e_old:.3f} kt, E_new={e_new:.3f} kt, 2022, 28 countries "
-                "minus UK). See ASSUMPTIONS.md 'Carbon emissions budget' for the "
-                "three compared variants and the double-counting caveat for "
-                "glass/ceramics."
+                f"(E_old={e_old:.3f} kt, 28 countries; E_new={e_new:.3f} kt, "
+                "28 countries + UK via BEIS2023/ONS2026). See ASSUMPTIONS.md "
+                "'Carbon emissions budget' for the three compared variants and the "
+                "double-counting caveat for glass/ceramics."
             ),
         )
         return attr

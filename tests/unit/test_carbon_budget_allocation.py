@@ -27,35 +27,39 @@ def _old_budget(energy_system) -> Attribute:
 
 
 def test_old_and_new_sector_emissions_from_real_data():
-    """The committed sector_emissions_2022.csv reproduces the derived variant totals."""
+    """The committed sector_emissions_2022.csv reproduces the derived variant totals.
+
+    New-sector totals include each sector's UK contribution (BEIS2023 for
+    glass/ceramic, ONS2026 for food/paper) on top of the 28-country EEA total.
+    """
     dataset = Mannhardt2026CarbonBudgetDataset()
 
     assert dataset.get_old_sector_emissions() == pytest.approx(2_563_680.158, abs=1)
-    assert dataset.get_new_sector_emissions("A") == pytest.approx(54_437.777, abs=1)
-    assert dataset.get_new_sector_emissions("C") == pytest.approx(68_591.623, abs=1)
-    assert dataset.get_new_sector_emissions("B") == pytest.approx(148_079.972, abs=1)
+    assert dataset.get_new_sector_emissions("A") == pytest.approx(64_573.077, abs=1)
+    assert dataset.get_new_sector_emissions("C") == pytest.approx(79_402.382, abs=1)
+    assert dataset.get_new_sector_emissions("B") == pytest.approx(158_890.730, abs=1)
 
 
 def test_get_carbon_emissions_budget_variant_b(model: Model):
-    """Variant B (chosen default) extends the budget to ~24.4893 Gt."""
+    """Variant B (chosen default) extends the budget to ~24.5869 Gt."""
     energy_system = CrystalBallIndustryEnergySystem(model=model)
     dataset = Mannhardt2026CarbonBudgetDataset()
 
     new_budget = dataset.get_carbon_emissions_budget(energy_system, _old_budget(energy_system), variant="B")
 
-    assert new_budget.default_value == pytest.approx(24.4893, abs=1e-3)
+    assert new_budget.default_value == pytest.approx(24.5869, abs=1e-3)
     assert new_budget.unit == "gigatons"
     assert len(new_budget.sources) == 1
 
 
 def test_get_carbon_emissions_budget_variant_a(model: Model):
-    """Variant A (zero increment for glass/ceramics) extends the budget to ~23.6437 Gt."""
+    """Variant A (zero increment for glass/ceramics) extends the budget to ~23.7352 Gt."""
     energy_system = CrystalBallIndustryEnergySystem(model=model)
     dataset = Mannhardt2026CarbonBudgetDataset()
 
     new_budget = dataset.get_carbon_emissions_budget(energy_system, _old_budget(energy_system), variant="A")
 
-    assert new_budget.default_value == pytest.approx(23.6437, abs=1e-3)
+    assert new_budget.default_value == pytest.approx(23.7352, abs=1e-3)
 
 
 def test_get_carbon_emissions_budget_zero_new_sectors_is_a_noop(model: Model):
@@ -65,9 +69,11 @@ def test_get_carbon_emissions_budget_zero_new_sectors_is_a_noop(model: Model):
     dataset.data = pd.DataFrame(
         [
             {"sector": "electricity", "crf_category": "1.A.1.a", "component": "combustion",
-             "bucket": "old", "emissions_kt_co2_28countries": 100.0, "variant_tags": "A,B,C"},
+             "bucket": "old", "emissions_kt_co2_28countries": 100.0, "emissions_kt_co2_uk": 0.0,
+             "variant_tags": "A,B,C"},
             {"sector": "paper", "crf_category": "1.A.2.d", "component": "combustion",
-             "bucket": "new", "emissions_kt_co2_28countries": 0.0, "variant_tags": "A,B,C"},
+             "bucket": "new", "emissions_kt_co2_28countries": 0.0, "emissions_kt_co2_uk": 0.0,
+             "variant_tags": "A,B,C"},
         ]
     )
 
