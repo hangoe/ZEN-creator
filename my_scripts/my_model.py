@@ -1,7 +1,10 @@
 import shutil
 from pathlib import Path
 
+import numpy as np
+
 from zen_creator.model import Model
+from zen_creator.utils.attribute import Attribute
 from zen_creator.utils.default_config import Config
 
 # import sectors (triggers auto-registration via __init_subclass__)
@@ -22,7 +25,7 @@ from zen_creator.elements.energy_systems.crystal_ball_industry import (  # noqa:
 
 data_path = "/Users/hannegoericke/ZEN-models/data/Crystal_Ball"
 output_path = Path(__file__).parent.parent / "outputs"
-VERSION = "Crystal_Ball_ind_heat_v7_2"
+VERSION = "Crystal_Ball_ind_heat_v7_3"
 
 # Case-study scenarios from MT_report_HG/Sections/03_SI.tex (table:SIScenarios).
 # industry_heat must come first in every combination: glass/ceramic/paper/food
@@ -30,8 +33,10 @@ VERSION = "Crystal_Ball_ind_heat_v7_2"
 # DSM sectors use the optimistic demand-shiftability category assumptions by default
 # (see input_data/DSM_parametrization/DSM_literature_review.md); "_DSM_pessimistic"
 # reruns the full-flexibility case with the pessimistic assumptions instead.
+MAIN_SECTORS = ["industry_heat", "industry_low_temp_heat", "industry_tes", "industry_dsm_optimistic"]
+
 SCENARIOS = [
-    ("", ["industry_heat", "industry_low_temp_heat", "industry_tes", "industry_dsm_optimistic"]),  # full flexibility (main version)
+    ("", MAIN_SECTORS),  # full flexibility (main version)
     ("_no_flexibility", ["industry_heat", "industry_low_temp_heat"]),
     ("_DSM_only", ["industry_heat", "industry_low_temp_heat", "industry_dsm_optimistic"]),
     ("_TES_only", ["industry_heat", "industry_low_temp_heat", "industry_tes"]),
@@ -40,7 +45,23 @@ SCENARIOS = [
     ("_single_temp", ["industry_heat", "industry_tes", "industry_dsm_optimistic"]),
     # full flexibility, but with pessimistic DSM demand-shiftability assumptions
     ("_DSM_pessimistic", ["industry_heat", "industry_low_temp_heat", "industry_tes", "industry_dsm_pessimistic"]),
+    # same sectors as the main version, but every technology's max_diffusion_rate
+    # is overridden to inf (disable_diffusion_limits below) - isolates how much of
+    # the main version's trajectory is diffusion-constrained vs. cost-constrained
+    ("_nodiffusion", MAIN_SECTORS),
 ]
+
+
+def disable_diffusion_limits(model: Model) -> None:
+    """Set every technology's max_diffusion_rate to inf, in place.
+
+    Must run after model.build() (attributes aren't populated before then) and
+    before model.write().
+    """
+    for technology in model.technologies.values():
+        technology.max_diffusion_rate = Attribute(
+            "max_diffusion_rate", default_value=np.inf, unit="1", element=technology
+        )
 
 
 def archive_existing_outputs(path: Path, keep_names: set[str]) -> None:
@@ -76,6 +97,8 @@ for suffix, sectors in SCENARIOS:
     for sector_name in sectors:
         model.add_sector_by_name(sector_name)
     model.build()
+    if suffix == "_nodiffusion":
+        disable_diffusion_limits(model)
     model.name = f"{VERSION}{suffix}"
     model.output_folder = output_path
     model.write()

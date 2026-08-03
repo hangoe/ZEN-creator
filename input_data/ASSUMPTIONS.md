@@ -1065,3 +1065,31 @@ introducing per-node values. The ceiling calculation excludes the small/zero
 `capacity_existing` contributions of technologies other than the boiler fleet (the
 150_200-level heat pumps), which is conservative (smaller ceiling, tighter rate) rather
 than permissive.
+
+## Cold-start bootstrap for the 0-100/100-150°C bands
+
+v7.2 fixed the temp-conversion techs' `max_diffusion_rate` from `inf` to the finite,
+back-solved rate above ("Temperature conversion cascade diffusion rate"). That fix was
+necessary, but it exposed a second, separate problem: with a finite rate,
+`constraint_technology_diffusion_limit_total` pools `capacity_addition` and
+`capacity_previous` across every technology sharing a `reference_carrier` and caps the
+group's total addition at `market_share_unbounded × Σ capacity_previous`. At the
+150-200°C band this is non-zero (the boiler fleet has real 2022 `capacity_existing`),
+so `heat_pump_industry_150_200_*` rides along on the boilers' bootstrap. At 0-100°C and
+100-150°C there is no boiler analogue: every member of both groups -
+`heat_industry_temp_conversion_150`/`_100` and all four `heat_pump_industry_0_100_*` /
+`heat_pump_industry_100_150_*` variants - has `capacity_existing = 0` everywhere, so the
+group's bootstrap is `0.02 × 0 = 0` in the model's first year. No capacity at either band
+could be built at all, regardless of demand - infeasible in any node/year with non-zero
+glass/ceramic/paper/food demand at that temperature (e.g. Sweden paper demand, year 1).
+
+**Fix**: `capacity_addition_unbounded` (`COLD_START_CAPACITY_SEED_GW` /
+`_cold_start_capacity_seed()` in `industry_heat_supply.py`) is the framework's escape
+hatch for exactly this - a fixed amount of capacity a technology may add each period
+regardless of the diffusion cap. Set to `0.02` GW for the two temp-conversion techs and
+the four 0-100°C/100-150°C heat pump variants (not the 150-200°C ones, which don't need
+it). Unlike the diffusion-rate fix above, this is a pragmatic unblocking constant, not
+back-solved - there's no non-zero quantity within these two groups to derive it from.
+After solving, check first-year utilization of these six technologies: if the seed is
+fully used up (still demand-constrained), raise it; if it's barely touched, it can be
+lowered or left as a safety margin.

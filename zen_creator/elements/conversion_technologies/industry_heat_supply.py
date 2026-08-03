@@ -74,6 +74,35 @@ def _temp_conversion_diffusion_rate(element, cascade_level: int) -> Attribute:
     return Attribute("max_diffusion_rate", default_value=rate, unit="1", element=element)
 
 
+# -- Cold-start bootstrap for the 0-100/100-150°C bands -----------------------
+# `constraint_technology_diffusion_limit_total` pools capacity_addition/
+# capacity_previous across every technology sharing a reference_carrier and caps
+# the group's total addition at `market_share_unbounded * sum(capacity_previous)`.
+# At the 150-200°C band that's non-zero (the boiler fleet has real 2022
+# `capacity_existing`), so the heat pumps there ride along on the boilers'
+# bootstrap. At 0-100°C and 100-150°C there is no boiler analogue: every member
+# of both groups (the two temp-conversion techs and all four heat pump variants)
+# has `capacity_existing = 0` everywhere, so the group's bootstrap is
+# `0.02 * 0 = 0` in the first model year - no capacity of any of them can be
+# built at all, regardless of demand. `capacity_addition_unbounded` is the
+# framework's escape hatch for exactly this: a fixed amount of capacity a
+# technology may add each period regardless of the diffusion cap. This is a
+# pragmatic unblocking constant, not back-solved like `_temp_conversion_
+# diffusion_rate` above - there's no non-zero quantity in this model to derive
+# it from. Re-check first-year utilization after solving; raise if the seed is
+# fully used up (still demand-constrained), lower if it's barely touched.
+COLD_START_CAPACITY_SEED_GW = 0.02
+
+
+def _cold_start_capacity_seed(element) -> Attribute:
+    return Attribute(
+        "capacity_addition_unbounded",
+        default_value=COLD_START_CAPACITY_SEED_GW,
+        unit="GW",
+        element=element,
+    )
+
+
 # -- Heat pumps ---------------------------------------------------------------
 # Two variants per temperature level:
 #   _waste_heat: source = waste heat at 50°C (Bever2024, Agora_IGE2023); capacity limited
@@ -125,6 +154,10 @@ def _hp_methods(base_tech: str, dea_tech: str, temp_level: str, cop: float):
 
         def _set_capacity_existing(self) -> Attribute:
             return _hp_capacity(self, temp_level)
+
+        if temp_level in ("0_100", "100_150"):
+            def _set_capacity_addition_unbounded(self) -> Attribute:
+                return _cold_start_capacity_seed(self)
 
     return _Mixin
 
@@ -377,6 +410,9 @@ class HeatIndustryTempConversion150(ConversionTechnology):
     def _set_max_diffusion_rate(self) -> Attribute:
         return _temp_conversion_diffusion_rate(self, cascade_level=1)
 
+    def _set_capacity_addition_unbounded(self) -> Attribute:
+        return _cold_start_capacity_seed(self)
+
 
 class HeatIndustryTempConversion100(ConversionTechnology):
     name = "heat_industry_temp_conversion_100"
@@ -404,3 +440,6 @@ class HeatIndustryTempConversion100(ConversionTechnology):
 
     def _set_max_diffusion_rate(self) -> Attribute:
         return _temp_conversion_diffusion_rate(self, cascade_level=2)
+
+    def _set_capacity_addition_unbounded(self) -> Attribute:
+        return _cold_start_capacity_seed(self)
