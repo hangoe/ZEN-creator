@@ -234,6 +234,7 @@ MODEL_CARRIER_MAP = {
     "Natural gas and biogas": "natural_gas",
     "Solids": "hard_coal",
     "Biomass and waste": "biomass",
+    "Other liquids": "oil",
 }
 SECTOR_THERMAL_FEC_ROWS = {
     "glass": ("NMM_fec", ["Glass: Thermal melting tank", "Glass: Annealing - thermal"]),
