@@ -155,6 +155,37 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
     def _compute_jrc_cost_params(self, sector):
         if sector == "glass":
             return sector_weighted_params(GLASS_AIDRES_TO_JRC, AIDRES2023_GLASS_SHARES, JRC_COST_TARGET_YEAR)
+        elif sector == "ceramic":
+            # JRC-EU-TIMES has no ceramic-kiln/product-line CAPEX proxy (see "paper"/"food"
+            # branches for the same gap in other sectors). No ceramic-specific techno-economic
+            # source is available either; instead we use Gardarsdottir et al. 2019 ("Comparison
+            # of Technologies for CO2 Capture from Cement Production - Part 2: Cost Analysis",
+            # Energies 12, 542) as a documented proxy: cement clinker production is, like
+            # ceramics, a non-metallic-mineral process whose core step is high-temperature
+            # kiln-firing of a mineral/clay-based feedstock - a closer analogy than glass, whose
+            # core step is continuous melting of a silica-soda-lime batch. See ASSUMPTIONS.md
+            # (Ceramic section) for the full derivation and cross-check against glass.
+            #
+            # Reference cement plant (before CO2 capture), all in EUR_2014:
+            #   capacity = 120.65 t clinker/h; TPC = 204e6 EUR; annual OPEX = 41e6 EUR/yr
+            #   Fixed OPEX = maintenance (2.5% TPC/yr) + insurance (2% TPC/yr)
+            #                + operating labor (100 persons x 60 k-EUR/yr)
+            #                + admin/support (30% of operating + maintenance labor) = 17.592e6 EUR/yr
+            #   non-fuel variable OPEX = raw meal (5 EUR/t) + NOx reagent (~0.65 EUR/t)
+            #                            + misc. variable O&M (1.1 EUR/t) = 6.75 EUR/t
+            #     (excludes fuel/electricity, which the model prices via conversion_factor,
+            #     matching the JRC VAROM convention used for glass/paper/food)
+            deflator = gdp_deflator_ratio(2014, JRC_COST_TARGET_YEAR)
+            capacity_t_h = 120.65
+            tpc = 204e6
+            fixed_opex = 0.025 * tpc + 0.02 * tpc + 100 * 60e3 + 0.30 * (100 * 60e3 + 0.40 * 0.025 * tpc)
+            variable_opex_per_t = 5.0 + 0.65 + 1.1
+            return {
+                "capex_specific_conversion": round(tpc / capacity_t_h * deflator, 2),
+                "opex_specific_fixed": round(fixed_opex / capacity_t_h * deflator, 2),
+                "opex_specific_variable": round(variable_opex_per_t * deflator, 2),
+                "lifetime": 25,
+            }
         elif sector == "paper":
             # JRC-EU-TIMES gives ~19,996 k€/(t/h) (~2,283 €/(t/yr)), which appears to
             # represent a fully integrated greenfield mill and overshoots real brownfield/

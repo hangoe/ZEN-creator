@@ -251,12 +251,49 @@ never industry-specific. They're now sourced from
   JRC-IDEES physical-output figure (`industry_demand_df("ceramic", ...)`), which is
   ~3.5–6.4× higher for the reason above and would otherwise substantially overstate
   ceramic's contribution to those calculations.
-- **Cost parameters** set manually in `process_parametrization.xlsx`. JRC-EU-TIMES only
-  contains generic "Other Non-Metallic Minerals" process-heat boiler technologies
-  (`INMPRCxxx`, `INMSTMxxx`), which represent heat-supply equipment costs, not ceramic
-  kiln / product-line capex — no appropriate JRC-EU-TIMES proxy available. Values used
-  (same as glass, see glass section for derivation): capex = 2,183,366.39 EUR/(t/h),
-  opex_fixed = 166,351.72 EUR/(t/h)/yr, opex_variable = 59.34 EUR/t, lifetime = 20 yr.
+- **Cost and lifetime parameters (cement-plant proxy)**: JRC-EU-TIMES only contains generic
+  "Other Non-Metallic Minerals" process-heat boiler technologies (`INMPRCxxx`, `INMSTMxxx`),
+  which represent heat-supply equipment costs, not ceramic kiln/product-line capex — no
+  appropriate JRC-EU-TIMES proxy available (same gap as `paper`'s CAPEX, see "Paper" below).
+  No ceramic-specific techno-economic literature was found either. Instead, values are taken
+  from **Gardarsdóttir et al. 2019**, "Comparison of Technologies for CO2 Capture from Cement
+  Production — Part 2: Cost Analysis" (*Energies* 12, 542) — a techno-economic study of a
+  reference European cement clinker plant (retrofit CO2-capture costs in that paper are not
+  used; only the underlying reference-plant figures before capture).
+
+  This is a **cement proxy, not a ceramic source** — but a better-justified one than mirroring
+  glass: cement clinker production and ceramics are both non-metallic-mineral processes whose
+  core step is high-temperature **kiln-firing of a mineral/clay-based feedstock** (cement:
+  limestone/raw meal in a rotary kiln; ceramics: clay/kaolin/feldspar bodies in a tunnel/periodic
+  kiln), and both are bulk, comparatively low-value-added mineral products. Glass's core step —
+  continuous melting of a silica-soda-lime batch into a molten state — is a more different,
+  typically more capital- and chemically-intensive process; the previous "same as glass, both use
+  a kiln" justification was the weaker analogy on its own logic.
+
+  Reference cement plant data (€2014, pre-capture): capacity 120.65 t clinker/h, capacity factor
+  91.3%, Total Plant Cost (TPC) 204 M€, annual OPEX 41 M€/yr, economic life 25 yr. Fixed OPEX is
+  built up per the paper's explicit formula (Section 3.1.2): maintenance (2.5% TPC/yr) +
+  insurance/taxes (2% TPC/yr) + operating labor (100 persons × 60 k€/yr) + admin/support
+  overhead (30% of operating + maintenance labor) = 17.592 M€/yr. Non-fuel variable OPEX is raw
+  meal (5 €/t) + NOx reagent (0.60 t/h ammonia × 130 €/t ÷ 120.65 t/h ≈ 0.65 €/t) + miscellaneous
+  variable O&M (1.1 €/t, an explicit Table 4 line item) = 6.75 €/t — **excluding fuel and
+  electricity**, which the model prices separately via `conversion_factor` × carrier price
+  (same convention as JRC-EU-TIMES VAROM for glass/paper/food). All figures deflated 2014→2019
+  EUR via `gdp_deflator_ratio()` (factor ≈1.0765) for consistency with the JRC_COST_TARGET_YEAR
+  used elsewhere. Resulting values (see `process_parametrization.py::_compute_jrc_cost_params()`,
+  `"ceramic"` branch): capex = 1,820,124.59 EUR/(t/h), opex_fixed = 156,958.98 EUR/(t/h)/yr,
+  opex_variable = 7.27 EUR/t, lifetime = 25 yr (replacing the previously documented, inconsistent
+  20 yr — the Excel/output value actually in use before this change was 28 yr, copied from glass).
+
+  Cross-check against glass's JRC-derived values: cement's CAPEX and fixed OPEX land within
+  ~6–17% of glass's (ratios 0.83 and 0.94 respectively) — a similar order of magnitude, meaning
+  the previous glass-mirroring wasn't unreasonable for these two parameters, just unconfirmed.
+  Variable OPEX is where the two diverge sharply (cement's 7.27 EUR/t vs. glass's 59.34 EUR/t):
+  glass's batch chemistry (silica sand, soda ash, cullet, refractory wear) is a materially
+  different, pricier input mix than cement's raw meal (crushed limestone). Ceramics' true
+  non-fuel variable cost likely sits between the two (cheaper feedstock than glass, but
+  potentially pricier than cement's raw meal for glazed/technical product lines) — this remains
+  the parameter with the most residual uncertainty pending real ceramic-specific literature.
 - **`carbon_intensity_technology = 0.064234` t/t** (previously `0`, "assumed negligible"):
   back-calculated from a JRC BAT finding that process emissions are 15% of total ceramic
   emissions, with the remaining 85% being combustion emissions already captured
