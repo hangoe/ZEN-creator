@@ -780,7 +780,7 @@ dataset — no new carrier classes are needed in zen_creator.
 - **Cat 3 = not flexible at all**: very high cost (effectively priced out of the
   optimum) and a short horizon.
 
-| Category | `capex_specific_storage_energy` / `opex_specific_variable` (EUR/(power_unit·h)) | `energy_to_power_ratio_max` (h) |
+| Category | `capex_specific_storage_energy` / `opex_specific_variable` (EUR/tonproduct) | `energy_to_power_ratio_max` (h) |
 |---|---|---|
 | Cat 1 | 1 | 336 (2 weeks) |
 | Cat 2 | 20 | 48 (2 days) |
@@ -789,6 +789,30 @@ dataset — no new carrier classes are needed in zen_creator.
 These are internal placeholder assumptions (no literature-derived cost source per
 category yet) chosen to give Cat 1 a near-free, long-horizon shape, Cat 3 a
 priced-out, short-horizon shape, and Cat 2 something in between.
+
+**Ammonia/methanol LHV conversion**: `ammonia_DSM` and `methanol_DSM` have
+`power_unit = "GW"` (their reference carriers are modeled in GW/GWh, not
+`tonproduct/hour` — see "Power unit" below), so `capex_specific_storage_energy` and
+`opex_specific_variable` need a Euro/GWh value, not Euro/tonproduct. Applying the
+table above's raw number directly as Euro/GWh would silently represent a very
+different real cost per tonne than for the mass-based DSM technologies (1 GWh is
+hundreds of tonnes of ammonia or methanol). Instead, the table value above is
+divided by each carrier's lower heating value (LHV) — ammonia 18.6 GJ/t (=
+0.005167 GWh/t), methanol 19.9 GJ/t (= 0.005528 GWh/t), both standard literature
+figures (IEA-AMF fuel properties for ammonia; H2Tools/EngineeringToolbox calorific
+value references for methanol) — to convert the per-tonne placeholder into an
+equivalent per-GWh value, preserving the same real cost per tonne of product across
+all ten DSM technologies. `energy_to_power_ratio_max` is left unconverted: as a
+pure duration (energy/power = time), it is already dimensionally identical whether
+power is in `tonproduct/hour` or `GW`.
+
+Resulting Euro/GWh values (Cat value ÷ LHV in GWh/t):
+
+| Category | Ammonia (Euro/GWh) | Methanol (Euro/GWh) |
+|---|---|---|
+| Cat 1 | ≈ 194 | ≈ 181 |
+| Cat 2 | ≈ 3,871 | ≈ 3,618 |
+| Cat 3 | ≈ 193,548 | ≈ 180,905 |
 
 | Carrier | Pessimistic | Optimistic | Key source(s) |
 |---|---|---|---|
@@ -833,7 +857,9 @@ a new evaluation, not a change in what [8]/[9] say; see "New in sector v7.0" abo
   product stock held in a DSM technology is not physically decaying, only
   time-shifted.
 - **Power unit**: `tonproduct/hour`, matching production technology capacity units
-  (`GW` for `ammonia_DSM` and `methanol_DSM`).
+  (`GW` for `ammonia_DSM` and `methanol_DSM` — for these two, `capex_specific_storage_energy`
+  and `opex_specific_variable` are LHV-converted from the category's per-tonne value
+  to an equivalent per-GWh value; see "Ammonia/methanol LHV conversion" above).
 - **`capacity_limit` = 1 × per-node carrier demand** (100% of the carrier's annual
   demand rate at each node, reduced from 200% in v6.1 — see "New in sector v7.0"
   above), derived at model build time from the carrier element's demand attribute.

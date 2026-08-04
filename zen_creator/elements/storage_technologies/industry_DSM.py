@@ -18,6 +18,14 @@ Covered carriers:
   - glass, ceramic, paper, food  (industry_heat sector products)
   - ammonia, clinker, methanol, primary_steel, secondary_steel, olefin
     (existing Crystal Ball carriers; no zen_creator carrier class needed)
+
+Ammonia and methanol are modeled on an energy basis (`power_unit = "GW"`, reference
+carrier demand in GW/GWh) rather than the `tonproduct/hour` mass basis every other
+DSM technology uses. `capex_specific_storage_energy` and `opex_specific_variable`
+are converted from the category's per-tonne placeholder value to an equivalent
+per-GWh value using each carrier's lower heating value (LHV), so the same real cost
+per tonne of product is preserved across all DSM technologies regardless of unit
+basis — see `_storage_cost_value` / `_LHV_GJ_PER_TONNE` below.
 """
 
 from __future__ import annotations
@@ -67,6 +75,45 @@ _CATEGORY_METADATA = MetaData(
     publication="input_data/DSM_parametrization/DSM_literature_review.md",
     publication_year=2026,
 )
+
+_LHV_METADATA = MetaData(
+    name="lhv_conversion",
+    title="Ammonia/methanol LHV used to convert DSM cost params to an energy basis",
+    author=["ZEN Creator"],
+    publication=(
+        "IEA-AMF fuel properties (ammonia, https://www.iea-amf.org/content/"
+        "fuel_information/ammonia/fuel_properties); H2Tools/EngineeringToolbox "
+        "calorific value references (methanol)"
+    ),
+    publication_year=2026,
+)
+
+# Lower heating value, GJ/t (numerically equal to MJ/kg). Standard literature
+# figures, not calibrated to a specific process — same caveat as _CATEGORY_PARAMS.
+_LHV_GJ_PER_TONNE: dict[str, float] = {
+    "ammonia": 18.6,
+    "methanol": 19.9,
+}
+
+
+def _lhv_gwh_per_tonproduct(carrier_name: str) -> float | None:
+    """GWh contained in one tonproduct of `carrier_name`, or None if carrier_name is
+    not energy-based. 1 tonproduct/hour x 1 GJ/t = 1 GJ/h = 1/3600 GW, so dividing
+    GJ/t by 3600 gives GWh per tonproduct (same identity as
+    _industry_heat_utils.GJ_per_t_to_conversion_factor, kept local here to avoid
+    pulling that module's pandas/openpyxl/xlrd dependencies into this file)."""
+    gj_per_t = _LHV_GJ_PER_TONNE.get(carrier_name)
+    return None if gj_per_t is None else gj_per_t / 3600.0
+
+
+def _storage_cost_value(carrier_name: str, category_value: float) -> float:
+    """Convert a category's Euro/tonproduct placeholder value into the equivalent
+    Euro/GWh value for energy-based carriers (ammonia, methanol), so the same real
+    cost per tonne of product applies regardless of the technology's unit basis.
+    No-op for mass-based carriers."""
+    lhv = _lhv_gwh_per_tonproduct(carrier_name)
+    return category_value if lhv is None else category_value / lhv
+
 
 # Placeholder cost/duration shape per category: (capex, opex_var, energy_to_power_ratio_max).
 # Cat 1 cheap + long horizon, Cat 3 expensive + short horizon (effectively priced
@@ -123,6 +170,20 @@ def _category_source(carrier_name: str, variant: str) -> SourceInformation:
             f"flexible/short timescales, Cat 3 = not flexible at all).{note}"
         ),
         metadata=_CATEGORY_METADATA,
+    )
+
+
+def _storage_cost_source(carrier_name: str, variant: str) -> SourceInformation:
+    source = _category_source(carrier_name, variant)
+    lhv = _LHV_GJ_PER_TONNE.get(carrier_name)
+    if lhv is None:
+        return source
+    return SourceInformation(
+        description=(
+            f"{source.description} Converted from Euro/tonproduct to Euro/GWh via "
+            f"{carrier_name}'s LHV of {lhv} GJ/t."
+        ),
+        metadata={"dsm_literature_review": _CATEGORY_METADATA, "lhv_conversion": _LHV_METADATA},
     )
 
 
@@ -203,9 +264,9 @@ class _IndustryDSMTechnology:
         capex, _, _ = _CATEGORY_PARAMS[_category(self._carrier_name, self._variant)]
         attr = Attribute("capex_specific_storage_energy", element=self)
         attr.set_data(
-            default_value=capex,
+            default_value=_storage_cost_value(self._carrier_name, capex),
             unit=f"Euro/({self.power_unit}*h)",
-            source=_category_source(self._carrier_name, self._variant),
+            source=_storage_cost_source(self._carrier_name, self._variant),
         )
         return attr
 
@@ -213,9 +274,9 @@ class _IndustryDSMTechnology:
         _, opex_var, _ = _CATEGORY_PARAMS[_category(self._carrier_name, self._variant)]
         attr = Attribute("opex_specific_variable", element=self)
         attr.set_data(
-            default_value=opex_var,
+            default_value=_storage_cost_value(self._carrier_name, opex_var),
             unit=f"Euro/({self.power_unit}*h)",
-            source=_category_source(self._carrier_name, self._variant),
+            source=_storage_cost_source(self._carrier_name, self._variant),
         )
         return attr
 
