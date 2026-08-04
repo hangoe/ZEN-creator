@@ -7,16 +7,21 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pandas as pd
+
 if TYPE_CHECKING:
     from zen_creator.model import Model
 
 from zen_creator.datasets.datasets.dea_industrial_heat import DeaIndustrialHeatDataset
 from zen_creator.datasets.datasets.eurostat_boiler import EurostatBoilerDataset
+from zen_creator.datasets.datasets.faostat_food import FaostatFoodDataset
 from zen_creator.datasets.datasets.heat_tech_parametrization import (
     HP_COP_WASTE_HEAT,
     HP_COP_WATER,
     HeatTechParametrizationDataset,
 )
+from zen_creator.datasets.datasets.jrc_idees_industry import JrcIdeesIndustryDataset
+from zen_creator.datasets.datasets.metadata import SourceInformation
 from zen_creator.datasets.datasets.process_parametrization import (
     CAPACITY_YEAR,
     FEC_YEAR,
@@ -43,64 +48,123 @@ def _hp_waste_heat_limit(element, temp_level: str) -> Attribute:
     return ProcessParametrizationDataset().get_waste_heat_capacity_limit(element, temp_level)
 
 
-# -- Temperature conversion cascade diffusion rate ----------------------------
-# `HeatIndustryTempConversion150`/`100` have capacity_existing = 0 (no analogue
-# in Eurostat data - they are a modeling construct, not a deployed technology),
-# so leaving `max_diffusion_rate` unset falls back to the framework's `inf`
-# default. Because each tech's `reference_carrier` is the same carrier the heat
-# pumps at that (lower) temperature level also use, an unbounded diffusion rate
-# inflates that carrier's total market and - via `market_share_unbounded` -
-# loosens the effectively-enforced diffusion cap on those heat pumps too. See
-# ASSUMPTIONS.md ("Temperature conversion cascade diffusion rate") for the full
-# derivation.
-#
-# Back-solved (not assumed): starting from the same first-year
-# `market_share_unbounded` bootstrap the framework already grants any
-# zero-capacity technology, find the rate that - compounded over the model
-# horizon - reaches exactly the theoretical ceiling of the boiler fleet
-# feeding the top of the cascade (the `heat_industry_150_200` producers,
-# themselves compounding at their own 0.29/yr `max_diffusion_rate` over the
-# same horizon). `cascade_level` nests the second conversion tech's bootstrap
-# inside the first's derived (not the boilers') trajectory, since its own
-# nominal reference-carrier siblings (`heat_pump_industry_0_100_*`) also have
-# zero existing capacity, which would make a direct bootstrap undefined.
-MODEL_HORIZON_YEARS = 2050 - 2022  # system.json: reference_year=2022, runs to 2050
 UPSTREAM_MAX_DIFFUSION_RATE = 0.29  # heat_tech_parametrization.xlsx, all boilers/heat pumps
 
 
-def _temp_conversion_diffusion_rate(element, cascade_level: int) -> Attribute:
-    market_share_unbounded = element.model.energy_system.market_share_unbounded.default_value
-    rate = (1 + UPSTREAM_MAX_DIFFUSION_RATE) / market_share_unbounded ** (cascade_level / MODEL_HORIZON_YEARS) - 1
-    return Attribute("max_diffusion_rate", default_value=rate, unit="1", element=element)
+# -- Cascade capacity_existing for the temp-conversion techs -------------------
+# `HeatIndustryTempConversion150`/`100` cascade excess heat down the ladder
+# (`heat_industry_150_200` -> `heat_industry_100_150` -> `heat_industry_0_100`,
+# lossless). They have no Eurostat/DEA analogue - they're a modeling construct,
+# not a deployed technology - so `capacity_existing = 0` by default. Combined
+# with `constraint_technology_diffusion_limit_total` pooling capacity_addition/
+# capacity_previous across every technology sharing a reference_carrier (capped
+# at `market_share_unbounded * sum(capacity_previous)`), a zero starting point
+# meant the *entire* 0-100°C/100-150°C group - both temp-conversion techs plus
+# all four heat pump variants at those bands, which also have zero
+# capacity_existing (no deployed industrial heat pump capacity in Eurostat) -
+# had zero pooled capacity_previous, so the constraint allowed zero
+# capacity_addition in the first model year regardless of demand. (Tried and
+# discarded: an inflated back-solved `max_diffusion_rate`, and a flat
+# `capacity_addition_unbounded` seed - both just delayed the same infeasibility
+# to a later year/node as demand grew, since neither gave the group a real
+# capacity base to grow from.)
+#
+# Fix: give the temp-conversion techs a real, physically-grounded
+# capacity_existing instead. They cascade heat down from the boiler fleet
+# (`*_boiler_industry`, reference_carrier `heat_industry_150_200`), so "how
+# much of that boiler fleet isn't already spoken for by demand at the band(s)
+# above" is a reasonable starting capacity:
+#   temp_conversion_150: total boiler capacity - demand at 150-200°C
+#   temp_conversion_100: total boiler capacity - demand at 150-200°C and 100-150°C
+# glass/ceramic/paper/food each draw at *all three* bands (per-sector,
+# per-band shares from process_parametrization.xlsx / the Wolf2017 split), so
+# both subtractions are real, not zero. Floored at 0 per node - unlike
+# temp_conversion_150 (positive everywhere, EU-wide margin ~20 GW),
+# temp_conversion_100 floors to 0 in about a third of nodes (mostly small
+# boiler fleets relative to their own 100-150°C draw, e.g. SE, FI, UK), still
+# leaving a real EU-wide pooled base (~3.6 GW) for
+# `constraint_technology_diffusion_limit_total` rather than 0. If a 0-100°C
+# infeasibility shows up in one of the floored nodes, that's the next place to
+# look - this fix resolves the 100-150°C cold start confirmed by solving, not
+# a guarantee the 0-100°C band is fully clear of the same failure mode.
+# With a real non-zero capacity_previous, the ordinary diffusion rate
+# (0.29/yr, same as every other heat-supply technology) and the ordinary
+# `market_share_unbounded` bootstrap both work as intended - no special-cased
+# rate or seed needed.
+_HEAT_SECTORS = ("glass", "ceramic", "paper", "food")
 
 
-# -- Cold-start bootstrap for the 0-100/100-150°C bands -----------------------
-# `constraint_technology_diffusion_limit_total` pools capacity_addition/
-# capacity_previous across every technology sharing a reference_carrier and caps
-# the group's total addition at `market_share_unbounded * sum(capacity_previous)`.
-# At the 150-200°C band that's non-zero (the boiler fleet has real 2022
-# `capacity_existing`), so the heat pumps there ride along on the boilers'
-# bootstrap. At 0-100°C and 100-150°C there is no boiler analogue: every member
-# of both groups (the two temp-conversion techs and all four heat pump variants)
-# has `capacity_existing = 0` everywhere, so the group's bootstrap is
-# `0.02 * 0 = 0` in the first model year - no capacity of any of them can be
-# built at all, regardless of demand. `capacity_addition_unbounded` is the
-# framework's escape hatch for exactly this: a fixed amount of capacity a
-# technology may add each period regardless of the diffusion cap. This is a
-# pragmatic unblocking constant, not back-solved like `_temp_conversion_
-# diffusion_rate` above - there's no non-zero quantity in this model to derive
-# it from. Re-check first-year utilization after solving; raise if the seed is
-# fully used up (still demand-constrained), lower if it's barely touched.
-COLD_START_CAPACITY_SEED_GW = 0.02
+def _sector_demand_attr(element, sector: str) -> Attribute:
+    """Node-indexed demand (tonproduct/hour) for one industry sector."""
+    jrc = JrcIdeesIndustryDataset()
+    if sector == "ceramic":
+        return jrc.get_ceramic_demand_as_capacity_existing(element, FEC_YEAR)
+    if sector == "food":
+        return FaostatFoodDataset().get_food_demand_as_capacity_existing(element, FEC_YEAR)
+    return jrc.get_demand_as_capacity_existing(element, sector, FEC_YEAR)
 
 
-def _cold_start_capacity_seed(element) -> Attribute:
-    return Attribute(
-        "capacity_addition_unbounded",
-        default_value=COLD_START_CAPACITY_SEED_GW,
-        unit="GW",
-        element=element,
+def _heat_demand_at_level(element, temp_level: str) -> pd.Series:
+    """Node-indexed heat draw (GW) at `temp_level`, summed across glass/ceramic/paper/food."""
+    carrier = f"heat_industry_{temp_level}"
+    process_ds = ProcessParametrizationDataset()
+    total = None
+    for sector in _HEAT_SECTORS:
+        demand_attr = _sector_demand_attr(element, sector)  # tonproduct/hour, per node
+        conversion_factor = process_ds.get_conversion_factor(element, sector).default_value
+        cf_value = next((entry[carrier]["default_value"] for entry in conversion_factor if carrier in entry), 0.0)
+        if cf_value == 0.0:
+            continue
+        # demand (tonproduct/hour) and conversion_factor (GW/(tonproduct/hour))
+        # are both in their as-declared units here - multiply directly for GW.
+        # (The solver rescales both by 1000x internally for the ktonproduct
+        # base unit, which cancels out - do not rescale only one side.)
+        contribution = demand_attr.df * cf_value
+        total = contribution if total is None else total.add(contribution, fill_value=0.0)
+    return total if total is not None else pd.Series(dtype=float)
+
+
+def _boiler_capacity_existing_total(element) -> pd.Series:
+    """Node-indexed total existing capacity (GW) across all four industry boilers."""
+    boiler_ds = EurostatBoilerDataset()
+    getters = [
+        boiler_ds.get_biomass_boiler_capacity,
+        boiler_ds.get_electrode_boiler_capacity,
+        boiler_ds.get_natural_gas_boiler_capacity,
+        boiler_ds.get_oil_boiler_capacity,
+    ]
+    total = None
+    for getter in getters:
+        by_node = getter(element, FEC_YEAR, CAPACITY_YEAR).df["capacity_existing"].groupby(level="node").sum()
+        total = by_node if total is None else total.add(by_node, fill_value=0.0)
+    return total
+
+
+def _cascade_capacity_existing(element, exclude_levels: tuple[str, ...]) -> Attribute:
+    capacity = _boiler_capacity_existing_total(element)
+    for level in exclude_levels:
+        capacity = capacity.subtract(_heat_demand_at_level(element, level), fill_value=0.0)
+    capacity = capacity.clip(lower=0.0)
+    df = pd.DataFrame({
+        "node": capacity.index,
+        "year_construction": CAPACITY_YEAR,
+        "capacity_existing": capacity.values,
+    }).set_index(["node", "year_construction"])
+    attr = Attribute("capacity_existing", default_value=0.0, unit="GW", element=element)
+    attr.set_data(
+        df=df,
+        source=SourceInformation(
+            description=(
+                "Derived: total existing industry boiler capacity (EurostatBoilerDataset) "
+                f"minus demand at {exclude_levels or 'no'} higher temperature band(s), "
+                "floored at 0. Gives this modeling-construct technology a physically-"
+                "grounded starting capacity instead of 0 - see industry_heat_supply.py "
+                "comment above _cascade_capacity_existing."
+            ),
+            metadata=EurostatBoilerDataset().metadata,
+        ),
     )
+    return attr
 
 
 # -- Heat pumps ---------------------------------------------------------------
@@ -154,10 +218,6 @@ def _hp_methods(base_tech: str, dea_tech: str, temp_level: str, cop: float):
 
         def _set_capacity_existing(self) -> Attribute:
             return _hp_capacity(self, temp_level)
-
-        if temp_level in ("0_100", "100_150"):
-            def _set_capacity_addition_unbounded(self) -> Attribute:
-                return _cold_start_capacity_seed(self)
 
     return _Mixin
 
@@ -408,10 +468,10 @@ class HeatIndustryTempConversion150(ConversionTechnology):
         return Attribute("opex_specific_variable", default_value=0.0, unit="Euro/GWh", element=self)
 
     def _set_max_diffusion_rate(self) -> Attribute:
-        return _temp_conversion_diffusion_rate(self, cascade_level=1)
+        return Attribute("max_diffusion_rate", default_value=UPSTREAM_MAX_DIFFUSION_RATE, unit="1", element=self)
 
-    def _set_capacity_addition_unbounded(self) -> Attribute:
-        return _cold_start_capacity_seed(self)
+    def _set_capacity_existing(self) -> Attribute:
+        return _cascade_capacity_existing(self, exclude_levels=("150_200",))
 
 
 class HeatIndustryTempConversion100(ConversionTechnology):
@@ -439,7 +499,7 @@ class HeatIndustryTempConversion100(ConversionTechnology):
         return Attribute("opex_specific_variable", default_value=0.0, unit="Euro/GWh", element=self)
 
     def _set_max_diffusion_rate(self) -> Attribute:
-        return _temp_conversion_diffusion_rate(self, cascade_level=2)
+        return Attribute("max_diffusion_rate", default_value=UPSTREAM_MAX_DIFFUSION_RATE, unit="1", element=self)
 
-    def _set_capacity_addition_unbounded(self) -> Attribute:
-        return _cold_start_capacity_seed(self)
+    def _set_capacity_existing(self) -> Attribute:
+        return _cascade_capacity_existing(self, exclude_levels=("150_200", "100_150"))

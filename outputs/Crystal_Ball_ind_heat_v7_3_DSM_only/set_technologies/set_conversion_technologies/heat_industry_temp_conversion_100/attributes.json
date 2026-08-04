@@ -8,7 +8,7 @@
         "unit": "GW"
     },
     "capacity_addition_unbounded": {
-        "default_value": 0.02,
+        "default_value": 0.0,
         "unit": "GW"
     },
     "capacity_existing": {
@@ -48,7 +48,7 @@
         "unit": "GW"
     },
     "max_diffusion_rate": {
-        "default_value": 0.7058652039912625,
+        "default_value": 0.29,
         "unit": "1"
     },
     "lifetime": {

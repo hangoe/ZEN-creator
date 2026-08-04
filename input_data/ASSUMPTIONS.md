@@ -989,107 +989,75 @@ Sources:
 }
 ```
 
-## Temperature conversion cascade diffusion rate
+## Temperature conversion cascade capacity_existing
 
 `HeatIndustryTempConversion150`/`HeatIndustryTempConversion100`
 (`zen_creator/elements/conversion_technologies/industry_heat_supply.py`) cascade
 excess heat down the temperature ladder (`heat_industry_150_200` →
 `heat_industry_100_150` → `heat_industry_0_100`, lossless, `conversion_factor = 1.0`).
-Unlike every other heat-supply technology in this model, they have no
-`capacity_existing` (they are a modeling construct, not a deployed technology), and
-originally had no `max_diffusion_rate` override either, so they fell back to the
-framework's `inf` default.
+Unlike every other heat-supply technology in this model, they have no Eurostat/DEA
+analogue - they're a modeling construct, not a deployed technology - so
+`capacity_existing = 0` by default.
 
-**Problem**: `max_diffusion_rate` is a *proportional* growth cap on a technology's own
-capacity, but ZEN-garden also grants every technology a `market_share_unbounded`
-(energy-system-wide, `0.02`/yr in this model, `Mannhardt_2024`) bootstrap allowance
-each period, sized relative to the total market of its `reference_carrier` -
-independent of the technology's own `max_diffusion_rate`. Each temp-conversion tech's
-`reference_carrier` is set to its *output* carrier (`heat_industry_100_150` /
-`heat_industry_0_100`), the same carrier the heat pumps at that (lower) temperature
-level also reference. With `max_diffusion_rate = inf`, the temp-conversion tech's
-capacity is free to grow explosively, inflating the total market for that shared
-carrier and, via `market_share_unbounded`, loosening the effectively-enforced
-diffusion cap on the heat pumps at that level too - even though their own
-`max_diffusion_rate` is still nominally `0.29`.
+**Problem**: `constraint_technology_diffusion_limit_total` pools `capacity_addition`
+and `capacity_previous` across every technology sharing a `reference_carrier`, capping
+the group's total addition at `market_share_unbounded × Σ capacity_previous`
+(`market_share_unbounded = 0.02`/yr in this model, `Mannhardt_2024`). Each
+temp-conversion tech's `reference_carrier` is its *output* carrier
+(`heat_industry_100_150` / `heat_industry_0_100`), the same carrier the heat pumps at
+that (lower) temperature level also reference - and those heat pumps also have
+`capacity_existing = 0` (no deployed industrial heat pump capacity in Eurostat). With
+every member of the 0-100°C/100-150°C groups starting at zero, the pooled cap was
+`0.02 × 0 = 0` in the model's first year: no capacity at either band could be built at
+all, regardless of demand - infeasible in any node/year with non-zero
+glass/ceramic/paper/food demand at that temperature (confirmed by solving: Sweden
+paper demand year 1, then Germany/Finland/Sweden again at later operational years once
+a first attempted fix bought a small amount of headroom).
 
-**Method**: back-solve `max_diffusion_rate` for each temp-conversion tech rather than
-assume it, by fixing two endpoints and inverting the compounding formula for the rate
-that connects them:
+Two fixes were tried and discarded before landing on the one below, because both just
+delayed the same infeasibility rather than resolving it:
+- An inflated, back-solved `max_diffusion_rate` (`(1+0.29)/market_share_unbounded^(1/28) − 1`,
+  compounding a zero base towards the boiler fleet's 2050 ceiling) - the *rate* was
+  irrelevant, since `constraint_technology_diffusion_limit_total` uses
+  `market_share_unbounded`, not the technology's own rate; the group's pooled
+  `capacity_previous` was still zero regardless of what rate compounded on it.
+- A flat `capacity_addition_unbounded` seed (a fixed per-period bypass amount,
+  independent of demand) - unblocked the very first year, but the seed itself becomes
+  next year's tiny `capacity_previous`, so the group can only ever grow at
+  `market_share_unbounded` off that tiny base - nowhere near fast enough to keep up
+  with demand across later operational years/more countries, so the same infeasibility
+  just resurfaced further out.
 
-- **Seed (2022)**: `market_share_unbounded × C_upstream(2022)` - the same first-year
-  bootstrap capacity the framework already grants any zero-capacity technology, made
-  explicit rather than left implicit.
-- **Ceiling (2050)**: the theoretical maximum of the boiler fleet feeding the top of
-  the cascade (`heat_industry_150_200` producers: the four `*_boiler_industry`
-  techs, plus `heat_pump_industry_150_200_*` which currently has zero installed
-  capacity), compounding at their own `max_diffusion_rate = 0.29` over the model
-  horizon: `C_upstream(2022) × 1.29^28` (`reference_year = 2022` to the model's final
-  year, `2050`, per `system.json`/the yearly-variation files - 28 elapsed years).
-- Solving `seed × (1+r)^28 = ceiling` gives `r = 1.29 / market_share_unbounded^(1/28) − 1`
-  - notably independent of the actual upstream capacity value, since it cancels out.
+**Fix**: give the temp-conversion techs a real, physically-grounded `capacity_existing`
+instead of `0` or an arbitrary bypass. They cascade heat down from the boiler fleet
+(`*_boiler_industry`, reference_carrier `heat_industry_150_200`), so "how much of that
+boiler fleet isn't already spoken for by demand at the band(s) above" is a reasonable
+starting capacity:
 
-Because the temp-conversion tech starts smaller than the boiler fleet by exactly the
-`market_share_unbounded` factor but must reach the same absolute ceiling by the same
-year, `r > 0.29` is required - the two exponential curves cross exactly once, at 2050,
-which also guarantees the temp-conversion capacity stays below the upstream ceiling
-for every year in between, not just at the endpoint.
+- `heat_industry_temp_conversion_150`: total boiler capacity − demand at 150-200°C
+- `heat_industry_temp_conversion_100`: total boiler capacity − demand at 150-200°C and 100-150°C
 
-`HeatIndustryTempConversion100`'s own nominal reference-carrier siblings
-(`heat_pump_industry_0_100_*`) also have zero existing capacity, which would make a
-direct bootstrap off them undefined (target/seed = target/0). Its trajectory is
-instead nested one level inside `HeatIndustryTempConversion150`'s *derived* (not the
-boilers') trajectory, i.e. `cascade_level = 2` instead of `1`:
-`r = (1+0.29) / market_share_unbounded^(cascade_level / 28) − 1`.
+Demand at each band is computed from glass/ceramic/paper/food's own per-node demand
+(`JrcIdeesIndustryDataset`/`FaostatFoodDataset`, same accessors the carriers themselves
+use) times each sector's per-band conversion factor
+(`ProcessParametrizationDataset().get_conversion_factor()`) - all four sectors draw at
+*all three* temperature bands (per-sector Wolf2017 split), not only 100-150°C, so both
+subtractions are real. Floored at 0 per node as a safety net.
 
-**Resulting values** (`_temp_conversion_diffusion_rate()` in
-`industry_heat_supply.py`, `market_share_unbounded = 0.02`):
+**Resulting values** (`_cascade_capacity_existing()` in `industry_heat_supply.py`,
+computed against the v7.3 dataset):
 
-| Technology | cascade_level | `max_diffusion_rate` |
+| Technology | EU-wide total | Nodes floored to 0 |
 |---|---|---|
-| `heat_industry_temp_conversion_150` | 1 | 0.4834 |
-| `heat_industry_temp_conversion_100` | 2 | 0.7059 |
+| `heat_industry_temp_conversion_150` | ~20.1 GW | none (min margin ~15.6 GW EU-wide vs. 150-200°C demand) |
+| `heat_industry_temp_conversion_100` | ~3.6 GW | ~11/28 (mostly small boiler fleets relative to their own 100-150°C draw, e.g. SE, FI, UK) |
 
-Both are notably *higher* than the 0.29 used everywhere else - counterintuitive at
-first glance, but correct: each cascade level starts from a smaller relative base (by
-a further factor of `market_share_unbounded` per level) and must close that gap
-within the same fixed horizon, so a higher nominal rate is required even though the
-absolute capacity stays bounded below the physical ceiling throughout. The key fix is
-not the specific magnitude but that the rate is now finite and tied to a real
-physical ceiling, rather than `inf`.
+With a real non-zero `capacity_previous`, the ordinary diffusion rate (`0.29`/yr, same
+as every other heat-supply technology) and the ordinary `market_share_unbounded`
+bootstrap both work as intended - no special-cased rate or bypass needed.
 
-**Caveats**: this is a system-wide (all 28 nodes summed) derivation - `max_diffusion_rate`
-is set as a single scalar for every other heat-supply technology in this model too, so
-this keeps the temp-conversion techs consistent with that convention rather than
-introducing per-node values. The ceiling calculation excludes the small/zero
-`capacity_existing` contributions of technologies other than the boiler fleet (the
-150_200-level heat pumps), which is conservative (smaller ceiling, tighter rate) rather
-than permissive.
-
-## Cold-start bootstrap for the 0-100/100-150°C bands
-
-v7.2 fixed the temp-conversion techs' `max_diffusion_rate` from `inf` to the finite,
-back-solved rate above ("Temperature conversion cascade diffusion rate"). That fix was
-necessary, but it exposed a second, separate problem: with a finite rate,
-`constraint_technology_diffusion_limit_total` pools `capacity_addition` and
-`capacity_previous` across every technology sharing a `reference_carrier` and caps the
-group's total addition at `market_share_unbounded × Σ capacity_previous`. At the
-150-200°C band this is non-zero (the boiler fleet has real 2022 `capacity_existing`),
-so `heat_pump_industry_150_200_*` rides along on the boilers' bootstrap. At 0-100°C and
-100-150°C there is no boiler analogue: every member of both groups -
-`heat_industry_temp_conversion_150`/`_100` and all four `heat_pump_industry_0_100_*` /
-`heat_pump_industry_100_150_*` variants - has `capacity_existing = 0` everywhere, so the
-group's bootstrap is `0.02 × 0 = 0` in the model's first year. No capacity at either band
-could be built at all, regardless of demand - infeasible in any node/year with non-zero
-glass/ceramic/paper/food demand at that temperature (e.g. Sweden paper demand, year 1).
-
-**Fix**: `capacity_addition_unbounded` (`COLD_START_CAPACITY_SEED_GW` /
-`_cold_start_capacity_seed()` in `industry_heat_supply.py`) is the framework's escape
-hatch for exactly this - a fixed amount of capacity a technology may add each period
-regardless of the diffusion cap. Set to `0.02` GW for the two temp-conversion techs and
-the four 0-100°C/100-150°C heat pump variants (not the 150-200°C ones, which don't need
-it). Unlike the diffusion-rate fix above, this is a pragmatic unblocking constant, not
-back-solved - there's no non-zero quantity within these two groups to derive it from.
-After solving, check first-year utilization of these six technologies: if the seed is
-fully used up (still demand-constrained), raise it; if it's barely touched, it can be
-lowered or left as a safety margin.
+**Caveat**: `temp_conversion_100`'s EU-wide total is real but much smaller than
+`temp_conversion_150`'s, and floors to 0 in about a third of nodes. If a 0-100°C
+infeasibility shows up in one of those nodes on a later solve, this is the next place
+to look - the fix above is confirmed to resolve the 100-150°C cold start, not
+guaranteed to fully clear the 0-100°C band of the same failure mode.
