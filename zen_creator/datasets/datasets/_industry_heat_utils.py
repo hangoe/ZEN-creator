@@ -555,6 +555,8 @@ BOILER_LIFETIMES: dict[str, int] = {
     "natural_gas_boiler_industry": 25,
     "electrode_boiler_industry": 25,
     "oil_boiler_industry": 25,
+    "coal_boiler_industry": 25,  # DEA sheet "6.3 Boiler, coal"
+    "waste_boiler_industry": 30,  # Crystal Ball's waste_boiler_DH (no DEA industrial sheet exists)
 }
 
 INSTALLED_CAPACITY_HEADER = "Installed capacity (kt production)"
@@ -603,8 +605,18 @@ EUROSTAT_HEAT_FIRST_YEAR = 2015
 
 # Separate extract (custom_22192472) that additionally includes oil products,
 # which the original custom_21840385 query (EUROSTAT_EB_XLSX) never selected.
+# This same extract also carries the full SIEC breakdown of "Gross heat
+# production" (84 sheets), including coal, waste, and biogases — carriers the
+# original EB_GWh.xlsx query never selected either. See ASSUMPTIONS.md,
+# "Boiler (industry) capacity" for the full carrier ranking that justified
+# adding these.
 EUROSTAT_NEW_EB_XLSX = "Eurostat_new.xlsx"
 EUROSTAT_OIL_HEAT_SHEET = "Sheet 23"  # "Oil and petroleum products (excluding biofuel portion)"
+EUROSTAT_COAL_HEAT_SHEET = "Sheet 2"  # "Solid fossil fuels"
+EUROSTAT_BIOGAS_HEAT_SHEET = "Sheet 63"  # "Biogases" — folded into the biomass total
+EUROSTAT_IND_WASTE_HEAT_SHEET = "Sheet 64"  # "Industrial waste (non-renewable)"
+EUROSTAT_REN_MUN_WASTE_HEAT_SHEET = "Sheet 65"  # "Renewable municipal waste"
+EUROSTAT_NONREN_MUN_WASTE_HEAT_SHEET = "Sheet 66"  # "Non-renewable municipal waste"
 
 
 def section_by_label(df: pd.DataFrame, year: int, header: str) -> dict[str, float]:
@@ -840,16 +852,29 @@ def total_industry_heat_demand_gw(year: int) -> dict[str, float]:
 
 def _eurostat_fuel_shares(
     biomass_gwh: dict[str, float], ng_gwh: dict[str, float], elec_gwh: dict[str, float],
-    oil_gwh: dict[str, float], country: str,
-) -> tuple[float, float, float, float]:
+    oil_gwh: dict[str, float], coal_gwh: dict[str, float], waste_gwh: dict[str, float],
+    country: str,
+) -> tuple[float, float, float, float, float, float]:
+    """Fuel-mix shares (biomass, natural_gas, electrode, oil, coal, waste), all
+    from Eurostat "Gross heat production". `biomass_gwh` is expected to already
+    include biogases (Sheet 63) alongside primary solid biofuels (Sheet 74) —
+    see the call site in _demand_based_boiler_capacity_gw. `waste_gwh` is
+    expected to already sum industrial + renewable/non-renewable municipal
+    waste (Sheets 64-66).
+    """
     bio_gw = biomass_gwh.get(country, 0.0) / OPERATING_HOURS
     ng_gw = ng_gwh.get(country, 0.0) / OPERATING_HOURS
     elec_gw = elec_gwh.get(country, 0.0) / OPERATING_HOURS
     oil_gw = oil_gwh.get(country, 0.0) / OPERATING_HOURS
-    total_euro = bio_gw + ng_gw + elec_gw + oil_gw
+    coal_gw = coal_gwh.get(country, 0.0) / OPERATING_HOURS
+    waste_gw = waste_gwh.get(country, 0.0) / OPERATING_HOURS
+    total_euro = bio_gw + ng_gw + elec_gw + oil_gw + coal_gw + waste_gw
     if total_euro > 0.0:
-        return bio_gw / total_euro, ng_gw / total_euro, elec_gw / total_euro, oil_gw / total_euro
-    return 0.0, 1.0, 0.0, 0.0
+        return (
+            bio_gw / total_euro, ng_gw / total_euro, elec_gw / total_euro,
+            oil_gw / total_euro, coal_gw / total_euro, waste_gw / total_euro,
+        )
+    return 0.0, 1.0, 0.0, 0.0, 0.0, 0.0
 
 
 # BFE (2025) "Energieverbrauch in der Industrie und im Dienstleistungssektor" —
@@ -861,6 +886,8 @@ BFE_CH_BRANCHES = (1, 3, 6)  # Nahrungsmittel (food), Papier und Druck (paper), 
 BFE_CH_GAS_SHEET = "Erdgas"
 BFE_CH_OIL_SHEETS = ("Heizöl extra-leicht", "Heizöl mittel und schwer")
 BFE_CH_BIOMASS_SHEET = "Holz"
+BFE_CH_COAL_SHEET = "Kohle"
+BFE_CH_WASTE_SHEET = "Industrieabfälle"
 
 
 def _bfe_ch_branch_total_tj(sheet: str, year: int) -> float:
@@ -880,57 +907,83 @@ def _bfe_ch_branch_total_tj(sheet: str, year: int) -> float:
 
 
 @functools.lru_cache(maxsize=4)
-def _bfe_ch_fuel_shares(year: int) -> tuple[float, float, float, float]:
-    """Switzerland-specific boiler fuel-mix shares (biomass, natural_gas, electrode, oil).
+def _bfe_ch_fuel_shares(year: int) -> tuple[float, float, float, float, float, float]:
+    """Switzerland-specific boiler fuel-mix shares (biomass, natural_gas, electrode, oil, coal, waste).
 
     Derived from BFE2025, summing final energy consumption across the three branches
     matching this model's process-heat scope (food, paper, glass/ceramics), restricted
-    to combustion carriers (Erdgas, Heizöl extra-leicht + mittel/schwer, Holz).
-    Electricity is excluded from the mix — in these branches it is dominated by drives
-    and lighting rather than boilers, and heat-pump/electrode boiler capacity is
-    assumed zero for Switzerland (see David2017, "Heat pump (industry) capacity").
-    Kohle (coal) is also excluded and the remaining three carriers renormalized to sum
-    to 1 — coal is consistently the smallest carrier (<3% of the combustion total in
-    both 2022 and 2023) and the model has no boiler technology for it.
+    to combustion carriers (Erdgas, Heizöl extra-leicht + mittel/schwer, Holz, Kohle,
+    Industrieabfälle). Electricity is excluded from the mix — in these branches it is
+    dominated by drives and lighting rather than boilers, and heat-pump/electrode
+    boiler capacity is assumed zero for Switzerland (see David2017, "Heat pump
+    (industry) capacity"). Kohle (coal, ~2% of the combustion total) and
+    Industrieabfälle (industrial waste, ~7%) were previously dropped entirely; both
+    are now included now that coal_boiler_industry/waste_boiler_industry exist — see
+    ASSUMPTIONS.md, "Boiler (industry) capacity".
     """
     ng = _bfe_ch_branch_total_tj(BFE_CH_GAS_SHEET, year)
     oil = sum(_bfe_ch_branch_total_tj(sheet, year) for sheet in BFE_CH_OIL_SHEETS)
     bio = _bfe_ch_branch_total_tj(BFE_CH_BIOMASS_SHEET, year)
-    total = ng + oil + bio
+    coal = _bfe_ch_branch_total_tj(BFE_CH_COAL_SHEET, year)
+    waste = _bfe_ch_branch_total_tj(BFE_CH_WASTE_SHEET, year)
+    total = ng + oil + bio + coal + waste
     if total > 0.0:
-        return bio / total, ng / total, 0.0, oil / total
-    return 0.0, 1.0, 0.0, 0.0
+        return bio / total, ng / total, 0.0, oil / total, coal / total, waste / total
+    return 0.0, 1.0, 0.0, 0.0, 0.0, 0.0
+
+
+def _eurostat_waste_gwh(year: int) -> dict[str, float]:
+    """Total waste heat production (GWh): industrial + renewable/non-renewable
+    municipal waste (Eurostat Sheets 64-66), summed to avoid double-counting
+    against Sheet 67 ("Non-renewable waste", itself industrial + non-renewable
+    municipal — a subtotal we don't need separately).
+    """
+    ind = eurostat_gross_heat_gwh(EUROSTAT_IND_WASTE_HEAT_SHEET, year, xlsx=EUROSTAT_NEW_EB_XLSX)
+    ren_mun = eurostat_gross_heat_gwh(EUROSTAT_REN_MUN_WASTE_HEAT_SHEET, year, xlsx=EUROSTAT_NEW_EB_XLSX)
+    nonren_mun = eurostat_gross_heat_gwh(EUROSTAT_NONREN_MUN_WASTE_HEAT_SHEET, year, xlsx=EUROSTAT_NEW_EB_XLSX)
+    countries = set(ind) | set(ren_mun) | set(nonren_mun)
+    return {c: ind.get(c, 0.0) + ren_mun.get(c, 0.0) + nonren_mun.get(c, 0.0) for c in countries}
 
 
 @functools.lru_cache(maxsize=4)
 def _demand_based_boiler_capacity_gw(year: int) -> dict[str, dict[str, float]]:
     """Per-node boiler capacity (GW) scaled to total heat demand with Eurostat fuel shares.
 
-    Returns {node: {"biomass": GW, "natural_gas": GW, "electrode": GW, "oil": GW}}.
-    CH has no Eurostat entry; it uses Switzerland-specific fuel shares derived from
-    BFE's industry-energy survey (BFE2025) instead — see _bfe_ch_fuel_shares().
+    Returns {node: {"biomass": GW, "natural_gas": GW, "electrode": GW, "oil": GW,
+    "coal": GW, "waste": GW}}. CH has no Eurostat entry; it uses Switzerland-specific
+    fuel shares derived from BFE's industry-energy survey (BFE2025) instead — see
+    _bfe_ch_fuel_shares(). "biomass" includes biogases (Sheet 63) alongside primary
+    solid biofuels (Sheet 74) — see ASSUMPTIONS.md, "Boiler (industry) capacity".
     """
     total_demand = total_industry_heat_demand_gw(year)
     biomass_gwh = eurostat_gross_heat_gwh(EUROSTAT_BIOMASS_HEAT_SHEET, year)
+    biogas_gwh = eurostat_gross_heat_gwh(EUROSTAT_BIOGAS_HEAT_SHEET, year, xlsx=EUROSTAT_NEW_EB_XLSX)
+    biomass_gwh = {c: biomass_gwh.get(c, 0.0) + biogas_gwh.get(c, 0.0) for c in set(biomass_gwh) | set(biogas_gwh)}
     ng_gwh = eurostat_gross_heat_gwh(EUROSTAT_NATURAL_GAS_HEAT_SHEET, year)
     elec_gwh = eurostat_gross_heat_gwh(EUROSTAT_ELECTRICITY_HEAT_SHEET, year)
     oil_gwh = eurostat_gross_heat_gwh(EUROSTAT_OIL_HEAT_SHEET, year, xlsx=EUROSTAT_NEW_EB_XLSX)
+    coal_gwh = eurostat_gross_heat_gwh(EUROSTAT_COAL_HEAT_SHEET, year, xlsx=EUROSTAT_NEW_EB_XLSX)
+    waste_gwh = _eurostat_waste_gwh(year)
     ch_shares = _bfe_ch_fuel_shares(year)
     result: dict[str, dict[str, float]] = {}
     for node in MODEL_NODES:
         country = NODE_TO_EUROSTAT_COUNTRY.get(node)
         if country is not None:
-            share_bio, share_ng, share_elec, share_oil = _eurostat_fuel_shares(biomass_gwh, ng_gwh, elec_gwh, oil_gwh, country)
+            share_bio, share_ng, share_elec, share_oil, share_coal, share_waste = _eurostat_fuel_shares(
+                biomass_gwh, ng_gwh, elec_gwh, oil_gwh, coal_gwh, waste_gwh, country
+            )
         elif node == "CH":
-            share_bio, share_ng, share_elec, share_oil = ch_shares
+            share_bio, share_ng, share_elec, share_oil, share_coal, share_waste = ch_shares
         else:
-            share_bio, share_ng, share_elec, share_oil = 0.0, 1.0, 0.0, 0.0
+            share_bio, share_ng, share_elec, share_oil, share_coal, share_waste = 0.0, 1.0, 0.0, 0.0, 0.0, 0.0
         total = total_demand[node]
         result[node] = {
             "biomass": total * share_bio,
             "natural_gas": total * share_ng,
             "electrode": total * share_elec,
             "oil": total * share_oil,
+            "coal": total * share_coal,
+            "waste": total * share_waste,
         }
     return result
 
@@ -960,4 +1013,18 @@ def oil_boiler_capacity_existing_df(year, lifetime=None, year_construction=None)
     caps = _demand_based_boiler_capacity_gw(year)
     return _boiler_capacity_df_from_node_caps(
         {node: caps[node]["oil"] for node in MODEL_NODES}, year, lifetime, year_construction
+    )
+
+
+def coal_boiler_capacity_existing_df(year, lifetime=None, year_construction=None):
+    caps = _demand_based_boiler_capacity_gw(year)
+    return _boiler_capacity_df_from_node_caps(
+        {node: caps[node]["coal"] for node in MODEL_NODES}, year, lifetime, year_construction
+    )
+
+
+def waste_boiler_capacity_existing_df(year, lifetime=None, year_construction=None):
+    caps = _demand_based_boiler_capacity_gw(year)
+    return _boiler_capacity_df_from_node_caps(
+        {node: caps[node]["waste"] for node in MODEL_NODES}, year, lifetime, year_construction
     )

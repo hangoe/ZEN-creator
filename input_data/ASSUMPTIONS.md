@@ -518,27 +518,82 @@ input data but is currently not used to compute any capacity value.
 ## Boiler (industry) capacity
 
 (`biomass_boiler_industry`, `natural_gas_boiler_industry`, `electrode_boiler_industry`,
-`oil_boiler_industry`)
+`oil_boiler_industry`, `coal_boiler_industry`, `waste_boiler_industry`)
 
 Each boiler technology's `capacity_existing` (GW, one row per node,
 `year_construction = FEC_YEAR = 2023`) is computed in two steps:
 
 1. **Fuel-mix shares per node**, from `input_data/Eurostat/Eurostat_EB_GWh.xlsx`
    "Gross heat production": "Primary solid biofuels" (Sheet 74, biomass), "Natural
-   gas" (Sheet 72), "Electricity" (Sheet 83, electrode), plus "Oil and petroleum
-   products (excluding biofuel portion)" from the separate extract
-   `input_data/Eurostat/Eurostat_new.xlsx` (Sheet 23, oil — see "New in sector
-   v7.0" above for why this sheet/extract). Each is converted to GW via
-   `/ OPERATING_HOURS`, and the four are normalized to shares
-   (`share_bio + share_ng + share_elec + share_oil = 1`). If a node has no Eurostat
-   entry, it falls back to 100% natural gas — except Switzerland, which uses its own
-   BFE-survey-derived fuel-mix shares (see below).
+   gas" (Sheet 72), "Electricity" (Sheet 83, electrode), plus from the separate
+   extract `input_data/Eurostat/Eurostat_new.xlsx` (custom_22192472 — see "New in
+   sector v7.0" above for why this second extract exists): "Oil and petroleum
+   products (excluding biofuel portion)" (Sheet 23, oil), "Solid fossil fuels"
+   (Sheet 2, coal), "Biogases" (Sheet 63, folded into biomass), and "Industrial
+   waste (non-renewable)" + "Renewable municipal waste" + "Non-renewable municipal
+   waste" (Sheets 64/65/66, summed into waste). Each is converted to GW via
+   `/ OPERATING_HOURS`, and all six are normalized to shares (sum to 1). If a node
+   has no Eurostat entry, it falls back to 100% natural gas — except Switzerland,
+   which uses its own BFE-survey-derived fuel-mix shares (see below).
 2. **Total boiler capacity per node** = `total_industry_heat_demand_gw(node)` (summed
    heat-carrier demand across glass/ceramic/paper/food, all 3 temperature levels) ×
    that node's fuel-mix share. This sizes total existing boiler capacity to match
    modeled industry heat demand rather than reading an independent absolute value from
    Eurostat, ensuring enough boiler capacity exists to meet demand at every temperature
    level.
+
+**Why coal and waste are now included (previously excluded).** The original
+4-carrier version of this calculation (biomass/gas/electrode/oil only) silently
+treated their sum as 100% of "Gross heat production", even though the same Eurostat
+extract also carries coal and waste as separate SIEC categories. Checking the
+2023 data directly: EU28-wide, "Solid fossil fuels" (coal) totals ~98.7 TWh — the
+3rd-largest carrier in the whole dataset, larger than oil (~15.9 TWh) and
+electricity (~3.8 TWh) *combined*, both of which already had dedicated boiler
+technologies. Waste (industrial + municipal, all categories) totals ~75.5 TWh,
+also larger than oil or electricity alone. Per country the gap is large where
+coal-fired heat plants are common: Poland's coal figure (51.4 TWh) alone exceeds
+what the model's entire 4-carrier total captured for Poland (18.5 TWh); Czechia,
+Germany, and Slovenia show similarly large gaps. This is a materially different
+situation from the Swiss case below, where the same kind of exclusion is
+explicitly checked and found genuinely small (~2%) — no equivalent check
+previously existed for the EU nodes, where the answer turns out to be the
+opposite. Biogases (Sheet 63, ~7.4 TWh EU-wide) were folded into the biomass
+total at the same time, since a biogas boiler is the same technology as a
+biomass boiler.
+
+A separate check compared this Eurostat "Gross heat production" statistic
+against the model's own district-heating (DH) sector technologies
+(`hard_coal_boiler_DH`, `waste_boiler_DH`, etc., inherited from the external base
+"Crystal Ball" model): DH capacity, even under a conservative full-load-hours
+assumption, already matches or exceeds the *entire* Eurostat "Gross heat
+production" total in nearly every country (EU28-wide: DH-implied ~933 TWh vs.
+Eurostat's reported ~595 TWh). This confirms the Eurostat statistic being used
+here as an industry-boiler-fuel-mix proxy is, at its core, a district-heating/CHP
+sector number — there is no separate "industrial-only" residual to cleanly
+isolate by subtracting DH from it. Practically, this means including coal and
+waste is a **consistency fix to an already-borrowed DH-sector proxy**, not an
+attempt to independently estimate a new industrial coal/waste demand: since coal
+and waste are demonstrably larger contributors to that same statistic than the
+oil and electricity carriers the model already includes, dropping them without
+justification systematically inflated gas/biomass/oil/electrode shares in coal-
+and waste-heavy countries. Two other sizeable carriers in the same extract were
+deliberately left out: "Manufactured gases" (coke-oven/blast-furnace gas, ~6.9
+TWh, concentrated in Poland/Germany) is steel-industry-specific and steel isn't
+one of this model's four sectors (glass/ceramic/paper/food); everything else
+(peat, geothermal, solar thermal, nuclear heat, oil shale, ambient heat/heat
+pumps) is small and/or concentrated in 1–2 countries.
+
+**`waste_boiler_industry` cost/efficiency** has no Danish Energy Agency sheet
+(unlike coal — DEA's "6.3 Boiler, coal" has full capex/opex/efficiency/lifetime
+data structurally identical to the existing "6.1"/"6.2" sheets, and is used
+directly). In its absence, `waste_boiler_industry` reuses the Crystal Ball base
+model's own `waste_boiler_DH` technology as a district-heating proxy (capex ≈
+1430 €/kW, opex_fixed ≈ 50 €/kW/yr, opex_variable ≈ 4.7 €/MWh, lifetime 30 yr,
+efficiency ≈ 93.6%) — see `waste_boiler_dh_proxy.py`. This is a frozen snapshot
+(read once from that technology's `attributes.json`, since zen_creator has no
+live read access to the external base model's technology definitions during
+sector-dataset construction), and, like the fuel-mix shares themselves, an
+explicit DH-sourced approximation rather than an industry-specific cost source.
 
 - **Switzerland ("CH")** has no entry in the Eurostat extract. It previously fell
   back to Austria's fuel-mix shares (closest neighboring energy system among the
@@ -554,32 +609,37 @@ Each boiler technology's `capacity_existing` (GW, one row per node,
     process-heat scope. Cement (branch 5, "Zement und Beton") is reported
     separately by BFE and is out of scope here, so it is excluded.
   - **Carriers summed**: Erdgas (→ natural_gas), Heizöl extra-leicht + Heizöl
-    mittel und schwer (→ oil), Holz (→ biomass). Electricity is excluded from the
-    mix — in these branches it is dominated by drives/lighting rather than
-    boilers — consistent with electrode/heat-pump `capacity_existing = 0` for
-    Switzerland (see "Heat pump (industry) capacity" above, David2017). Kohle
-    (coal) is also excluded and the remaining three carriers renormalized to sum
-    to 1: coal is consistently the smallest carrier (<3% of the combustion total
-    in both 2022 and 2023) and the model has no boiler technology for it.
+    mittel und schwer (→ oil), Holz (→ biomass), Kohle (→ coal), Industrieabfälle
+    (→ waste). Electricity is excluded from the mix — in these branches it is
+    dominated by drives/lighting rather than boilers — consistent with
+    electrode/heat-pump `capacity_existing = 0` for Switzerland (see "Heat pump
+    (industry) capacity" above, David2017). Kohle and Industrieabfälle were
+    previously dropped entirely (Kohle: <3% of the combustion total, "the model
+    has no boiler technology for it"); both are now included now that
+    `coal_boiler_industry`/`waste_boiler_industry` exist. There is no equivalent
+    "renewable vs. non-renewable" split in the BFE data the way Eurostat
+    distinguishes for the EU nodes — `Industrieabfälle` is used as-is.
   - **2023 values** (the year passed as `FEC_YEAR`, summed across the three
     branches): Erdgas 8596.23 TJ, Heizöl extra-leicht 2353.01 TJ, Heizöl mittel
-    und schwer 0 TJ, Holz 1107.70 TJ, Kohle 298.00 TJ (excluded). Renormalized
-    shares: natural gas ≈ 71.3%, oil ≈ 19.5%, biomass ≈ 9.2%, electrode = 0%.
-    (For comparison, 2022: natural gas ≈ 69.8%, oil ≈ 22.5%, biomass ≈ 7.8%.)
-    This is a substantially different mix from the Austria proxy it replaces
-    (natural gas ≈ 34.8%, biomass ≈ 59.3%, oil ≈ 5.9% — Austria's heat production
-    is comparatively biomass-heavy, e.g. district heating/CHP, which is not
-    representative of Swiss industrial process heat).
+    und schwer 0 TJ, Holz 1107.70 TJ, Kohle 298.00 TJ, Industrieabfälle 939.16 TJ.
+    Shares: natural gas ≈ 64.7%, oil ≈ 17.7%, biomass ≈ 8.3%, coal ≈ 2.2%, waste
+    ≈ 7.1%, electrode = 0%. (For comparison, 2022: Erdgas 8666.76 TJ, Heizöl
+    extra-leicht 2792.07 TJ, Holz 963.63 TJ, Kohle 371.41 TJ, Industrieabfälle
+    926.03 TJ.) This is a substantially different mix from the Austria proxy it
+    replaced (natural gas ≈ 34.8%, biomass ≈ 59.3%, oil ≈ 5.9% — Austria's heat
+    production is comparatively biomass-heavy, e.g. district heating/CHP, which
+    is not representative of Swiss industrial process heat).
   - These shares are applied to Switzerland's own modeled heat demand
     (`total_industry_heat_demand_gw("CH")`) to split its `capacity_existing`
-    across the four boiler technologies, same as for Eurostat-covered nodes.
+    across the six boiler technologies, same as for Eurostat-covered nodes.
   - **Citation key**: `BFE2025` (BibTeX entry maintained in the paper's own
     `.bib` file, not in this repo — see chat/PR history for the full entry).
 - **United Kingdom**: neither Eurostat extract has a 2023 (or later) value for the
-  UK in any of the four sheets (coverage ends after 2019 post-Brexit); the latest
-  available year (2019) is used instead for the fuel-mix shares (Natural gas:
-  16321.438 GWh, Primary solid biofuels: 1168.056 GWh, Electricity: 0.0 GWh, Oil:
-  307.701 GWh).
+  UK in any of the sheets used here (coverage ends after 2019 post-Brexit); the
+  latest available year (2019) is used instead for the fuel-mix shares (Natural
+  gas: 16321.438 GWh, Primary solid biofuels: 1168.056 GWh, Electricity: 0.0 GWh,
+  Oil: 307.701 GWh, Solid fossil fuels/coal and waste: see the 2019 sheet values
+  directly).
 
 ## Heat pump COP parametrization
 
@@ -710,7 +770,8 @@ reflecting the thermodynamic advantage of heat pumps at low temperatures:
   limited by the high-temp process heat available in co-located plants (see
   "Waste-heat HP capacity limit" above). The water-source HPs are unconstrained.
 - **Boilers** (`biomass_boiler_industry`, `electrode_boiler_industry`,
-  `natural_gas_boiler_industry`) produce only `heat_industry_150_200`. Their full
+  `natural_gas_boiler_industry`, `oil_boiler_industry`, `coal_boiler_industry`,
+  `waste_boiler_industry`) produce only `heat_industry_150_200`. Their full
   `capacity_existing` is assigned (no temperature split).
 - **Temperature conversion cascade** — two conversion technologies allow
   higher-temperature heat to supply lower-temperature demand:
@@ -963,9 +1024,12 @@ existing capacity equals the observed total.
 | ceramic_production      | 20            | Manual (see Ceramic section above)      |
 | paper_production        | 25            | JRC-EU-TIMES                            |
 | food_production         | 20            | JRC-EU-TIMES cluster average            |
-| biomass_boiler_industry | 20            | Crystal Ball / heat_tech_parametrization.xlsx |
-| natural_gas_boiler_industry | 21        | Crystal Ball / heat_tech_parametrization.xlsx |
-| electrode_boiler_industry | 30          | Crystal Ball / heat_tech_parametrization.xlsx |
+| biomass_boiler_industry | 25            | DEA "6.2 Boiler, biomass"               |
+| natural_gas_boiler_industry | 25        | DEA "6.1 Boiler, gas and oil"           |
+| oil_boiler_industry     | 25            | DEA "6.1 Boiler, gas and oil"           |
+| electrode_boiler_industry | 25          | DEA "5.1a Electric boiler steam"        |
+| coal_boiler_industry    | 25            | DEA "6.3 Boiler, coal"                  |
+| waste_boiler_industry   | 30            | Crystal Ball waste_boiler_DH (DH proxy, no DEA industrial sheet exists) |
 
 Heat pumps have `capacity_existing = 0` (see "Heat pump (industry) capacity" above)
 and are not affected by this vintaging. TES and DSM technologies also have

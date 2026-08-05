@@ -14,10 +14,12 @@ from zen_creator.datasets.datasets._industry_heat_utils import (
     INPUT_DATA,
     BOILER_LIFETIMES,
     biomass_boiler_capacity_existing_df,
+    coal_boiler_capacity_existing_df,
     electrode_boiler_capacity_existing_df,
     heat_pump_capacity_existing_df,
     natural_gas_boiler_capacity_existing_df,
     oil_boiler_capacity_existing_df,
+    waste_boiler_capacity_existing_df,
 )
 from zen_creator.datasets.datasets.dataset import Dataset
 from zen_creator.datasets.datasets.metadata import MetaData, SourceInformation
@@ -73,6 +75,18 @@ class EurostatBoilerDataset(Dataset[pd.DataFrame]):
         df = oil_boiler_capacity_existing_df(year, lifetime=BOILER_LIFETIMES["oil_boiler_industry"], year_construction=year_construction)
         attr = Attribute("capacity_existing", default_value=0.0, unit="GW", element=element)
         attr.set_data(df=df.set_index(["node", "year_construction"]), source=self._source_info("Oil boiler capacity from Eurostat gross heat production."))
+        return attr
+
+    def get_coal_boiler_capacity(self, element: Element, year: int, year_construction: int) -> Attribute:
+        df = coal_boiler_capacity_existing_df(year, lifetime=BOILER_LIFETIMES["coal_boiler_industry"], year_construction=year_construction)
+        attr = Attribute("capacity_existing", default_value=0.0, unit="GW", element=element)
+        attr.set_data(df=df.set_index(["node", "year_construction"]), source=self._source_info("Coal boiler capacity from Eurostat gross heat production."))
+        return attr
+
+    def get_waste_boiler_capacity(self, element: Element, year: int, year_construction: int) -> Attribute:
+        df = waste_boiler_capacity_existing_df(year, lifetime=BOILER_LIFETIMES["waste_boiler_industry"], year_construction=year_construction)
+        attr = Attribute("capacity_existing", default_value=0.0, unit="GW", element=element)
+        attr.set_data(df=df.set_index(["node", "year_construction"]), source=self._source_info("Waste boiler capacity from Eurostat gross heat production."))
         return attr
 
     def get_heat_pump_capacity(self, element: Element, year_construction: int) -> Attribute:

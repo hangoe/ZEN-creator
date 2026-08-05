@@ -22,6 +22,7 @@ from zen_creator.datasets.datasets.process_parametrization import (
     FEC_YEAR,
     ProcessParametrizationDataset,
 )
+from zen_creator.datasets.datasets.waste_boiler_dh_proxy import WasteBoilerDhProxyDataset
 from zen_creator.elements.conversion_technologies.conversion_technology import (
     ConversionTechnology,
 )
@@ -315,6 +316,86 @@ class OilBoilerIndustry(ConversionTechnology):
 
     def _set_capacity_existing(self) -> Attribute:
         return EurostatBoilerDataset().get_oil_boiler_capacity(self, FEC_YEAR, CAPACITY_YEAR)
+
+
+class CoalBoilerIndustry(ConversionTechnology):
+    name = "coal_boiler_industry"
+
+    def __init__(self, model: Model):
+        super().__init__(model=model, power_unit="GW")
+
+    def _set_reference_carrier(self) -> Attribute:
+        return Attribute("reference_carrier", default_value=["heat_industry_150_200"], element=self)
+
+    def _set_input_carrier(self) -> Attribute:
+        return Attribute("input_carrier", default_value=["hard_coal"], element=self)
+
+    def _set_output_carrier(self) -> Attribute:
+        return Attribute("output_carrier", default_value=["heat_industry_150_200"], element=self)
+
+    def _set_conversion_factor(self) -> Attribute:
+        return DeaIndustrialHeatDataset().get_conversion_factor(self, "coal_boiler_industry", "hard_coal")
+
+    def _set_lifetime(self) -> Attribute:
+        return DeaIndustrialHeatDataset().get_lifetime(self, "coal_boiler_industry")
+
+    def _set_capex_specific_conversion(self) -> Attribute:
+        return DeaIndustrialHeatDataset().get_capex_specific_conversion(self, "coal_boiler_industry")
+
+    def _set_opex_specific_fixed(self) -> Attribute:
+        return DeaIndustrialHeatDataset().get_opex_specific_fixed(self, "coal_boiler_industry")
+
+    def _set_opex_specific_variable(self) -> Attribute:
+        return DeaIndustrialHeatDataset().get_opex_specific_variable(self, "coal_boiler_industry")
+
+    def _set_carbon_intensity_technology(self) -> Attribute:
+        return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, "coal_boiler_industry")
+
+    def _set_max_diffusion_rate(self) -> Attribute:
+        return HeatTechParametrizationDataset().get_max_diffusion_rate(self, "coal_boiler_industry")
+
+    def _set_capacity_existing(self) -> Attribute:
+        return EurostatBoilerDataset().get_coal_boiler_capacity(self, FEC_YEAR, CAPACITY_YEAR)
+
+
+class WasteBoilerIndustry(ConversionTechnology):
+    name = "waste_boiler_industry"
+
+    def __init__(self, model: Model):
+        super().__init__(model=model, power_unit="GW")
+
+    def _set_reference_carrier(self) -> Attribute:
+        return Attribute("reference_carrier", default_value=["heat_industry_150_200"], element=self)
+
+    def _set_input_carrier(self) -> Attribute:
+        return Attribute("input_carrier", default_value=["waste"], element=self)
+
+    def _set_output_carrier(self) -> Attribute:
+        return Attribute("output_carrier", default_value=["heat_industry_150_200"], element=self)
+
+    def _set_conversion_factor(self) -> Attribute:
+        return WasteBoilerDhProxyDataset().get_conversion_factor(self)
+
+    def _set_lifetime(self) -> Attribute:
+        return WasteBoilerDhProxyDataset().get_lifetime(self)
+
+    def _set_capex_specific_conversion(self) -> Attribute:
+        return WasteBoilerDhProxyDataset().get_capex_specific_conversion(self)
+
+    def _set_opex_specific_fixed(self) -> Attribute:
+        return WasteBoilerDhProxyDataset().get_opex_specific_fixed(self)
+
+    def _set_opex_specific_variable(self) -> Attribute:
+        return WasteBoilerDhProxyDataset().get_opex_specific_variable(self)
+
+    def _set_carbon_intensity_technology(self) -> Attribute:
+        return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, "waste_boiler_industry")
+
+    def _set_max_diffusion_rate(self) -> Attribute:
+        return HeatTechParametrizationDataset().get_max_diffusion_rate(self, "waste_boiler_industry")
+
+    def _set_capacity_existing(self) -> Attribute:
+        return EurostatBoilerDataset().get_waste_boiler_capacity(self, FEC_YEAR, CAPACITY_YEAR)
 
 
 # -- Temperature conversion cascade ------------------------------------------

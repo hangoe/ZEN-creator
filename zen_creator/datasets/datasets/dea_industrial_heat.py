@@ -34,11 +34,12 @@ DEA_SHEET_FOR_TECH = {
     "natural_gas_boiler_industry": "6.1 Boiler, gas and oil",
     "oil_boiler_industry": "6.1 Boiler, gas and oil",
     "biomass_boiler_industry": "6.2 Boiler, biomass",
+    "coal_boiler_industry": "6.3 Boiler, coal",
 }
 
 BOILER_TECHS = {
     "electrode_boiler_industry", "natural_gas_boiler_industry",
-    "oil_boiler_industry", "biomass_boiler_industry",
+    "oil_boiler_industry", "biomass_boiler_industry", "coal_boiler_industry",
 }
 
 # DEA's `par` label text isn't consistent across sheets (extra whitespace,
@@ -49,6 +50,7 @@ _CAPEX_LABEL = {
     "5.1a Electric boiler steam": "Nominal investment [M€/MW]",
     "6.1 Boiler, gas and oil": "Nominal investment (*total) [MEUR/MW]",
     "6.2 Boiler, biomass": "Nominal investment (*total) [MEUR/MW]",
+    "6.3 Boiler, coal": "Nominal investment (*total) [MEUR/MW]",
 }
 _OPEX_FIXED_LABEL = {
     "2.a High temp. hp Up to 125C": "Fixed O&M  [EUR/MW_y]",
@@ -56,6 +58,7 @@ _OPEX_FIXED_LABEL = {
     "5.1a Electric boiler steam": "Fixed O&M [€/MJ/s/year]",
     "6.1 Boiler, gas and oil": "Fixed O&M  [EUR/MW_y]",
     "6.2 Boiler, biomass": "Fixed O&M  [EUR/MW_y]",
+    "6.3 Boiler, coal": "Fixed O&M  [EUR/MW_y]",
 }
 _OPEX_VARIABLE_LABEL = {
     "2.a High temp. hp Up to 125C": "Variable O&M [EUR/MWh]",
@@ -63,6 +66,7 @@ _OPEX_VARIABLE_LABEL = {
     "5.1a Electric boiler steam": "Variable O&M [€/MWh]",
     "6.1 Boiler, gas and oil": "Variable O&M [EUR/MWh]",
     "6.2 Boiler, biomass": "Variable O&M [EUR/MWh]",
+    "6.3 Boiler, coal": "Variable O&M [EUR/MWh]",
 }
 _LIFETIME_LABEL = "Technical lifetime [years]"
 _EFFICIENCY_LABEL = "Total efficiency, net [%], nominel load"
