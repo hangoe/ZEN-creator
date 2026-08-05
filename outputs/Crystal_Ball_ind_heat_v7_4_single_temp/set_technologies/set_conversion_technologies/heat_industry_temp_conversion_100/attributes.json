@@ -48,7 +48,7 @@
         "unit": "GW"
     },
     "max_diffusion_rate": {
-        "default_value": 0.29,
+        "default_value": "inf",
         "unit": "1"
     },
     "lifetime": {
