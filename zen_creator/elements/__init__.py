@@ -26,6 +26,10 @@ from .conversion_technologies.industry_heat_supply import (
     NaturalGasBoilerIndustry,
     OilBoilerIndustry,
 )
+from .conversion_technologies.industry_ccs import (
+    CeramicPostComb,
+    GlassPostComb,
+)
 from .conversion_technologies.industry_production import (
     CeramicProduction,
     FoodProduction,
@@ -136,4 +140,6 @@ __all__ = [
     "GenericTransportTechnology",
     "RetrofittingTechnology",
     "GenericRetrofittingTechnology",
+    "CeramicPostComb",
+    "GlassPostComb",
 ]
