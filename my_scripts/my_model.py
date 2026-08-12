@@ -49,7 +49,12 @@ SCENARIOS = [
     # is overridden to inf (disable_diffusion_limits below) - isolates how much of
     # the main version's trajectory is diffusion-constrained vs. cost-constrained
     ("_nodiffusion", MAIN_SECTORS),
+    # combines _no_flexibility and _nodiffusion: no_flexibility sectors, with
+    # every technology's max_diffusion_rate also overridden to inf
+    ("_no_flexibility_nodiffusion", ["industry_heat", "industry_low_temp_heat"]),
 ]
+
+DIFFUSION_DISABLED_SUFFIXES = {"_nodiffusion", "_no_flexibility_nodiffusion"}
 
 
 def disable_diffusion_limits(model: Model) -> None:
@@ -97,7 +102,7 @@ for suffix, sectors in SCENARIOS:
     for sector_name in sectors:
         model.add_sector_by_name(sector_name)
     model.build()
-    if suffix == "_nodiffusion":
+    if suffix in DIFFUSION_DISABLED_SUFFIXES:
         disable_diffusion_limits(model)
     model.name = f"{VERSION}{suffix}"
     model.output_folder = output_path
