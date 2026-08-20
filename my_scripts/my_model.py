@@ -25,7 +25,7 @@ from zen_creator.elements.energy_systems.crystal_ball_industry import (  # noqa:
 
 data_path = "/Users/hannegoericke/ZEN-models/data/Crystal_Ball"
 output_path = Path(__file__).parent.parent / "outputs"
-VERSION = "Crystal_Ball_ind_heat_v8_0"
+VERSION = "Crystal_Ball_ind_heat_v9_0"
 
 # Case-study scenarios from MT_report_HG/Sections/03_SI.tex (table:SIScenarios).
 # industry_heat must come first in every combination: glass/ceramic/paper/food
@@ -69,29 +69,28 @@ def disable_diffusion_limits(model: Model) -> None:
         )
 
 
-def archive_existing_outputs(path: Path, keep_names: set[str]) -> None:
-    """Move everything currently in `path` into `path / "archive"`.
+def delete_old_outputs(path: Path, keep_names: set[str]) -> None:
+    """Delete everything currently in `path` (including any leftover `archive`
+    folder from the old archive-instead-of-delete convention), except entries
+    whose name is in `keep_names` (i.e. this run is about to regenerate them
+    under the same name).
 
     Run at the start of every model-generation run so that only the models
-    written by the current run sit directly under `outputs/`. Entries whose
-    name is in `keep_names` (i.e. this run is about to regenerate them under
-    the same name) are left in place for `model.write()` to overwrite.
+    written by the current run sit under `outputs/` — old versions (e.g. a
+    previous VERSION) are deleted outright rather than moved aside.
     """
-    archive_path = path / "archive"
-    archive_path.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        return
     for entry in path.iterdir():
-        if entry == archive_path or entry.name in keep_names:
+        if entry.name in keep_names:
             continue
-        destination = archive_path / entry.name
-        if destination.exists():
-            if destination.is_dir():
-                shutil.rmtree(destination)
-            else:
-                destination.unlink()
-        shutil.move(str(entry), str(destination))
+        if entry.is_dir():
+            shutil.rmtree(entry)
+        else:
+            entry.unlink()
 
 
-archive_existing_outputs(
+delete_old_outputs(
     output_path, keep_names={f"{VERSION}{suffix}" for suffix, _ in SCENARIOS}
 )
 

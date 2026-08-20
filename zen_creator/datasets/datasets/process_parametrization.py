@@ -24,6 +24,7 @@ from zen_creator.datasets.datasets._industry_heat_utils import (
     AIDRES2023_GLASS_SHARES,
     GLASS_AIDRES_TO_JRC,
     INPUT_DATA,
+    MODEL_NODES,
     PAPER_REHFELDT_TO_JRC,
     PARAM_BASE_YEAR,
     REHFELDT2017_CERAMIC,
@@ -31,6 +32,7 @@ from zen_creator.datasets.datasets._industry_heat_utils import (
     REHFELDT2017_GLASS,
     REHFELDT2017_PAPER,
     HOURS_PER_YEAR,
+    _boiler_capacity_df_from_node_caps,
     activity_weights,
     apply_excel_overrides,
     build_conversion_tech,
@@ -63,6 +65,39 @@ HEAT_CARRIER_NAMES = {
 SECTOR_TO_WOLF = {"food": "Nahrung", "paper": "Papier", "glass": "Nichtmetall", "ceramic": "Nichtmetall"}
 OPEX_VAR = {"glass": 15.0, "ceramic": 10.0, "paper": 0.0, "food": 0.0}
 
+# Ceramic/glass kiln fuel switching (fuel_to_kiln carrier, see ASSUMPTIONS.md "Ceramic
+# and glass kiln fuel switching"). Share of each sector's direct high-temp natural_gas
+# input that is rerouted through fuel_to_kiln (switchable to hydrogen_to_kilnfuel/
+# electricity_to_kilnfuel); the remainder (ceramic only) stays a fixed natural_gas input.
+# Glass: 100% (all NG is kiln-fired melting, fully substitutable). Ceramic: 97.4%,
+# derived from Rehfeldt2017 temperature bins + JRC-BAT-CER-2026's >1600°C electrification
+# ceiling (the 2.6% locked remainder is a conservative "can't convert to any alternative
+# fuel" proxy, not a literal hydrogen limit — JRC-BAT-CER-2026 documents no equivalent
+# temperature ceiling for hydrogen firing).
+KILN_NG_SWITCHABLE_SHARE = {"glass": 1.0, "ceramic": 46.26 / 47.49}
+
+# Lifetime (years) for natural_gas_to_kilnfuel/hydrogen_to_kilnfuel/
+# electricity_to_kilnfuel, matching the external cement fuel-mix hub's *_to_cement_fuel
+# techs (no fuel_to_kiln-specific lifetime source available).
+KILN_FUEL_TECH_LIFETIME = 20
+
+# natural_gas_to_kilnfuel/hydrogen_to_kilnfuel/electricity_to_kilnfuel conversion_factor
+# (GW input per GW fuel_to_kiln output). AIDRES2023-derived from glass's own container/
+# flat/fibre production-route energy tables (Tables 19/21/23), weighted by the same
+# 60/30/10 AIDRES activity shares used elsewhere for glass, comparing each route's own
+# fuel GJ/t against the NG-reference route's natural_gas GJ/t (electricity route netted
+# against the ~constant baseline auxiliary electricity already captured separately in
+# glass_production's own electricity conversion factor). Ceramic reuses the same ratios
+# as a documented cross-sector proxy — JRC-BAT-CER-2026 documents no quantitative
+# electric/hydrogen-vs-gas kiln efficiency figure (Ch. 6 explicit data gap), and both
+# processes are high-temperature kiln/furnace firing. See ASSUMPTIONS.md, "Ceramic and
+# glass kiln fuel switching".
+KILN_FUEL_SWITCH_CF = {
+    "natural_gas": 1.0,
+    "hydrogen": 1.0577,
+    "electricity": 0.8438,
+}
+
 _PROCESS_XLSX = INPUT_DATA / "Parametrization" / "process_parametrization.xlsx"
 _PROCESS_SHEET = "process_techs"
 _WOLF_CSV = INPUT_DATA / "Wolf2017" / "Wolf2017_Tabelle4_7.csv"
@@ -76,6 +111,25 @@ def _ceramic_demand_series(year: int) -> pd.Series:
     which is ~3.5-6x higher (see ASSUMPTIONS.md, Ceramic section).
     """
     return ceramic_demand_from_fec_df(year).set_index("node")["kt_yr"] * 1000.0 / HOURS_PER_YEAR
+
+
+def _kiln_fuel_shares(sector: str, shares: dict[str, float]) -> dict[str, float]:
+    """Replace `shares["natural_gas"]` with a `fuel_to_kiln` entry (scaled by
+    KILN_NG_SWITCHABLE_SHARE) plus, for ceramic only, a reduced natural_gas remainder.
+
+    hard_coal/biomass entries are untouched. No-op for sectors without a kiln
+    fuel-switching split (paper, food) or without a natural_gas share to begin with.
+    """
+    if sector not in KILN_NG_SWITCHABLE_SHARE or "natural_gas" not in shares:
+        return shares
+    switchable = KILN_NG_SWITCHABLE_SHARE[sector]
+    ng_share = shares["natural_gas"]
+    new_shares = {k: v for k, v in shares.items() if k != "natural_gas"}
+    new_shares["fuel_to_kiln"] = ng_share * switchable
+    remaining = ng_share * (1 - switchable)
+    if remaining > 1e-12:
+        new_shares["natural_gas"] = remaining
+    return new_shares
 
 
 class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
@@ -210,7 +264,7 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
 
     def get_production_tech_dict(self, sector: str) -> dict:
         params = self._sector_params[sector]
-        shares = self._fuel_shares[sector]
+        shares = _kiln_fuel_shares(sector, self._fuel_shares[sector])
         cfs = self._heat_cfs[sector]
         data = build_conversion_tech(product=sector, fuel_shares=shares, params=params, opex_specific_variable=OPEX_VAR.get(sector, 0.0))
         active_levels = [l for l in HEAT_TEMP_LEVELS if cfs[l] > 0]
@@ -299,6 +353,47 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
             val = np.inf
         attr = Attribute("max_diffusion_rate", element=element)
         attr.set_data(default_value=float(val), source=self._source_info(f"Max diffusion rate for {sector}_production."))
+        return attr
+
+    def get_kiln_fuel_switch_capacity_existing(self, element: Element, fuel: str) -> Attribute:
+        """Per-node capacity_existing (GW) for natural_gas_to_kilnfuel/hydrogen_to_kilnfuel/
+        electricity_to_kilnfuel.
+
+        Only natural_gas_to_kilnfuel gets non-zero capacity: sized so its reference-year
+        output reproduces today's fuel_to_kiln-eligible natural_gas flow from glass and
+        ceramic combined (both sectors draw on the shared fuel_to_kiln carrier — see
+        ASSUMPTIONS.md, "Ceramic and glass kiln fuel switching"). Spread across the tech's
+        own lifetime ending at CAPACITY_YEAR, same vintage-spreading convention as the
+        boiler/production-tech capacities (`_boiler_capacity_df_from_node_caps`).
+        hydrogen_to_kilnfuel/electricity_to_kilnfuel start at 0 (built from scratch).
+        """
+        attr = Attribute("capacity_existing", default_value=0.0, unit="GW", element=element)
+        if fuel != "natural_gas":
+            return attr
+
+        demands = {
+            "glass": industry_demand_df("glass", FEC_YEAR).set_index("node")["demand"],
+            "ceramic": _ceramic_demand_series(FEC_YEAR),
+        }
+        node_caps: dict[str, float] = {node: 0.0 for node in MODEL_NODES}
+        for sector, demand in demands.items():
+            data = self.get_production_tech_dict(sector)
+            cf = next(
+                (e["fuel_to_kiln"]["default_value"] for e in data["conversion_factor"] if "fuel_to_kiln" in e),
+                0.0,
+            )
+            for node in MODEL_NODES:
+                node_caps[node] += demand.get(node, 0.0) * cf
+
+        df = _boiler_capacity_df_from_node_caps(node_caps, FEC_YEAR, KILN_FUEL_TECH_LIFETIME, CAPACITY_YEAR)
+        attr.set_data(
+            df=df.set_index(["node", "year_construction"]),
+            source=self._source_info(
+                "natural_gas_to_kilnfuel capacity_existing: sized to reproduce today's "
+                "fuel_to_kiln-eligible natural_gas flow from glass+ceramic combined. See "
+                "ASSUMPTIONS.md, 'Ceramic and glass kiln fuel switching'."
+            ),
+        )
         return attr
 
     def get_heat_capacity_split(self) -> dict[str, float]:

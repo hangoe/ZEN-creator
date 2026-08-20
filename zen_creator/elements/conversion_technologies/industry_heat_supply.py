@@ -20,6 +20,8 @@ from zen_creator.datasets.datasets.heat_tech_parametrization import (
 from zen_creator.datasets.datasets.process_parametrization import (
     CAPACITY_YEAR,
     FEC_YEAR,
+    KILN_FUEL_SWITCH_CF,
+    KILN_FUEL_TECH_LIFETIME,
     ProcessParametrizationDataset,
 )
 from zen_creator.datasets.datasets.waste_boiler_dh_proxy import WasteBoilerDhProxyDataset
@@ -448,3 +450,109 @@ class HeatIndustryTempConversion100(ConversionTechnology):
 
     def _set_opex_specific_variable(self) -> Attribute:
         return Attribute("opex_specific_variable", default_value=0.0, unit="Euro/GWh", element=self)
+
+
+# -- Kiln fuel switching (fuel_to_kiln) --------------------------------------
+#
+# natural_gas_to_kilnfuel / hydrogen_to_kilnfuel / electricity_to_kilnfuel each convert
+# one primary carrier into the shared fuel_to_kiln carrier, which ceramic_production/
+# glass_production consume instead of a direct natural_gas input (see
+# ProcessParametrizationDataset._kiln_fuel_shares / ASSUMPTIONS.md "Ceramic and glass
+# kiln fuel switching"). Zero capex/opex (base Technology/ConversionTechnology
+# defaults) — this models only the fuel-choice decision, not burner-conversion capex;
+# conversion_factor carries the real, AIDRES-derived route efficiency instead.
+
+class NaturalGasToKilnfuel(ConversionTechnology):
+    name = "natural_gas_to_kilnfuel"
+
+    def __init__(self, model: Model):
+        super().__init__(model=model, power_unit="GW")
+
+    def _set_reference_carrier(self) -> Attribute:
+        return Attribute("reference_carrier", default_value=["fuel_to_kiln"], element=self)
+
+    def _set_input_carrier(self) -> Attribute:
+        return Attribute("input_carrier", default_value=["natural_gas"], element=self)
+
+    def _set_output_carrier(self) -> Attribute:
+        return Attribute("output_carrier", default_value=["fuel_to_kiln"], element=self)
+
+    def _set_conversion_factor(self) -> Attribute:
+        cf = KILN_FUEL_SWITCH_CF["natural_gas"]
+        return Attribute(
+            "conversion_factor",
+            default_value=[{"natural_gas": {"default_value": cf, "unit": "GW/GW"}}],
+            element=self,
+        )
+
+    def _set_lifetime(self) -> Attribute:
+        return Attribute("lifetime", default_value=float(KILN_FUEL_TECH_LIFETIME), unit="1", element=self)
+
+    def _set_capacity_existing(self) -> Attribute:
+        return ProcessParametrizationDataset().get_kiln_fuel_switch_capacity_existing(self, "natural_gas")
+
+
+class HydrogenToKilnfuel(ConversionTechnology):
+    name = "hydrogen_to_kilnfuel"
+
+    def __init__(self, model: Model):
+        super().__init__(model=model, power_unit="GW")
+
+    def _set_reference_carrier(self) -> Attribute:
+        return Attribute("reference_carrier", default_value=["fuel_to_kiln"], element=self)
+
+    def _set_input_carrier(self) -> Attribute:
+        return Attribute("input_carrier", default_value=["hydrogen"], element=self)
+
+    def _set_output_carrier(self) -> Attribute:
+        return Attribute("output_carrier", default_value=["fuel_to_kiln"], element=self)
+
+    def _set_conversion_factor(self) -> Attribute:
+        cf = KILN_FUEL_SWITCH_CF["hydrogen"]
+        return Attribute(
+            "conversion_factor",
+            default_value=[{"hydrogen": {"default_value": cf, "unit": "GW/GW"}}],
+            element=self,
+        )
+
+    def _set_lifetime(self) -> Attribute:
+        return Attribute("lifetime", default_value=float(KILN_FUEL_TECH_LIFETIME), unit="1", element=self)
+
+    def _set_max_diffusion_rate(self) -> Attribute:
+        return Attribute("max_diffusion_rate", default_value=0.13, unit="1", element=self)
+
+    def _set_capacity_existing(self) -> Attribute:
+        return ProcessParametrizationDataset().get_kiln_fuel_switch_capacity_existing(self, "hydrogen")
+
+
+class ElectricityToKilnfuel(ConversionTechnology):
+    name = "electricity_to_kilnfuel"
+
+    def __init__(self, model: Model):
+        super().__init__(model=model, power_unit="GW")
+
+    def _set_reference_carrier(self) -> Attribute:
+        return Attribute("reference_carrier", default_value=["fuel_to_kiln"], element=self)
+
+    def _set_input_carrier(self) -> Attribute:
+        return Attribute("input_carrier", default_value=["electricity"], element=self)
+
+    def _set_output_carrier(self) -> Attribute:
+        return Attribute("output_carrier", default_value=["fuel_to_kiln"], element=self)
+
+    def _set_conversion_factor(self) -> Attribute:
+        cf = KILN_FUEL_SWITCH_CF["electricity"]
+        return Attribute(
+            "conversion_factor",
+            default_value=[{"electricity": {"default_value": cf, "unit": "GW/GW"}}],
+            element=self,
+        )
+
+    def _set_lifetime(self) -> Attribute:
+        return Attribute("lifetime", default_value=float(KILN_FUEL_TECH_LIFETIME), unit="1", element=self)
+
+    def _set_max_diffusion_rate(self) -> Attribute:
+        return Attribute("max_diffusion_rate", default_value=0.13, unit="1", element=self)
+
+    def _set_capacity_existing(self) -> Attribute:
+        return ProcessParametrizationDataset().get_kiln_fuel_switch_capacity_existing(self, "electricity")

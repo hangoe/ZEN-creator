@@ -120,3 +120,13 @@ class HeatIndustry150200(Carrier):
 
 
 _add_carrier_setters(HeatIndustry150200, "heat_industry_150_200")
+
+
+class FuelToKiln(Carrier):
+    name = "fuel_to_kiln"
+
+    def __init__(self, model: Model):
+        super().__init__(model=model, power_unit="GW")
+
+
+_add_carrier_setters(FuelToKiln, "fuel_to_kiln")

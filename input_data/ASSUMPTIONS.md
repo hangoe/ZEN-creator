@@ -390,6 +390,108 @@ the same way the (externally-defined, pre-existing) `cement_post_comb` retrofits
   same underlying DEA "typical plant" capture-unit spec — only the base technology they're
   attached to differs.
 
+## Ceramic and glass kiln fuel switching (`fuel_to_kiln`)
+
+`ceramic_production`/`glass_production` previously took their direct high-temperature
+(`>200°C`) `natural_gas` input as a fixed, non-substitutable flow — whatever JRC-IDEES-2023
+said the 2023 EU fuel mix was stays fixed for the whole model horizon (see "Fuel mix
+shares for X_production" above). A new intermediate carrier, `fuel_to_kiln`, and three
+zero-tech-cost conversion technologies (`natural_gas_to_kilnfuel`, `hydrogen_to_kilnfuel`,
+`electricity_to_kilnfuel`) now let the optimizer shift kiln firing away from natural gas
+over time, while the reference year still reproduces today's natural-gas-only kiln fuel
+exactly. Implemented in
+`zen_creator/elements/carriers/industry_carriers.py` (`FuelToKiln`),
+`zen_creator/elements/conversion_technologies/industry_heat_supply.py`
+(`NaturalGasToKilnfuel`/`HydrogenToKilnfuel`/`ElectricityToKilnfuel`), and
+`zen_creator/datasets/datasets/process_parametrization.py`
+(`_kiln_fuel_shares()`, `get_kiln_fuel_switch_capacity_existing()`).
+
+- **Scope**: only the direct high-temp `natural_gas` input to `ceramic_production`/
+  `glass_production` is affected. The `heat_industry_0_100`/`100_150`/`150_200` carriers
+  (low-temperature heat, `<200°C`) are untouched — they're already served by
+  independently fuel-competing boiler technologies (`natural_gas_boiler_industry`,
+  `biomass_boiler_industry`, `electrode_boiler_industry`, etc., see "Boiler (industry)
+  capacity" above), which already provide fuel-switching flexibility at that level.
+  `hard_coal`/`biomass`/`oil` high-temp shares are also untouched — they stay direct,
+  fixed inputs exactly as before this change.
+- **`fuel_to_kiln` is a shared carrier**, drawn on by both `glass_production` and
+  `ceramic_production` at each node, the same way `heat_industry_0_100/100_150/150_200`
+  are already shared across all four industry sectors.
+- **Glass: 100% switchable.** All of glass's high-temp `natural_gas` conversion factor
+  (today split 82.5%/17.5% `natural_gas`/`hard_coal`, see "Ceramic and glass
+  post-combustion carbon capture" above) is rerouted through `fuel_to_kiln`; `hard_coal`
+  stays a separate, fixed 17.5% input.
+- **Ceramic: 97.4% switchable, 2.6% locked.** `KILN_NG_SWITCHABLE_SHARE["ceramic"] =
+  46.26 / 47.49 ≈ 0.9741`, taken directly from the "Ceramic NG fuel-switch feasibility
+  split" section below (that section's `electrifiable_share`/`gas_only_share`, originally
+  computed as an exploratory, not-implemented calculation, is now the real basis for this
+  split — see that section for the full Rehfeldt2017/JRC-BAT-CER-2026 derivation and its
+  caveats, notably that the 2.6% "locked" share is an electrification-only feasibility
+  limit repurposed as a proxy for "can't convert to any alternative fuel," not a literal
+  hydrogen limit). `hard_coal`/`biomass`/`oil` shares stay separate, fixed inputs.
+- **`_kiln_fuel_shares(sector, shares)`** (`process_parametrization.py`) replaces the
+  `natural_gas` entry in the sector's fuel-mix `shares` dict with a `fuel_to_kiln` entry
+  (scaled by `KILN_NG_SWITCHABLE_SHARE[sector]`) plus, only where the remainder is
+  nonzero (ceramic), a reduced `natural_gas` entry — applied inside
+  `ProcessParametrizationDataset.get_production_tech_dict()` before `build_conversion_tech()`
+  runs, so both the `input_carrier` list and `conversion_factor` values are built directly
+  against the split shares. `process_parametrization.xlsx`'s `conversion_factor:natural_gas`
+  override row for `glass_production`/`ceramic_production` (a static snapshot written by
+  a previous version of `compute_params.py`) was cleared for both columns, since it would
+  otherwise silently overwrite the code-computed `fuel_to_kiln`/reduced-`natural_gas`
+  values back to the old pre-split full-NG figure.
+- **Zero tech cost, non-1:1 conversion factors.** `capex_specific_conversion`,
+  `opex_specific_fixed`, `opex_specific_variable`, and `carbon_intensity_technology` are
+  all `0` for the three `*_to_kilnfuel` techs (base `Technology`/`ConversionTechnology`
+  defaults, no overrides) — production-tech costs are unchanged versus before this
+  change, since this only models the fuel-*choice* decision, not burner-conversion capex.
+  Combustion CO2 stays attributed to the input fuel carrier, same convention as the
+  boilers. The routes are **not** energy-equivalent, though: `conversion_factor` is
+  AIDRES2023-derived (`KILN_FUEL_SWITCH_CF` in `process_parametrization.py`), from
+  glass's own container/flat/fibre production-route energy tables (AIDRES2023 Tables
+  19/21/23), comparing each route's own fuel GJ/t against the NG-reference route's
+  `natural_gas` GJ/t (the electricity route netted against the ~constant baseline
+  auxiliary electricity already captured separately in `glass_production`'s own
+  `electricity` conversion factor), weighted by the same 60/30/10 container/flat/fibre
+  AIDRES activity shares used elsewhere for glass:
+
+  | sub-process (AIDRES weight) | NG (ref) GJ/t | H2 GJ/t | H2/NG | Electricity route GJ/t | − baseline elec | furnace-only elec | elec/NG |
+  |---|---|---|---|---|---|---|---|
+  | container (60%) | 4.73 | 5.04 | 1.0655 | 5.09 | 1.07 | 4.02 | 0.8499 |
+  | flat (30%) | 5.43 | 5.78 | 1.0645 | 5.41 | 0.80 | 4.61 | 0.8490 |
+  | fibre (10%) | 7.24 | 7.17 | 0.9903 | 7.89 | 2.16 | 5.73 | 0.7914 |
+  | **weighted (60/30/10)** | | | **1.0577** | | | | **0.8438** |
+
+  So `hydrogen_to_kilnfuel`'s conversion factor is `1.0577` GW hydrogen in per GW
+  `fuel_to_kiln` out (hydrogen firing needs ~5.8% more fuel energy than natural gas), and
+  `electricity_to_kilnfuel`'s is `0.8438` (electric melting needs ~15.6% less energy than
+  natural gas) — consistent with AIDRES's own text noting electric glass furnaces run at
+  93% efficiency versus lower combustion-furnace efficiency.
+  `natural_gas_to_kilnfuel`'s conversion factor is `1.0` (it's the reference route
+  itself). **Ceramic reuses these same glass-derived ratios as a documented cross-sector
+  proxy** — JRC-BAT-CER-2026 has no quantitative electric/hydrogen-vs-gas kiln efficiency
+  figure of its own (Chapter 6 explicitly lists "specific energy consumption for electric
+  kilns and dryers" as a data gap for future BREF review), and both processes are
+  high-temperature kiln/furnace firing where electric resistive/induction heating
+  displaces flue-gas-loss-prone combustion — the same kind of proxy already used for
+  ceramic's CAPEX (borrowed from a cement-plant study, see "Ceramic" above).
+- **Reference-year `capacity_existing`**: `get_kiln_fuel_switch_capacity_existing()`
+  sizes `natural_gas_to_kilnfuel`'s per-node capacity so its output exactly reproduces
+  today's `fuel_to_kiln`-eligible `natural_gas` flow, summed across glass and ceramic:
+  `Σ_sector demand[sector, node] × fuel_to_kiln_conversion_factor[sector]`, spread across
+  `KILN_FUEL_TECH_LIFETIME` (20 years, matching the external cement fuel-mix hub's
+  `*_to_cement_fuel` techs — no `fuel_to_kiln`-specific lifetime source available) vintage
+  years ending at `CAPACITY_YEAR`, the same vintage-spreading convention already used for
+  the boiler/production-tech capacities (`_boiler_capacity_df_from_node_caps`).
+  `hydrogen_to_kilnfuel`/`electricity_to_kilnfuel` both start at `capacity_existing = 0`
+  (built from scratch), matching the `heat_pump_industry` convention.
+- **`max_diffusion_rate`**: `0.13` for `hydrogen_to_kilnfuel`/`electricity_to_kilnfuel`
+  (matches `heat_pump_industry`, all industry boilers, and the external `*_to_cement_fuel`
+  techs). `natural_gas_to_kilnfuel` is unconstrained (`inf`), consistent with how
+  baseline/incumbent production techs already work in this sector
+  (`ceramic_production`/`glass_production` themselves have `max_diffusion_rate = inf`,
+  "baseline production tech — no diffusion bottleneck").
+
 ## Paper
 
 - Only the top 3 Rehfeldt sub-processes by EU28+3 activity (paper, recovered fibres,
@@ -1179,3 +1281,122 @@ Sources:
   url         = {https://www.ons.gov.uk/economy/environmentalaccounts/datasets/ukenvironmentalaccountsatmosphericemissionsgreenhousegasemissionsbyeconomicsectorandgasunitedkingdom}
 }
 ```
+
+## Ceramic NG fuel-switch feasibility split (electricity vs. gas)
+
+Sources: `input_data/Rehfeldt2017/Rehfeldt2017.csv` (Rehfeldt2017) and
+`input_data/JRC-BAT/JRC_BAT_Ceramic2026.pdf` (JRC-BAT-CER-2026, Final Draft, April 2026).
+
+### How this is used
+
+This split sets `KILN_NG_SWITCHABLE_SHARE["ceramic"]` (see "Ceramic and glass kiln fuel
+switching" above): the 97.4% `electrifiable_share` computed below becomes the share of
+`ceramic_production`'s direct high-temp `natural_gas` input that is rerouted through the
+`fuel_to_kiln` carrier (switchable to `hydrogen_to_kilnfuel`/`electricity_to_kilnfuel`);
+the 2.6% `gas_only_share` remainder stays a fixed, non-substitutable `natural_gas` input.
+
+Important framing correction versus how this section originally read: the calculation
+below (§4.2.1–4.2.3) derives a feasibility ceiling for **electrification** specifically —
+kilns can't reliably run electric above ~1600°C. JRC-BAT-CER-2026 §4.2.4 (hydrogen) was
+checked directly and documents **no equivalent temperature ceiling for hydrogen firing** —
+only fossil-free-hydrogen-availability, burner-configuration and product-colour caveats,
+none of them temperature-dependent. So the 2.6% "locked" `natural_gas` share is really a
+conservative stand-in for "can't convert to *any* alternative fuel" (hydrogen included),
+not a literal hydrogen limit — it likely overstates how much of ceramic's kiln NG is
+genuinely non-substitutable, since hydrogen combustion (unlike electric resistive/
+induction heating) is not obviously temperature-constrained in the same way. Applied here
+to ceramic's `natural_gas` share specifically (not its total kiln fuel, which also
+includes `hard_coal`/`biomass`/`oil`, untouched by `fuel_to_kiln`), since no NG-specific
+temperature-bin breakdown exists — this assumes NG's own temperature distribution mirrors
+the sector's overall one.
+
+### Method
+
+1. Rehfeldt2017 gives, per ceramic sub-process (tiles/technical/houseware), `fuels_GJ_t`,
+   `activity_Mt` (EU28+3), and 5 temperature-bin shares (`<100`, `100–200`, `200–500`,
+   `500–1000`, `>1000` °C) of that sub-process's total heat demand.
+2. Total fuel demand per sub-process: `fuel_PJ = fuels_GJ_t × activity_Mt` (Mt × GJ/t =
+   10⁶ GJ = PJ). Fuel demand per bin: `fuel_PJ × bin_share`.
+3. JRC-BAT-CER-2026 §4.2.1–4.2.3 (electrification of intermittent/continuous/hybrid
+   kilns) each list, under "Technical considerations relevant to applicability,"
+   restricted applicability "above 1 600 °C" — taken here as the electrification
+   feasibility cutoff (below: electrifiable; above: gas-only, since electric heating
+   elements are stated as unable to reliably sustain these temperatures at the
+   document's current technology-readiness level, Table 1-7: CCS/CCU and electrification
+   both rated low/TRL 1–2).
+4. Rehfeldt's top bin (`>1000°C`) is coarser than the 1600°C cutoff, so it is split
+   qualitatively per sub-process using JRC-BAT-CER-2026's own firing-temperature tables
+   (§2, Figure 2-4 and per-product tables):
+   - **tiles, houseware** (sanitaryware/tableware proxy): typical firing 1000–1400°C
+     (below 1600°C) → entire `>1000°C` bin assigned electrifiable.
+   - **technical**: firing up to 1600–2500°C reported for some products (§2.3.8.8; e.g.
+     SiC firing auxiliaries at 2000–2500°C, though most technical-ceramics examples in
+     the document, e.g. electrical insulators at 1300°C, sit below the cutoff) → entire
+     `>1000°C` bin conservatively assigned gas-only (worst case; see caveats).
+
+### Formulas
+
+For sub-process `s` with temperature-bin shares `b_i(s)`, `i ∈ {<100, 100–200, 200–500,
+500–1000, >1000}`, and `gas_only_flag(s) ∈ {0,1}` (1 = technical, 0 = tiles/houseware):
+
+```
+fuel_PJ(s)          = fuels_GJ_t(s) × activity_Mt(s)
+fuel_PJ(s, bin_i)   = fuel_PJ(s) × b_i(s)
+electrifiable_PJ(s) = fuel_PJ(s) − fuel_PJ(s, ">1000") × gas_only_flag(s)
+gas_only_PJ(s)      = fuel_PJ(s) × b_">1000"(s) × gas_only_flag(s)
+
+electrifiable_share = Σ_s electrifiable_PJ(s) / Σ_s fuel_PJ(s)
+gas_only_share      = Σ_s gas_only_PJ(s)      / Σ_s fuel_PJ(s)
+```
+
+### Computed numbers (Rehfeldt2017.csv, EU28+3 activity basis)
+
+| sub_process | fuels_GJ/t | activity_Mt | fuel_PJ | <1000°C bins (PJ) | >1000°C bin (PJ) | gas_only_flag |
+|---|---|---|---|---|---|---|
+| tiles | 5.46 | 4.66 | 25.44 | 10.94 | 14.50 | 0 |
+| technical | 12.11 | 0.68 | 8.23 | 7.00 | 1.23 | 1 |
+| houseware | 24.24 | 0.57 | 13.82 | 4.84 | 8.98 | 0 |
+| **total** | | | **47.49** | **22.78** | **24.71** | |
+
+```
+electrifiable_PJ = 22.78 (all <1000°C bins) + 14.50 (tiles >1000°C) + 8.98 (houseware >1000°C)
+                  = 46.26 PJ
+gas_only_PJ       = 1.23 PJ (technical >1000°C bin only)
+
+electrifiable_share ≈ 46.26 / 47.49 ≈ 97.4 %
+gas_only_share      ≈  1.23 / 47.49 ≈  2.6 %
+```
+
+### Caveats / open decisions before implementation
+
+- Rehfeldt's `>1000°C` bin is not sub-divided at 1600°C; `gas_only_flag=1` for technical
+  ceramics assigns its **entire** `>1000°C` bin (1.23 PJ) as non-electrifiable, a
+  worst-case simplification — JRC-BAT-CER-2026's own examples suggest most technical-
+  ceramics tonnage fires below 1600°C (e.g. electrical insulators at 1300°C using NG),
+  with only niche products (SiC firing auxiliaries) needing 2000–2500°C. True gas-only
+  share for technical ceramics, and hence for ceramics overall, is likely lower than 2.6%.
+- No NG↔electricity/hydrogen efficiency or conversion factor is available from either
+  source. JRC-BAT-CER-2026 Chapter 6 explicitly lists "specific energy consumption for
+  electric kilns and dryers" as a data gap for future BREF review work. As implemented
+  (see "Ceramic and glass kiln fuel switching" above), ceramic's `hydrogen_to_kilnfuel`/
+  `electricity_to_kilnfuel` conversion factors reuse glass's own AIDRES-derived route
+  ratios as a documented cross-sector proxy, rather than an unjustified 1:1 GJ
+  substitution — glass has real per-route GJ/t data (AIDRES2023, see "Glass" above);
+  ceramic does not.
+- §4.1.6.3.5 (Fuel choice) notes product-driven exceptions independent of temperature:
+  certain coloured facing bricks require coal/coal-dust co-firing (Hoffmann kilns) and
+  cannot be produced on natural gas alone. This is a small, unquantified additional
+  non-substitutable share not captured by the temperature-threshold calculation above.
+- §4.2.4 (hydrogen) and §4.2.3 (hybrid kilns) define **partial**-substitution technique
+  thresholds — H2 ≥30% of kiln fuel, hybrid ≥50% electric heat — i.e. even within the
+  "electrifiable"/"gas-only" categories above, full 100% single-carrier swaps are not
+  how these BAT techniques are actually defined. As implemented, `fuel_to_kiln` doesn't
+  model these partial-substitution thresholds explicitly — the optimizer is free to mix
+  `natural_gas_to_kilnfuel`/`hydrogen_to_kilnfuel`/`electricity_to_kilnfuel` in any
+  proportion for the switchable 97.4% share, which can reproduce a ≥30%/≥50% blend as one
+  point in its feasible range but isn't constrained to match the BAT techniques' own
+  specific operational definitions.
+- Real-world adoption is negligible for all these options today (BAT Table 3-201, n=199
+  plants surveyed: electrification 6 plants, hydrogen 1 testing kiln, CCS/CCU 0 plants).
+  The 97.4%/2.6% split above is a **technical-feasibility ceiling**, not an expected
+  near-term deployment share.
