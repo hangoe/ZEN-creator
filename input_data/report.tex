@@ -1,0 +1,343 @@
+\section{Crystal\_Ball Dataset Extension}
+\label{sec:si-extension}
+
+The optimization model used in this work, Crystal\_Ball\_ind\_heat, is built using ZEN-creator, a Python based platform to collaboratively develop input data for ZEN-garden. ZEN-garden is an open-source energy transition pathway framework using linopy to build a linear optimization problem \cite{Hofmann2023}. ZEN-garden is used for planning and analysis of long-term energy system transition pathways \cite{Mannhardt2025}. In this study, the optimization model is solved using the solver Gurobi (version 13.0.0) \cite{gurobi}. \\
+
+Crystal\_Ball\_ind\_heat is built directly on top of the  sector-coupled European energy system case study Crystal\_Ball which includes 28 nodes (EU27, Norway, Switzerland, and the United Kingdom, excluding Malta and Cyprus). Crystal\_Ball models several energy carriers including electricity, heat, hydrogen, transport, steel, chemicals, cement, and carbon capture and the associated conversion and storage technologies. This base case study, including its spatial and temporal scope, technologies, cost and emissions data, is thoroughly documented in Mannhardt's Appendix~A \cite{Mannhardt2026} and is not repeated here. The remainder of this section documents the two model extensions that are new compared to Mannhardt's case study: industry heat (Section~\ref{sec:si-heat}) and industry flexibility (Section~\ref{sec:si-flexibility}).
+
+\subsection{Industry Heat Extension}
+\label{sec:si-heat}
+
+Mannhardt's base case study does not include industrial process heat below the level of aggregate fuel and electricity demand, meaning it does not differentiate between heating technologies. Additionally, the glass, ceramic, paper, or food industries are not included at all. Crystal\_Ball\_ind\_heat adds an \emph{industry heat} sector which is visualized in figure~\ref{fig:SIIndustryHeat}. The sector introduces several heating technologies (heat pumps and boilers), which are producing three new process-heat carriers on different temperature levels (band limits in \degree C): heat\_industry\_0\_100, heat\_industry\_100\_150, and heat\_industry\_150\_200. Different temperature levels are modeled since heat pump COP and CAPEX depend on the temperature levels of the heat sink \cite{DEA2026, Bever2024, Agora_IGE2023}. The choice of temperature levels implemented in our model is based on common low temperature heat categorization levels investigated in the literature and data availability \cite{Rehfeldt2017, Wolf2017}. In our model, the heat from higher temperature levels can be converted to lower temperature levels through lossless temperature conversion technologies (shown in green). The process-heat carrier are then input to four new industrial production technologies (glass, ceramic, paper, food) that consume the heat besides other fuels (shown in blue). For sectors with large process emission, i.e. glass and ceramic production, post-combustion carbon capture can be chosen as retrofit for the associated technologies. Only the largest industrial energy consumers and emitters in Europe are included in our model \cite{Eurostat2022, JRC2023}. Even though aluminum production is implemented in other models \cite{Mayer2024, PyPSAEurSec30}, it is left out here due to the small production volumes, emissions, and energy consumption in Europe \cite{wyns2019metals}. \\
+
+The model is run in "pathway" mode, meaning several years are optimized starting from 2022 until 2050. The existing capacity for the production and heating technologies serves as an initial condition to the model. It is modeled in accordance with the existing technologies implemented by Mannhardt \cite{Mannhardt2026}: Existing capacity is not assigned to a single construction year. Instead, each node's total existing capacity is spread evenly across construction-years covering the technology's full lifetime prior to the model's reference year (2022), so that retirement occurs gradually. 
+
+\begin{figure}[h!]
+	\centering
+	\includesvg[width=0.99\linewidth]{Graphs/SI/sector_diagram_drawio.svg}
+	\shortcaption{Industry heat and flexibility extension schematic}{Schematic of the complete industry heat and industry flexibility extension: boilers and heat pumps (yellow, orange, red and purple) supply three temperature-banded process-heat carriers (green), interconnected by a lossless temperature-conversion cascade. Each carrier is buffered by thermal energy storage (TES). The low and medium temperature band (0--100\,\degree C and 100--150\,\degree C) have a water tank and the high temperature band (150--200\,\degree C) has the steam TES available. The heat carriers and additional fuel carriers feed the four new industrial production technologies (blue), each of which can be stored in demand-side management (DSM) storage on its product carrier. Additional DSM is modelled for existing industry sectors (i.e. steel, cement and chemicals) but not visualized here. Post-combustion carbon capture technologies are modeled as retrofit technologies for ceramic and glass production processes.}
+	\label{fig:SIIndustryHeat}
+\end{figure}
+
+\subsubsection{Industrial Heating Technologies}
+
+Each sector's process-heat demand is only resolved below 200\,\degree C into a carrier and is an independent heat supply decision to the model. Process heat demand above 200\,\degree C remains a direct fuel input (hard coal, natural gas, electricity or biomass) to the production technology, since high-temperature heat technologies are process-integrated rather than generic heat supply technologies. \cite{Madeddu2020} \\
+
+Table~\ref{table:SIBoilersHP} lists the techno-economic parameters of the low temperature industrial heating technologies, which are six industrial boilers and six industrial heat pumps. The heat pumps are divided to the three temperature bands and there are two heat sources: waste heat at an assumed source temperature of 50\,\degree C, and ambient water at 15\,\degree C \cite{Agora_IGE2023, Bever2024}. Heat pump \ac{COP} are computed as $0.5 \times \mathrm{COP}_\mathrm{Carnot}$ using a representative temperature of each temperature band as the sink temperature \cite{Agora_IGE2023}. For the 100--150\,\degree C and 150--200\,\degree C bands, this representative temperature is the midpoint (125\,\degree C and 175\,\degree C). For the 0--100\,\degree C band, a representative sink temperature of 75\,\degree C is assumed since delivering process heat at the very bottom of that range is not physically meaningful. \\
+
+\begin{table}[h!]
+	\centering
+	\shortcaption{Techno-economic parameters of industrial boilers and heat pumps}{Techno-economic parameters of industrial boilers and heat pumps in Crystal\_Ball\_ind\_heat. Efficiency ($\eta$) is reported for boilers, COP for heat pumps. Both are the inverse of the model's conversion\_factor. For brevity, the \emph{industry} component of each technology and carrier identifier is omitted below (e.g. heat\_100\_150 denotes heat\_industry\_100\_150).}
+	\label{table:SIBoilersHP}
+	\begin{threeparttable}
+	\begin{tabular}{lcrrrcc}
+		\toprule
+		Technology identifier & Input carrier & CAPEX & Fixed OPEX & Var.\ OPEX & Lifetime & $\eta$ / COP \\
+		& & (\euro/kW) & (\euro/kW/a) & (\euro/MWh) & (a) & \\
+		\midrule
+		biomass\_boiler & biomass & 878.0 & 39.50 & 1.45 & 25 & $\eta=0.890$ \\
+		natural\_gas\_boiler & natural gas & 90.0 & 2.00 & 1.23 & 25 & $\eta=0.940$ \\
+		oil\_boiler & oil & 90.0 & 2.00 & 1.23 & 25 & $\eta=0.940$ \\
+        coal\_boiler & hard coal & 565.0 & 40.00 & 1.45 & 25 & $\eta=0.900$ \\
+        waste\_boiler & waste & 1{,}430.0 & 49.81 & 4.69 & 30 & $\eta=0.936$ \\
+		electrode\_boiler & electricity & 250.0 & 1.44 & 0.674 & 25 & $\eta=0.990$ \\
+		\midrule
+		heat\_pump\_0\_100\_waste\_heat & electricity & 1{,}200.0 & 2.49 & 3.60 & 20 & COP$=6.96$ \\
+		heat\_pump\_0\_100\_water & electricity & 1{,}200.0 & 2.49 & 3.60 & 20 & COP$=2.90$ \\
+		heat\_pump\_100\_150\_waste\_heat & electricity & 1{,}550.0 & 2.49 & 3.60 & 20 & COP$=2.65$ \\
+		heat\_pump\_100\_150\_water & electricity & 1{,}550.0 & 2.49 & 3.60 & 20 & COP$=1.81$ \\
+		heat\_pump\_150\_200\_waste\_heat & electricity & 1{,}550.0 & 2.49 & 3.60 & 20 & COP$=1.79$ \\
+		heat\_pump\_150\_200\_water & electricity & 1{,}550.0 & 2.49 & 3.60 & 20 & COP$=1.40$ \\
+		\midrule
+		heat\_temp\_conversion\_100\tnote{a} & heat\_100\_150 & 0.0 & 0.0 & 0.00 & 30 & $\eta=1.00$ \\
+		heat\_temp\_conversion\_150\tnote{a} & heat\_150\_200 & 0.0 & 0.0 & 0.00 & 30 & $\eta=1.00$ \\
+		\bottomrule
+	\end{tabular}
+	\begin{tablenotes}
+		\footnotesize
+		\item[a] Lossless temperature conversion technologies converting the higher band into the next-lower band (150--200 $\to$ 100--150 $\to$ 0--100). 
+		\item[] \underline{Sources}: boiler and heat pump CAPEX/OPEX/lifetime from the Danish Energy Agency's industrial process heat technology catalogue \cite{DEA_IndustrialHeat}. Heat pump COP derivation from source-temperature assumptions in Bever et al.\ \cite{Bever2024} and Agora Energiewende \& Fraunhofer IEG \cite{Agora_IGE2023}. All relative CAPEX and OPEX values refer to the heating output in in kW and MWh \cite{DEA_IndustrialHeat}. 
+	\end{tablenotes}
+	\end{threeparttable}
+\end{table}
+
+Existing boiler capacity is set equal to the bottom-up process-heat demand (glass, ceramic, paper, and food combined, see Section~\ref{sec:si-heat}) for each node's total boiler capacity. This total is then split between the six boiler fuels (biomass, natural gas, oil, coal, waste, and electricity) using each country's relative Eurostat gross heat production shares by fuel \cite{Eurostat2022}. Heat pump existing capacities are assumed to be zero in the reference year 2022. According to David et al., 94 large-scale heat pumps exist in Europe, but these are all district-heating heat pumps rather than industrial heat pumps \cite{David2017}. That means in the existing capacity in reference year 2022, heat is only supplied by boilers and the two lower temperature bands are supplied through the temperature conversion cascade (see Figure~\ref{fig:SIIndustryHeat}). Switzerland is missing from the Eurostat fuel-mix dataset \cite{Eurostat2022}. Therefore, Switzerland-specific fuel shares are derived from the Swiss Federal Office of Energy's industrial energy-consumption survey \cite{BFE2025}. The United Kingdom uses 2019 Eurostat data, which is the latest year available due to the post-Brexit coverage gap in the dataset. \\
+
+When the model decides between building waste-heat and ambient water heat pumps, it would prefer the waste-heat based option since costs are similar but the COP for the waste-heat heat pump is higher. Therefore, the waste-heat heat pump needs an upper bound on the capacity. The heat pump capacity bound for the waste-heat source is derived from each sector's waste heat availability. It is assumed that the waste heat availability can be derived from the available high-temperature heat in the given sectors ($>$200\,\degree C). The high temperature process-heat share provided in Rehfeldt et al \cite{Rehfeldt2017} and the heat demand in the corresponding sector (described in Table~\ref{table:SIProductionEnergy}) are used to compute the waste heat availability per sector. The availability for each sector is then allocated to temperature levels proportionally to the sectors heat demand share at that level. This waste-heat estimate based on Rehfeldt's data was cross-checked against the Heat Roadmap Europe data, which independently reports industrial waste-heat quantities by country and sub-sector \cite{Mathiesen2026}. Restricting the comparison to the five countries with matching sub-sector detail (DE, FR, HU, PL, ES) and to the sub-sectors comparable to this model's scope (non-metallic minerals $\approx$ glass + ceramic, paper + pulp $\approx$ paper), the Rehfeldt-based proxy is consistently slightly below Mathiesen's reported waste heat, at an average factor of $\approx$0.81$\times$ across the five countries. This is treated as a plausibility check and shows that the estimate is in the correct order of magnitude but is a conservative lower bound. 
+
+\subsubsection{New Industrial Production Technologies}
+\label{sec:si-industry-tech}
+
+Four industrial production technologies (glass\_\allowbreak production, ceramic\_\allowbreak production, paper\_\allowbreak production, food\_\allowbreak production) and their corresponding product carriers are new compared to Mannhardt's case study \cite{Mannhardt2026}. Table~\ref{table:SIProductionCost} lists the sectors cost and lifetime parameters. Table~\ref{table:SIProductionEnergy} lists the specific energy intensity by input carrier. For all four production technologies, each node's existing capacity is set equal to its demand. Figure~\ref{fig:SIFig4} shows the energy demand per sector divided into fuels and heat per temperature band used in the model. 
+
+\begin{table}[h!]
+	\centering
+	\shortcaption{Cost, lifetime and carbon intensity of new production technologies}{Cost, lifetime, and carbon intensity of the four new industrial production technologies. Cost and carbon intensity refer to tonnes of product.}
+	\label{table:SIProductionCost}
+	\begin{threeparttable}
+	\begin{tabular}{>{\raggedright\arraybackslash}p{20mm}rrrrrl}
+		\toprule
+		Technology & CAPEX & Fixed OPEX & Var.\ OPEX & Lifetime & \ce{CO2} intensity & Source \\
+		 & (\euro/(t/h)) & (\euro/(t/h)/a) & (\euro/t) & (a) & (t$_{\ce{CO2}}$/t) & \\
+		\midrule
+		glass\_\allowbreak production & 2{,}183{,}366 & 166{,}352 & 59.34 & 28 & 0.10 & \cite{AIDRES2023,JRCEUTIMES2013} \\
+		ceramic\_\allowbreak production\tnote{a} & 1{,}820{,}125& 156959& 7.27& 25& 0.06 & \cite{Rehfeldt2017, Gardarsdottir2019} \\ 
+		paper\_\allowbreak production & 6{,}132{,}000\tnote{b} & 950{,}445 & 4.99 & 25 & 0.00 & \cite{JRCEUTIMES2013,StoraEnso2026,StoraEnso2022,AsiaPaper2016} \\
+		food\_\allowbreak production & 3{,}119{,}095 & 155{,}955 & 0.00 & 20 & 0.00 & \cite{JRCEUTIMES2013} \\
+		\bottomrule
+	\end{tabular}
+	\begin{tablenotes}
+		\footnotesize
+		\item[a] No JRC-EU-TIMES ceramic-kiln cost proxy exists. Cost and lifetime parameters are instead based on \cite{Gardarsdottir2019}. It is used as a proxy assuming that cement and ceramics are both non-metallic-mineral processes centered on high-temperature kiln-firing of a mineral/clay-based feedstock. CAPEX and Fixed OPEX are derived from the plant's total cost. Var.\ OPEX excludes fuel and electricity consistent with the JRC-EU-TIMES convention used for the other technologies in this table.
+		\item[b] The CAPEX value from JRC-EU-TIMES seemed very high in comparison to other sectors, so a lower-bound value (700\,\euro/(t/yr)) is used instead, based on the range spanned by three recent European paper-mill projects \cite{StoraEnso2026,StoraEnso2022,AsiaPaper2016}.
+	\end{tablenotes}
+	\end{threeparttable}
+\end{table}
+
+\begin{table}[h!]
+    \centering
+    \shortcaption{Specific energy intensity of new production technologies}{Specific energy intensity of the four new industrial production technologies by input carrier, converted from the model's conversion\_factor (GW per tonproduct/hour) to GJ per ton of product. As in Table~\ref{table:SIBoilersHP}, the \emph{industry} component of the heat carrier identifiers is omitted for brevity.}
+    \label{table:SIProductionEnergy}
+    \begin{threeparttable}
+    \begin{tabular}{lrrrrrrrrr}
+        \toprule
+        Technology  & Hard coal & Natural gas & Biomass & Oil & Electricity & \multicolumn{3}{c}{Heat} & Total \\
+        \cmidrule(lr){7-9}
+        & & & & & & 0--100\,\degree C & 100--150\,\degree C & 150--200\,\degree C & \\
+        \midrule
+        Glass & 0.71 & 3.36 & -- & -- & 1.10 & 0.10 & 0.34 & 0.68 & 6.29 \\
+        Ceramic & 0.71 & 3.03 & 1.50 & 1.01 & 1.53 & 0.95 & 0.28 & 0.56 & 9.57 \\
+        Paper & -- & 0.08 & 0.12 & -- & 1.69 & 0.14 & 2.94 & 1.86 & 6.83 \\
+        Food & -- & 0.16 & -- & -- & 0.91 & 1.05 & 0.35 & 0.38 & 2.84 \\
+        \bottomrule
+    \end{tabular}
+    \begin{tablenotes}
+        \footnotesize
+        \item[] \underline{Sources}: energy intensity, and the split between the $<$100\,\degree C band and the combined 100--200\,\degree C range, from \cite{Rehfeldt2017}. Rehfeldt et al do not resolve the 100--200\,\degree C range further, so the combined share is split into the model's 100--150\,\degree C and 150--200\,\degree C bands using sector-level shares from Wolf \cite{Wolf2017}. Glass and ceramic share a single ``non-metallic minerals'' sector category in Wolf \cite{Wolf2017} for this split, rather than sub-process-specific data. Glass route weighting is taken from from AIDRES database \cite{AIDRES2023}.
+        \item[] Fuel shares (hard coal, natural gas, biomass, oil) come from each sector's JRC-IDEES-2023 thermal final energy consumption mix. These fuels are used to supply high temperature heat and are process inputs. Fuels without a matching Crystal\_Ball carrier are dropped and the remaining shares renormalized.
+    \end{tablenotes}
+    \end{threeparttable}
+\end{table}
+
+
+\begin{figure}[h!]
+    \centering
+    \includesvg[width=\linewidth]{Graphs/SI/fig4_heat_demand_by_sector}
+    \shortcaption{Energy demand divided by industry sector}{Energy demand divided by industry sector. Divided into low-temperature heat demand per temperature level and fuel demand per carrier.}
+    \label{fig:SIFig4}
+\end{figure}
+
+\textbf{Glass.} Container, flat, and fiberglass sub-processes are combined using production-mix weights of 60/30/10\% based on the AIDRES database \cite{AIDRES2023}. The split between the $<$100\,\degree C band and the combined 100--200\,\degree C range uses Rehfeldt's per-sub-process distributions with the same weighting \cite{Rehfeldt2017}. The further split of that combined range into the model's 100--150\,\degree C and 150--200\,\degree C bands instead uses Wolf's non-metallic-minerals sector shares \cite{Wolf2017}. Cost and lifetime use activity-weighted JRC-EU-TIMES technologies \cite{JRCEUTIMES2013}. Fiberglass has no dedicated JRC-EU-TIMES technology and is proxied by flat glass, on the basis that both use continuous-melt furnace designs \cite{JRC_BAT_Glass2013}. Glass demand and capacity for Switzerland, Norway, and the United Kingdom (not covered by JRC-IDEES \cite{JRC2023}) are population-scaled from a proxy country in the absence of an equivalent data source: Austria for Switzerland, Finland for Norway, and Germany for the United Kingdom (values normalized relative to population). \\
+
+\textbf{Ceramic.} Since coverage does not exist for ceramics in the AIDRES database \cite{AIDRES2023}, the energy intensity and the $<$100\,\degree C vs.\ 100--200\,\degree C split come entirely from Rehfeldt's tiles/technical/houseware sub-processes \cite{Rehfeldt2017}. The further split into the model's 100--150\,\degree C and 150--200\,\degree C bands uses the same Wolf non-metallic-minerals sector shares as glass \cite{Wolf2017}. Demand and capacity are back-calculated from JRC-IDEES-2023 thermal final energy consumption of the specific kiln/furnace process rows \cite{JRC2023}, divided by Rehfeldt's specific fuel energy.  No JRC-EU-TIMES ceramic-kiln cost proxy exists, so cost parameters are instead based on a techno-economic cost analysis of a reference European cement clinker plant \cite{Gardarsdottir2019}, used as a proxy assuming that cement and ceramics are both non-metallic-mineral processes centered on high-temperature kiln-firing of a mineral/clay-based feedstock. Demand and capacity for Switzerland, Norway, and the United Kingdom are scaled by the same proxy-country approach as for glass. Process (calcination) \ce{CO2} emissions for ceramic are captured via a calculated carbon intensity, derived from a JRC BAT finding that process emissions are 15\% of total ceramic emissions \cite{JRC_BAT_Ceramics2026}.\\
+
+\textbf{Paper.} Only the top three Rehfeldt sub-processes by activity are retained: paper, recovered fibers, and chemical pulp. These sum up to 95~\% of the sector's activity. Mechanical pulp is excluded due to the small activity share \cite{Rehfeldt2017}. \Ac{OPEX} and lifetime are activity-weighted JRC-EU-TIMES values for the matching processes \cite{JRCEUTIMES2013}. \Ac{CAPEX} is deliberately not used, as the JRC-EU-TIMES figure likely overestimates the costs. When comparing it to the other sectors, the CAPEX for pulp and paper is in a different order of magnitude then all other industrial technologies in the model \cite{JRCEUTIMES2013}. Therefore, it is replaced with a literature benchmark from three existing paper-mill projects \cite{StoraEnso2026,StoraEnso2022,AsiaPaper2016} (see table \ref{table:SIProductionCost}). Process (calcination) \ce{CO2} emissions from the Kraft lime kiln are not captured,  as the Kraft process is only one of several pulp production routes and represents a comparatively small share of the sector's activity \cite{Rehfeldt2017}. Therefore, the carbon intensity is assumed to be zero for the paper sector. Unlike glass and ceramic, Switzerland, Norway, and the United Kingdom do not use population-scaled proxies for paper. Instead capacity and demand for these three countries use per-capita paper consumption data (2008) from the JRC Best Available Techniques report \cite{JRC_BAT_Paper2015}. The energy demand in the paper industry is dominated by low-temperature heat demand. Fuel demand is due to biomass utilization in the Kraft process and natural gas used to produce high temperature steam \cite{Rehfeldt2017}. Electricity is assumed to be used for mechanical uses only, such as pumps, compressors, fans and machine drives \cite{Marina2020}. \\
+
+\textbf{Food.} All five sub-processes from Rehfeldt et al. (dairy, meat, brewing, bread, sugar) are retained, since the top three by activity alone would ignore the sector's medium-temperature heat demand \cite{Rehfeldt2017}. JRC-IDEES-2023 \cite{JRC2023} provides only a production index (no mass) for food, so capacity is based on FAOSTAT data for production of matched proxy items (e.g., dairy $\to$ ``Milk, Total'') \cite{FAOSTAT2026}. The demand is set equal to this capacity. Cost parameters are assumed based on a capital-light JRC-EU-TIMES cluster average, since no product-level food-processing technology exists in that dataset \cite{JRCEUTIMES2013} and an equivalent data source is absent. Natural gas is the only additional fuel modeled here besides the low-temperature industry heat \cite{Marina2020, Rehfeldt2017}. Natural gas is used to provide high temperature steam and. Coal to fire the kilns in sugar production is neglected in this work due to the relative small quantity \cite{Asadi2022}. The electricity demand based on Rehfeldt et al. is used for mechanical purposes, including refrigeration, auxiliaries, and motors and not heating \cite{Rehfeldt2017}. \\
+
+\textbf{Carbon Capture (Ceramic and Glass).} Following the same retrofit-technology approach Mannhardt uses for carbon capture elsewhere in Crystal\_Ball \cite{Mannhardt2026}, two new post-combustion retrofit technologies, ceramic\_\allowbreak post\_comb and glass\_\allowbreak post\_comb, are added for ceramic\_\allowbreak production and glass\_\allowbreak production. Since the Danish Energy Agency's carbon-capture technology catalogue \cite{DEA_CCS} contains only one post-combustion-capture sheet, and its parameters describe the properties of the capture unit itself rather than the industry it is attached to, this sheet is used for both sectors, matching how cement\_\allowbreak post\_comb itself is parametrized: a 90\,\% capture rate, heat input of 0.833\,MWh/tCO$_2$ (supplied by natural gas and hard coal in each sector's own existing fuel-mix ratio, electricity input of 0.025\,MWh/tCO$_2$, and a district heat output of 1.65\,MWh/tCO$_2$. CAPEX and fixed OPEX are interpolated across the DEA's five reported years (2020--2050), the same interpolation approach used for the boilers and heat pumps in Table~\ref{table:SIBoilersHP}. Each retrofit's retrofit\_\allowbreak flow\_coupling\_\allowbreak factor is constructed the same way as cement\_\allowbreak post\_comb's: the base technology's own process-only carbon intensity multiplied by the 90\,\% capture rate, giving 0.058\,t/tonproduct for ceramic and 0.09\,t/tonproduct for glass. As with cement, this means the retrofit only captures the process-emission share of each sector's \ce{CO2}. \\
+
+
+Mannhardt's carbon emission budget (23.15\,Gt \ce{CO2}, Appendix~A.2 \cite{Mannhardt2026}) is calibrated to the original 11 modeled sectors and does not include the four new industrial sectors (glass, ceramic, paper, food) added here. The budget is therefore scaled by the new sectors' relative share of 2022 direct \ce{CO2} emissions (EEA/UNFCCC Common Reporting Format national-inventory data for 28 countries \cite{EEA2026}, plus United Kingdom data \cite{BEIS2023,ONS2026}), yielding an extended budget of 24.59\,Gt (+6.2\,\%).
+
+
+\subsection{Industry Flexibility Extension}
+\label{sec:si-flexibility}
+
+Neither \ac{TES} nor \ac{DSM} for industrial carriers exists in Mannhardt's base case study \cite{Mannhardt2026}. Crystal\_Ball\_ind\_heat adds industry flexibility consisting of \ac{TES} on the three process-heat carriers introduced in Section~\ref{sec:si-heat}, and \ac{DSM} storage on ten industrial product carriers. While TES acts as a physical energy storage, DSM acts as virtual storage, decoupling the timing of industrial production or heat supply from final demand within a bounded time horizon. Figure~\ref{fig:SIIndustryHeat} shows the complete schematic, including both the TES and DSM technologies described below. 
+
+\subsubsection{Thermal Energy Storage}
+
+Table~\ref{table:SITES} lists the parameters of the three industrial TES technologies (water tank for the lowest and medium bands, steam accumulator for the highest band), based on the models in Mayer et al.\ \cite{Mayer2024}. The energy-to-power ratio (E2P, in hours) gives each technology's storage energy capacity relative to its charge/discharge power capacity, i.e.\ how long it can sustain charging or discharging at full power.
+
+\begin{table}[h!]
+	\centering
+	\shortcaption{Techno-economic parameters of industrial thermal energy storage}{Techno-economic parameters of industrial thermal energy storage technologies. Charging and discharging efficiency is reported. As in Table~\ref{table:SIBoilersHP}, the \emph{industry} component of each technology and carrier identifier is omitted for brevity (e.g., TES\_water\_0\_100 denotes industry\_TES\_water\_0\_100).}
+	\label{table:SITES}
+	\begin{threeparttable}
+	\begin{tabular}{lccrrrrc}
+		\toprule
+		Technology & Carrier & $\eta_{\mathrm{self\_disch}}$& CAPEX & Fixed OPEX & Var.\ OPEX & Lifetime & E2P \\
+		 & & & (\euro/MWh) & (\euro/MWh/a) & (\euro/GWh) & (a) & (h) \\
+		\midrule
+		TES\_water\_0\_100 & heat\_0\_100 & 0.95& 10{,}000 & 150 & 1.0 & 30 & 1--24 \\
+		TES\_water\_100\_150 & heat\_100\_150 & 0.95& 10{,}000 & 150 & 1.0 & 30 & 1--24 \\
+		TES\_steam\_150\_200 & heat\_150\_200 & 0.95& 114{,}000 & 4{,}100 & 1.0 & 25 & 0.25--4 \\
+		\bottomrule
+	\end{tabular}
+	\begin{tablenotes}
+		\footnotesize
+		\item[] Self-discharge as a simplification of Mayer et al.'s reported efficiencies \cite{Mayer2024}. Variable OPEX is an internal assumption.
+	\end{tablenotes}
+	\end{threeparttable}
+\end{table}
+
+\subsubsection{Demand-Side Management}
+
+Ten industrial product carriers receive a DSM storage technology that lets the optimizer shift production in time relative to the demand: the four new carriers from Section~\ref{sec:si-heat} (glass, ceramic, paper, food) and six carriers already present in Mannhardt's base case study \cite{Mannhardt2026} (ammonia, clinker, methanol, primary steel, secondary steel, olefin). Rather than parametrizing each technology individually, every DSM technology is assigned to one of three DSM flexibility levels (Table~\ref{table:SIDSMCategories}). Each flexibility level has an internally-assumed cost and energy-to-power ratio (E2P): Level~3 is cheap with a high E2P (long-duration, fully flexible), Level~1 is expensive with a low E2P (short-duration, effectively priced out of the optimum), and Level~2 sits in between. These level-specific cost and E2P values are assumptions, not literature-derived since data on sector-specific availability for DSM is sparse. The flexibility level assigned to each product carrier is derived from literature (see Table~\ref{table:SIDSMCategorization}). \\
+
+\begin{table}[h!]
+	\centering
+	\shortcaption{DSM flexibility level parameters}{Cost and energy-to-power ratio (E2P) parameters for the three DSM flexibility levels used to parametrize all industry DSM technologies.}
+	\label{table:SIDSMCategories}
+	\begin{threeparttable}
+	\begin{tabular}{llrr}
+		\toprule
+		Flexibility level & Description & CAPEX / Var.\ OPEX\tnote{a} & E2P (h) \\
+		\midrule
+        Level 1 & not flexible at all & 1{,}000 & 2 \\
+        Level 2 & partially flexible, short timescales & 20 & 48 (2 days) \\
+		Level 3 & fully flexible & 1 & 336 (2 weeks) \\
+		\bottomrule
+	\end{tabular}
+	\begin{tablenotes}
+		\footnotesize
+		\item[a] Tabulated values are per mass unit of stored product, for the eight mass-flow carriers. For the two energy carriers (ammonia, methanol), the tabulated value is converted to an equivalent \euro/GWh figure using each carrier's lower heating value  \cite{IEAAMF2026}, such that the same real cost per tonne of product applies across all ten DSM technologies. Both CAPEX and variable OPEX take the same value within a flexibility level.
+	\end{tablenotes}
+	\end{threeparttable}
+\end{table}
+
+Each carrier is assigned a flexibility level twice, once for an \emph{optimistic} and once for a \emph{pessimistic} DSM assumption. Only one variant is active in a given model run (Section~\ref{sec:si-scenarios}). Table~\ref{table:SIDSMCategorization} lists the flexibility level assigned to each carrier and variant, with sources. \\
+
+\begin{table}[h!]
+	\centering
+	\shortcaption{DSM flexibility level assigned to each industrial product carrier}{DSM flexibility level (Level 1/2/3, see Table~\ref{table:SIDSMCategories}) assigned to each industrial product carrier's DSM technology, for the pessimistic and optimistic variants.}
+	\label{table:SIDSMCategorization}
+	\begin{tabular}{lll l >{\raggedright\arraybackslash}p{45mm}}
+		\toprule
+		Carrier & Pessimistic & Optimistic & Source(s) & Comment \\
+		\midrule
+		Glass & Level 3 & Level 3 & \cite{Hubert2015,Hongtai2024} & \\
+		Ceramic & Level 3 & Level 2 & \cite{Tangram2026} & Pess.: continuous kilns. Opt.: batch kilns \\
+		Paper & Level 2 & Level 1 & \cite{Helin2017} & \\
+		Food & Level 3 & Level 2 & \cite{AnaInterview2026} & Based on interview by Ana. \\
+		Methanol & Level 2 & Level 1 & \cite{Schneider2023,ChenYang2021} & \\
+		Primary steel & Level 3 & Level 3 & \cite{Boldrini2024,Golmohamadi2021} &  \\
+		Secondary steel & Level 2 & Level 1 & \cite{Boldrini2024,Golmohamadi2021} & \\
+		Olefin & Level 3 & Level 2 & \cite{Tiggeloven2023} & Pess.: conventional steam cracker; Opt.: electrified cracker \\
+		Ammonia & Level 3 & Level 2 & \cite{Salmon2023,Fahr2025} & \\
+		Clinker & Level 3 & Level 3 & \cite{Golmohamadi2021} & \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+All ten DSM technologies share the same structural parameters regardless of flexibility level: $\eta_\mathrm{charge}=\eta_\mathrm{discharge}=0.999$ (to avoid cycling the products), no self-discharge, a lifetime of 50 years, and a per-node capacity limit set at build time to the carrier's nodal demand, preventing DSM from acting as unconstrained arbitrage storage. Only the level-specific data (cost and E2P, see Table~\ref{table:SIDSMCategories}) and the storage carrier differ between technologies. \\
+
+Ammonia and methanol are modeled with an energy-based reference carrier rather than the mass-based unit used by the other eight DSM technologies. Applying the shared category cost parameters directly as Euro/GWh would therefore misrepresent their economic magnitude.  To keep the cost structure consistent across all ten technologies, we convert the category-level CAPEX and variable OPEX values into an equivalent Euro/GWh basis using each carrier's lower heating value (ammonia: 18.6,GJ/t; methanol: 19.9,GJ/t \cite{IEAAMF2026}). The energy-to-power ratio is left unconverted, as it expresses a storage duration (hours) that is dimensionally identical whether capacity is measured in tonnes per hour or gigawatts. \\
+
+Food's categorization is currently based on an unpublished interview, and the corresponding citation (\cite{AnaInterview2026}) is a placeholder. % TODO-later: adapt source
+
+\section{Industry Heat Case Study}
+\label{sec:si-casestudy}
+
+This section introduces a case study conducted with the extended Crystal\_Ball\_ind\_heat dataset, which was introduced in Section~\ref{sec:si-extension}. In Section~\ref{sec:si-scenarios}, the scenario design for the case study is explained. The main findings of the model runs are compared in Section~\ref{sec:si-results}. 
+
+\subsection{Scenario Design}
+\label{sec:si-scenarios}
+
+To isolate the contribution of the industry heat and industry flexibility extensions (Section~\ref{sec:si-extension}), the case study compares the seven model variants listed in Table~\ref{table:SIScenarios}. The scenarios are explained in detail below. \\
+
+\begin{table}[h!]
+	\centering
+	\shortcaption{Case study scenarios}{Scenarios compared in the case study.}
+	\label{table:SIScenarios}
+	\begin{threeparttable}
+	\begin{tabular}{lccccl}
+		\toprule
+		Scenario & Industry heat & DSM\tnote{a} & TES & Temp.\ bands & Dataset \\
+		\midrule
+		Crystal\_Ball (base) & -- & -- & -- & n/a & Crystal\_Ball \\
+		No flexibility & \checkmark & -- & -- & 3 & Crystal\_Ball\_ind\_heat\_no\_flexibility \\
+        Full flexibility & \checkmark & \checkmark (opt.) & \checkmark & 3 & Crystal\_Ball\_ind\_heat \\
+        DSM pessimistic & \checkmark & \checkmark (pess.) & \checkmark & 3 & ..\_DSM\_pessimistic \\
+		DSM only & \checkmark & \checkmark (opt.) & -- & 3 & ..\_DSM\_only \\
+		TES only & \checkmark & -- & \checkmark & 3 & ..\_TES\_only \\
+		Single temperature level & \checkmark & \checkmark (opt.) & \checkmark & 1 & ..\_single\_temp \\
+		\bottomrule
+	\end{tabular}
+	\begin{tablenotes}
+		\footnotesize
+		\item[a] "opt." / "pess." denote which of the two DSM variants (Table~\ref{table:SIDSMCategorization}) is active. Every scenario other than "DSM pessimistic" uses the optimistic categorization.
+	\end{tablenotes}
+	\end{threeparttable}
+\end{table}
+
+\textbf{Crystal\_Ball (base).} The unmodified base case study of Mannhardt \cite{Mannhardt2026}, without the industry heat and flexibility extension. It serves as the overall reference point. \\
+
+\textbf{No flexibility.} Includes the industry heat extension (Section~\ref{sec:si-heat}) but excludes all DSM and TES technologies (Section~\ref{sec:si-flexibility}). It isolates the effect of resolving industrial process heat and the four new industries, independent of flexibility. \\
+
+\textbf{Full flexibility.} The complete Crystal\_Ball\_ind\_heat dataset which is documented in Section~\ref{sec:si-extension}, with both DSM (optimistic categorization) and TES active. \\
+
+\textbf{DSM pessimistic.} Reruns the Full flexibility scenario with every DSM technology's pessimistic DSM flexibility level (Table~\ref{table:SIDSMCategorization}) instead of the optimistic one. It is used to understand the range of DSM's contribution on the system level given the literature's uncertainty on the availability of each industrial process for DSM. \\
+
+\textbf{DSM only} and \textbf{TES only.} Each adds one of the two flexibility mechanisms independently to the "No flexibility" scenario, isolating their individual contributions. \\
+
+\textbf{Single temperature level.} A sensitivity variant that is collapsing the three process-heat temperature bands into a single aggregate, to test whether the temperature-band resolution introduced in Section~\ref{sec:si-heat} actually affects the results.
+
+\subsection{Results}
+\label{sec:si-results}
+
+% TODO: HIER WEITER!!!!
+
+This section presents the case study's results. Figures~\ref{fig:SIFig0a} and~\ref{fig:SIFig0b} benchmark the industry heat and flexibility extensions against the unmodified Crystal\_Ball base case study from Mannhardt \cite{Mannhardt2026}. Figures~\ref{fig:SIFig1a} and~\ref{fig:SIFig1b} then compare discounted system cost and installed technology capacity across the seven scenarios in Table~\ref{table:SIScenarios}. Figures~\ref{fig:SIFig2a} and~\ref{fig:SIFig2b} examine how the DSM and TES flexibility mechanisms are utilized in different scenarios. Finally, Figures~\ref{fig:SIFig3a} and~\ref{fig:SIFig3b} test the sensitivity of the temperature-band resolution introduced in Section~\ref{sec:si-heat}.
+
+\subsubsection{Comparison to the Crystal\_Ball Benchmark}
+\label{sec:si-benchmark}
+
+In comparison to the unmodified Crystal\_Ball base case study of Mannhardt \cite{Mannhardt2026}, discounted full-horizon system cost rises by 13.0\% to 13.5\% across the six model variants that include the industry heat extension (Section~\ref{sec:si-heat}). However, this headline figure is not a physically meaningful measure of what the extension actually costs to build and operate: 52.7\% to 58.0\% of it is carbon emissions cost, concentrated almost entirely in two years, 2050 and 2070. It behaves like a carbon-budget shadow price rather than a continuous cost. The actual cost of the extension, which is CAPEX, OPEX, and carrier (fuel/import) cost combined, is only +5.7\% to +6.2\% across all six variants, as shown in Figure~\ref{fig:SIFig0a}.
+
+\begin{figure}[h!]
+    \centering
+    \includesvg[width=0.7\linewidth]{Graphs/SI/fig0a_cost_composition}
+    \shortcaption{Composition of the cost increase vs Crystal\_Ball base}{Discounted full-horizon system cost increase of each model variant relative to Crystal\_Ball base, decomposed into CAPEX, OPEX, and carrier (fuel/import) cost. Carbon emissions cost is excluded from the bars (see text).}
+    \label{fig:SIFig0a}
+\end{figure}
+
+Figure~\ref{fig:SIFig0b} examines the source of the corresponding emissions increase for the Full flexibility variant relative to Crystal\_Ball base, in 2025. Net system emissions rise by 12.2\% (2,254 to 2,529~Mton CO$_2$eq) that year, driven almost entirely by additional fossil-carrier combustion: hard coal, LNG, waste, crude oil, and natural gas together account for more than 95\% of the gap. Full flexibility fails to meet its own carbon budget by 2070 (Figure~\ref{fig:SIFig0b}). One reason for that is that the industrial heat pumps supplying the newly implemented sectors' heat demand must be deployed from zero existing capacity. Technology-diffusion-rate constraints therefore limit how quickly this clean supply technology can scale up, consistent with the deployment-barrier mechanism identified by Mannhardt et al. \cite{Mannhardt2024}. Additionally, the fuel and process emissions (especially for glass and ceramics, see Table~\ref{table:SIProductionEnergy}) cannot be abated since no carbon-capture technologies for these sectors are modeled yet. Investigating these mechanisms in more detail exceeds the scope of this work. 
+
+\begin{figure}[h!]
+    \centering
+    \includesvg[width=\linewidth]{Graphs/SI/fig0b_emissions_source_comparison}
+    \shortcaption{Sources of the emissions increase vs Crystal\_Ball base}{Left: composition of net system emissions by carrier (fuel combustion) and technology (industrial process emissions and carbon capture) for Crystal\_Ball base and Full flexibility, 2025. Right: per-category contribution to the emissions gap between the two runs, ranked by magnitude.}
+    \label{fig:SIFig0b}
+\end{figure}
+
+\subsubsection{System Cost and Technology Deployment}
+\label{sec:si-cost-capacity}
+
+The relative cost contribution of each model variant, which can already be seen in Figure~\ref{fig:SIFig0a}, is attributable almost entirely to DSM. Removing both flexibility mechanisms (No flexibility) costs +0.43\% relative to Full flexibility, matched almost exactly by TES only. DSM only reproduces Full flexibility's discounted cost to within numerical solver tolerance, while TES only reproduces No flexibility's cost almost exactly: TES is therefore, in cost terms, redundant once DSM is available, since cost drops by the same amount whether or not TES is also modeled alongside it. DSM pessimistic costs less than removing flexibility outright (+0.31\%), while Single temperature level costs marginally more (+0.44\%). \\
+
+Figure~\ref{fig:SIFig1b} shows the installed industry technology capacity in 2050. Heat-supply capacity (heat pumps, boilers) changes only modestly across scenarios (58.5--62.2~GW for all variants except Single temperature level, discussed in Section~\ref{sec:si-temp-sensitivity}). The clearest single driver is the electrode boiler, whose capacity roughly doubles with optimistic DSM (14~GW without DSM vs.\ 27.5~GW with DSM optimistic) but barely changes with pessimistic DSM (15~GW). This suggests that the optimizer relies on low-CAPEX electrode boiler capacity to exploit the price variability that DSM's demand-shifting creates, but only once the optimistic demand-shiftability assumption makes that shifting valuable enough. Production technology capacity (glass, ceramic, paper, food) rises by 18\% from No flexibility to Full flexibility. This is a capacity-sizing effect, not an increase in production: annual output of all four products is identical between the No flexibility and Full flexibility runs. Without DSM, every production technology runs at a 100\% capacity, since production cannot be decoupled from the heat supply. With DSM active, production concentrates into fewer, cheaper hours which requires more installed capacity to deliver the same annual output at lower total system cost. Glass capacity is unaffected (6~ton/h in every scenario) because both DSM flexibility levels assigned to glass are Level~3 (Table~\ref{table:SIDSMCategorization}), which is why there is no installation of glass DSM.
+
+\begin{figure}[h!]
+    \centering
+    \includesvg[width=\linewidth]{Graphs/SI/fig1b_industry_capacity}
+    \shortcaption{Industry technology capacity by scenario}{Installed capacity of industry heat-supply (left) and production (right) technologies in 2050, by model scenario.}
+    \label{fig:SIFig1b}
+\end{figure}
+
+\subsubsection{Flexibility Utilization}
+\label{sec:si-flex-utilization}
+
+TES is barely used once DSM is available. DSM's cumulative charge/discharge throughput in the Full flexibility run is almost identical to the DSM only run, whereas TES's cumulative charge throughput is roughly six orders of magnitude smaller. Conversely, in the TES only run (DSM unavailable by construction), TES does see some use, but this still remains five to six orders of magnitude below DSM's throughput whenever DSM is available at all. This asymmetry follows directly from the technology parameters in Tables~\ref{table:SITES} and~\ref{table:SIDSMCategories}. Wherever a carrier is assigned DSM Level~1 or Level~2, its DSM technology is both cheaper and longer-duration than TES. That is why DSM strictly dominates TES on both cost and duration and the optimizer only turns to TES when DSM is not modeled at all. \\
+
+Figure~\ref{fig:SIFig2} breaks DSM utilization down by product and by DSM assumption (i.e. optimistic or pessimistic). Under the optimistic categorization, DSM in clinker and secondary steel are installed most heavily, followed by ceramic, paper, and food. Methanol and ammonia are used only marginally, while olefin, glass, and primary steel see no DSM utilization at all. Under the pessimistic categorization, ceramic and food drop to zero utilization entirely, as their Level~3 assignment (Table~\ref{table:SIDSMCategorization}) prices their DSM technology too high to be deployed, while clinker, secondary steel, and paper are used more to compensate. 
+
+\begin{figure}[h!]
+    \centering
+    \includesvg[width=0.8\linewidth]{Graphs/SI/fig2_dsm_cycles_by_product}
+    \shortcaption{DSM utilization by product}{DSM discharge cycles per year in 2050, by industrial product carrier, under the optimistic (Full flexibility) and pessimistic (DSM pessimistic) DSM categorization. Hatched bars (ammonia, methanol) denote the two energy-carrier ($\mathrm{GWh}$) products, the remaining eight are mass-flow ($\mathrm{kt}$) products.}
+    \label{fig:SIFig2}
+\end{figure}
+
+\subsubsection{Sensitivity to Temperature-Band Resolution}
+\label{sec:si-temp-sensitivity}
+
+Collapsing the three-band temperature resolution introduced in Section~\ref{sec:si-heat} into a single aggregate (Single temperature level, Table~\ref{table:SIScenarios}) has only a small effect on discounted system cost and cumulative emissions (see Figure~\ref{fig:SIFig0a}). The effect on installed industry heat capacity is stronger: in Figure~\ref{fig:SIFig1b} it can be seen that the boiler capacities strongly increase while heat pump capacity decreases. Figure~\ref{fig:SIFig3b} explains this resulting capacity increase in boilers. It is breaking net end-use heat demand down by temperature band. Demand in each band is numerically identical between the two scenarios, confirming that collapsing the temperature-band resolution changes only which technologies supply that demand, not the demand itself. Both scenarios meet the top band (150--200\,\degree C) entirely with direct boiler/heat-pump supply. Below that, the two scenarios diverge sharply: Full flexibility meets 94.0\% of 0--100\,\degree C demand and 52.9\% of 100--150\,\degree C demand directly, with only the remainder coming from the lossless temperature-conversion cascade. In contrast Single temperature level has no direct-supply technology for either of these two lower bands, so 100\% of their demand must instead be supplied through the temperature cascade. The resulting capacity increase (Figure~\ref{fig:SIFig1b}) can therefore be explained by the decrease in COP in the Single temperature level variant, as only high temperature heat pumps and boilers with lower efficiencies (see Table~\ref{table:SIBoilersHP}) are available.
+
+\begin{figure}[h!]
+    \centering
+    \includesvg[width=0.85\linewidth]{Graphs/SI/fig3b_heat_pathway}
+    \shortcaption{Heat demand met by temperature band}{Net end-use heat demand met per temperature band, 2050, split into direct boiler/heat-pump supply vs.\ supply routed through the temperature-conversion cascade, Full flexibility vs.\ Single temperature level. Equal per-band totals confirm identical end-use demand between the two scenarios.}
+    \label{fig:SIFig3b}
+\end{figure}
