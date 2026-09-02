@@ -133,7 +133,9 @@ Recommended implementation steps:
 4. Add the class import to the folder's ``__init__.py`` so that the subclass
    is loaded and available to the registry.
 5. If the element should be automatically included through a sector, also add
-   it to the matching ``Sector`` definition in ``zen_creator/sectors.py``.
+   it to the matching ``Sector`` definition in
+   ``zen_creator/sectors/<sector_module>.py`` (the abstract ``Sector`` base
+   class itself lives in ``zen_creator/sectors/__init__.py``).
 
 
 Build and Apply Overwrites
@@ -204,7 +206,8 @@ Before running ``model.write()``, verify:
 2. Raw data processing is contained in dataset classes.
 3. New carriers/technologies are implemented as proper element subclasses.
 4. New classes are imported in the corresponding ``__init__.py`` files.
-5. Optional sector wiring in ``zen_creator/sectors.py`` is updated if needed.
+5. Optional sector wiring in ``zen_creator/sectors/<sector_module>.py`` is
+   updated if needed.
 6. ``model.build()`` has been run after code-level changes to ``_set_`` logic.
 7. Output location (``model.output_folder``) and model name are set as desired.
 

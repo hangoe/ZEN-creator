@@ -143,6 +143,7 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         self._heat_cfs = self._compute_heat_cfs()
         self._fuel_shares = self._compute_fuel_shares()
         self._cost_params = {s: self._compute_jrc_cost_params(s) for s in ("glass", "ceramic", "paper", "food")}
+        self._production_tech_dicts: dict[str, dict] = {}
 
     def _set_metadata(self) -> MetaData:
         return MetaData(
@@ -263,6 +264,13 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
     # -- Production tech dict builder (replicates _build_production_tech_dict) --
 
     def get_production_tech_dict(self, sector: str) -> dict:
+        if sector in self._production_tech_dicts:
+            return self._production_tech_dicts[sector]
+        data = self._build_production_tech_dict(sector)
+        self._production_tech_dicts[sector] = data
+        return data
+
+    def _build_production_tech_dict(self, sector: str) -> dict:
         params = self._sector_params[sector]
         shares = _kiln_fuel_shares(sector, self._fuel_shares[sector])
         cfs = self._heat_cfs[sector]
@@ -301,59 +309,46 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         data = self.get_production_tech_dict(sector)
         return Attribute("input_carrier", default_value=data["input_carrier"]["default_value"], element=element)
 
-    def get_lifetime(self, element: Element, sector: str) -> Attribute:
+    # attr_name -> (source description template, whether to pass unit=)
+    _SIMPLE_ATTRS: dict[str, tuple[str, bool]] = {
+        "lifetime": ("Lifetime for {sector}_production from process_parametrization.xlsx.", False),
+        "capex_specific_conversion": ("CAPEX for {sector}_production.", True),
+        "opex_specific_fixed": ("Fixed OPEX for {sector}_production.", True),
+        "opex_specific_variable": ("Variable OPEX for {sector}_production.", True),
+        "carbon_intensity_technology": ("Carbon intensity for {sector}_production.", True),
+        "max_diffusion_rate": ("Max diffusion rate for {sector}_production.", False),
+    }
+
+    def _get_attr_from_tech_dict(self, element: Element, sector: str, attr_name: str) -> Attribute:
         data = self.get_production_tech_dict(sector)
-        val = data["lifetime"]["default_value"]
+        val = data[attr_name]["default_value"]
         if val == "inf":
             val = np.inf
-        attr = Attribute("lifetime", element=element)
-        attr.set_data(default_value=float(val), source=self._source_info(f"Lifetime for {sector}_production from process_parametrization.xlsx."))
+        description, has_unit = self._SIMPLE_ATTRS[attr_name]
+        attr = Attribute(attr_name, element=element)
+        kwargs = {"default_value": float(val), "source": self._source_info(description.format(sector=sector))}
+        if has_unit:
+            kwargs["unit"] = data[attr_name].get("unit")
+        attr.set_data(**kwargs)
         return attr
+
+    def get_lifetime(self, element: Element, sector: str) -> Attribute:
+        return self._get_attr_from_tech_dict(element, sector, "lifetime")
 
     def get_capex_specific_conversion(self, element: Element, sector: str) -> Attribute:
-        data = self.get_production_tech_dict(sector)
-        val = data["capex_specific_conversion"]["default_value"]
-        if val == "inf":
-            val = np.inf
-        attr = Attribute("capex_specific_conversion", element=element)
-        attr.set_data(default_value=float(val), unit=data["capex_specific_conversion"].get("unit"), source=self._source_info(f"CAPEX for {sector}_production."))
-        return attr
+        return self._get_attr_from_tech_dict(element, sector, "capex_specific_conversion")
 
     def get_opex_specific_fixed(self, element: Element, sector: str) -> Attribute:
-        data = self.get_production_tech_dict(sector)
-        val = data["opex_specific_fixed"]["default_value"]
-        if val == "inf":
-            val = np.inf
-        attr = Attribute("opex_specific_fixed", element=element)
-        attr.set_data(default_value=float(val), unit=data["opex_specific_fixed"].get("unit"), source=self._source_info(f"Fixed OPEX for {sector}_production."))
-        return attr
+        return self._get_attr_from_tech_dict(element, sector, "opex_specific_fixed")
 
     def get_opex_specific_variable(self, element: Element, sector: str) -> Attribute:
-        data = self.get_production_tech_dict(sector)
-        val = data["opex_specific_variable"]["default_value"]
-        if val == "inf":
-            val = np.inf
-        attr = Attribute("opex_specific_variable", element=element)
-        attr.set_data(default_value=float(val), unit=data["opex_specific_variable"].get("unit"), source=self._source_info(f"Variable OPEX for {sector}_production."))
-        return attr
+        return self._get_attr_from_tech_dict(element, sector, "opex_specific_variable")
 
     def get_carbon_intensity_technology(self, element: Element, sector: str) -> Attribute:
-        data = self.get_production_tech_dict(sector)
-        val = data["carbon_intensity_technology"]["default_value"]
-        if val == "inf":
-            val = np.inf
-        attr = Attribute("carbon_intensity_technology", element=element)
-        attr.set_data(default_value=float(val), unit=data["carbon_intensity_technology"].get("unit"), source=self._source_info(f"Carbon intensity for {sector}_production."))
-        return attr
+        return self._get_attr_from_tech_dict(element, sector, "carbon_intensity_technology")
 
     def get_max_diffusion_rate(self, element: Element, sector: str) -> Attribute:
-        data = self.get_production_tech_dict(sector)
-        val = data["max_diffusion_rate"]["default_value"]
-        if val == "inf":
-            val = np.inf
-        attr = Attribute("max_diffusion_rate", element=element)
-        attr.set_data(default_value=float(val), source=self._source_info(f"Max diffusion rate for {sector}_production."))
-        return attr
+        return self._get_attr_from_tech_dict(element, sector, "max_diffusion_rate")
 
     def get_kiln_fuel_switch_capacity_existing(self, element: Element, fuel: str) -> Attribute:
         """Per-node capacity_existing (GW) for natural_gas_to_kilnfuel/hydrogen_to_kilnfuel/

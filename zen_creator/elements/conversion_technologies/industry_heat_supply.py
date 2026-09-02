@@ -159,221 +159,146 @@ class HeatPumpIndustry150200Water(_hp_methods("heat_pump_industry", "heat_pump_i
 
 
 # -- Boilers (produce heat_industry_150_200 only) ----------------------------
+#
+# Every boiler shares the same carrier wiring, carbon-intensity/diffusion-rate
+# source (HeatTechParametrizationDataset), and capacity_existing source
+# (EurostatBoilerDataset) -- see _boiler_carrier_methods(). Five of the six
+# also share the same cost/efficiency source (DeaIndustrialHeatDataset) -- see
+# _dea_boiler_cost_methods(). waste_boiler_industry has no DEA sheet, so it
+# supplies its own conversion_factor/lifetime/capex/opex from
+# WasteBoilerDhProxyDataset instead, reusing only _boiler_carrier_methods().
 
-class BiomassBoilerIndustry(ConversionTechnology):
+def _boiler_carrier_methods(tech_name: str, carrier: str):
+    """Return a dict of _set_* methods shared by every boiler regardless of
+    its cost/efficiency data source."""
+
+    class _Mixin:
+        def _set_reference_carrier(self) -> Attribute:
+            return Attribute("reference_carrier", default_value=["heat_industry_150_200"], element=self)
+
+        def _set_input_carrier(self) -> Attribute:
+            return Attribute("input_carrier", default_value=[carrier], element=self)
+
+        def _set_output_carrier(self) -> Attribute:
+            return Attribute("output_carrier", default_value=["heat_industry_150_200"], element=self)
+
+        def _set_carbon_intensity_technology(self) -> Attribute:
+            return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, tech_name)
+
+        def _set_max_diffusion_rate(self) -> Attribute:
+            return HeatTechParametrizationDataset().get_max_diffusion_rate(self, tech_name)
+
+        def _set_capacity_existing(self) -> Attribute:
+            return EurostatBoilerDataset().get_boiler_capacity(self, tech_name, FEC_YEAR, CAPACITY_YEAR)
+
+    return _Mixin
+
+
+def _dea_boiler_cost_methods(tech_name: str, carrier: str):
+    """Return a dict of _set_* methods for the five boilers whose cost and
+    efficiency data comes from the Danish Energy Agency catalogue."""
+
+    class _Mixin:
+        def _set_conversion_factor(self) -> Attribute:
+            return DeaIndustrialHeatDataset().get_conversion_factor(self, tech_name, carrier)
+
+        def _set_lifetime(self) -> Attribute:
+            return DeaIndustrialHeatDataset().get_lifetime(self, tech_name)
+
+        def _set_capex_specific_conversion(self) -> Attribute:
+            return DeaIndustrialHeatDataset().get_capex_specific_conversion(self, tech_name)
+
+        def _set_opex_specific_fixed(self) -> Attribute:
+            return DeaIndustrialHeatDataset().get_opex_specific_fixed(self, tech_name)
+
+        def _set_opex_specific_variable(self) -> Attribute:
+            return DeaIndustrialHeatDataset().get_opex_specific_variable(self, tech_name)
+
+    return _Mixin
+
+
+class BiomassBoilerIndustry(
+    _dea_boiler_cost_methods("biomass_boiler_industry", "biomass"),
+    _boiler_carrier_methods("biomass_boiler_industry", "biomass"),
+    ConversionTechnology,
+):
+    """Biomass-fired boiler producing heat_industry_150_200; cost/efficiency
+    from DEA sheet "6.2 Boiler, biomass"."""
+
     name = "biomass_boiler_industry"
 
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
 
-    def _set_reference_carrier(self) -> Attribute:
-        return Attribute("reference_carrier", default_value=["heat_industry_150_200"], element=self)
 
-    def _set_input_carrier(self) -> Attribute:
-        return Attribute("input_carrier", default_value=["biomass"], element=self)
+class ElectrodeBoilerIndustry(
+    _dea_boiler_cost_methods("electrode_boiler_industry", "electricity"),
+    _boiler_carrier_methods("electrode_boiler_industry", "electricity"),
+    ConversionTechnology,
+):
+    """Electric boiler producing heat_industry_150_200; cost/efficiency from
+    DEA sheet "5.1a Electric boiler steam"."""
 
-    def _set_output_carrier(self) -> Attribute:
-        return Attribute("output_carrier", default_value=["heat_industry_150_200"], element=self)
-
-    def _set_conversion_factor(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_conversion_factor(self, "biomass_boiler_industry", "biomass")
-
-    def _set_lifetime(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_lifetime(self, "biomass_boiler_industry")
-
-    def _set_capex_specific_conversion(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_capex_specific_conversion(self, "biomass_boiler_industry")
-
-    def _set_opex_specific_fixed(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_opex_specific_fixed(self, "biomass_boiler_industry")
-
-    def _set_opex_specific_variable(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_opex_specific_variable(self, "biomass_boiler_industry")
-
-    def _set_carbon_intensity_technology(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, "biomass_boiler_industry")
-
-    def _set_max_diffusion_rate(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_max_diffusion_rate(self, "biomass_boiler_industry")
-
-    def _set_capacity_existing(self) -> Attribute:
-        return EurostatBoilerDataset().get_biomass_boiler_capacity(self, FEC_YEAR, CAPACITY_YEAR)
-
-
-class ElectrodeBoilerIndustry(ConversionTechnology):
     name = "electrode_boiler_industry"
 
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
 
-    def _set_reference_carrier(self) -> Attribute:
-        return Attribute("reference_carrier", default_value=["heat_industry_150_200"], element=self)
 
-    def _set_input_carrier(self) -> Attribute:
-        return Attribute("input_carrier", default_value=["electricity"], element=self)
+class NaturalGasBoilerIndustry(
+    _dea_boiler_cost_methods("natural_gas_boiler_industry", "natural_gas"),
+    _boiler_carrier_methods("natural_gas_boiler_industry", "natural_gas"),
+    ConversionTechnology,
+):
+    """Natural-gas-fired boiler producing heat_industry_150_200;
+    cost/efficiency from DEA sheet "6.1 Boiler, gas and oil"."""
 
-    def _set_output_carrier(self) -> Attribute:
-        return Attribute("output_carrier", default_value=["heat_industry_150_200"], element=self)
-
-    def _set_conversion_factor(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_conversion_factor(self, "electrode_boiler_industry", "electricity")
-
-    def _set_lifetime(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_lifetime(self, "electrode_boiler_industry")
-
-    def _set_capex_specific_conversion(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_capex_specific_conversion(self, "electrode_boiler_industry")
-
-    def _set_opex_specific_fixed(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_opex_specific_fixed(self, "electrode_boiler_industry")
-
-    def _set_opex_specific_variable(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_opex_specific_variable(self, "electrode_boiler_industry")
-
-    def _set_carbon_intensity_technology(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, "electrode_boiler_industry")
-
-    def _set_max_diffusion_rate(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_max_diffusion_rate(self, "electrode_boiler_industry")
-
-    def _set_capacity_existing(self) -> Attribute:
-        return EurostatBoilerDataset().get_electrode_boiler_capacity(self, FEC_YEAR, CAPACITY_YEAR)
-
-
-class NaturalGasBoilerIndustry(ConversionTechnology):
     name = "natural_gas_boiler_industry"
 
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
 
-    def _set_reference_carrier(self) -> Attribute:
-        return Attribute("reference_carrier", default_value=["heat_industry_150_200"], element=self)
 
-    def _set_input_carrier(self) -> Attribute:
-        return Attribute("input_carrier", default_value=["natural_gas"], element=self)
+class OilBoilerIndustry(
+    _dea_boiler_cost_methods("oil_boiler_industry", "oil"),
+    _boiler_carrier_methods("oil_boiler_industry", "oil"),
+    ConversionTechnology,
+):
+    """Oil-fired boiler producing heat_industry_150_200; cost/efficiency from
+    DEA sheet "6.1 Boiler, gas and oil" (shared with the natural-gas boiler)."""
 
-    def _set_output_carrier(self) -> Attribute:
-        return Attribute("output_carrier", default_value=["heat_industry_150_200"], element=self)
-
-    def _set_conversion_factor(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_conversion_factor(self, "natural_gas_boiler_industry", "natural_gas")
-
-    def _set_lifetime(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_lifetime(self, "natural_gas_boiler_industry")
-
-    def _set_capex_specific_conversion(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_capex_specific_conversion(self, "natural_gas_boiler_industry")
-
-    def _set_opex_specific_fixed(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_opex_specific_fixed(self, "natural_gas_boiler_industry")
-
-    def _set_opex_specific_variable(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_opex_specific_variable(self, "natural_gas_boiler_industry")
-
-    def _set_carbon_intensity_technology(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, "natural_gas_boiler_industry")
-
-    def _set_max_diffusion_rate(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_max_diffusion_rate(self, "natural_gas_boiler_industry")
-
-    def _set_capacity_existing(self) -> Attribute:
-        return EurostatBoilerDataset().get_natural_gas_boiler_capacity(self, FEC_YEAR, CAPACITY_YEAR)
-
-
-class OilBoilerIndustry(ConversionTechnology):
     name = "oil_boiler_industry"
 
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
 
-    def _set_reference_carrier(self) -> Attribute:
-        return Attribute("reference_carrier", default_value=["heat_industry_150_200"], element=self)
 
-    def _set_input_carrier(self) -> Attribute:
-        return Attribute("input_carrier", default_value=["oil"], element=self)
+class CoalBoilerIndustry(
+    _dea_boiler_cost_methods("coal_boiler_industry", "hard_coal"),
+    _boiler_carrier_methods("coal_boiler_industry", "hard_coal"),
+    ConversionTechnology,
+):
+    """Hard-coal-fired boiler producing heat_industry_150_200;
+    cost/efficiency from DEA sheet "6.3 Boiler, coal"."""
 
-    def _set_output_carrier(self) -> Attribute:
-        return Attribute("output_carrier", default_value=["heat_industry_150_200"], element=self)
-
-    def _set_conversion_factor(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_conversion_factor(self, "oil_boiler_industry", "oil")
-
-    def _set_lifetime(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_lifetime(self, "oil_boiler_industry")
-
-    def _set_capex_specific_conversion(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_capex_specific_conversion(self, "oil_boiler_industry")
-
-    def _set_opex_specific_fixed(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_opex_specific_fixed(self, "oil_boiler_industry")
-
-    def _set_opex_specific_variable(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_opex_specific_variable(self, "oil_boiler_industry")
-
-    def _set_carbon_intensity_technology(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, "oil_boiler_industry")
-
-    def _set_max_diffusion_rate(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_max_diffusion_rate(self, "oil_boiler_industry")
-
-    def _set_capacity_existing(self) -> Attribute:
-        return EurostatBoilerDataset().get_oil_boiler_capacity(self, FEC_YEAR, CAPACITY_YEAR)
-
-
-class CoalBoilerIndustry(ConversionTechnology):
     name = "coal_boiler_industry"
 
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
 
-    def _set_reference_carrier(self) -> Attribute:
-        return Attribute("reference_carrier", default_value=["heat_industry_150_200"], element=self)
 
-    def _set_input_carrier(self) -> Attribute:
-        return Attribute("input_carrier", default_value=["hard_coal"], element=self)
+class WasteBoilerIndustry(
+    _boiler_carrier_methods("waste_boiler_industry", "waste"),
+    ConversionTechnology,
+):
+    """Waste-fired boiler producing heat_industry_150_200. No DEA sheet
+    exists for this technology; cost/efficiency are proxied from Crystal
+    Ball's own waste_boiler_DH (see waste_boiler_dh_proxy.py)."""
 
-    def _set_output_carrier(self) -> Attribute:
-        return Attribute("output_carrier", default_value=["heat_industry_150_200"], element=self)
-
-    def _set_conversion_factor(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_conversion_factor(self, "coal_boiler_industry", "hard_coal")
-
-    def _set_lifetime(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_lifetime(self, "coal_boiler_industry")
-
-    def _set_capex_specific_conversion(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_capex_specific_conversion(self, "coal_boiler_industry")
-
-    def _set_opex_specific_fixed(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_opex_specific_fixed(self, "coal_boiler_industry")
-
-    def _set_opex_specific_variable(self) -> Attribute:
-        return DeaIndustrialHeatDataset().get_opex_specific_variable(self, "coal_boiler_industry")
-
-    def _set_carbon_intensity_technology(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, "coal_boiler_industry")
-
-    def _set_max_diffusion_rate(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_max_diffusion_rate(self, "coal_boiler_industry")
-
-    def _set_capacity_existing(self) -> Attribute:
-        return EurostatBoilerDataset().get_coal_boiler_capacity(self, FEC_YEAR, CAPACITY_YEAR)
-
-
-class WasteBoilerIndustry(ConversionTechnology):
     name = "waste_boiler_industry"
 
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
-
-    def _set_reference_carrier(self) -> Attribute:
-        return Attribute("reference_carrier", default_value=["heat_industry_150_200"], element=self)
-
-    def _set_input_carrier(self) -> Attribute:
-        return Attribute("input_carrier", default_value=["waste"], element=self)
-
-    def _set_output_carrier(self) -> Attribute:
-        return Attribute("output_carrier", default_value=["heat_industry_150_200"], element=self)
 
     def _set_conversion_factor(self) -> Attribute:
         return WasteBoilerDhProxyDataset().get_conversion_factor(self)
@@ -389,15 +314,6 @@ class WasteBoilerIndustry(ConversionTechnology):
 
     def _set_opex_specific_variable(self) -> Attribute:
         return WasteBoilerDhProxyDataset().get_opex_specific_variable(self)
-
-    def _set_carbon_intensity_technology(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, "waste_boiler_industry")
-
-    def _set_max_diffusion_rate(self) -> Attribute:
-        return HeatTechParametrizationDataset().get_max_diffusion_rate(self, "waste_boiler_industry")
-
-    def _set_capacity_existing(self) -> Attribute:
-        return EurostatBoilerDataset().get_waste_boiler_capacity(self, FEC_YEAR, CAPACITY_YEAR)
 
 
 # -- Temperature conversion cascade ------------------------------------------
@@ -462,97 +378,70 @@ class HeatIndustryTempConversion100(ConversionTechnology):
 # defaults) — this models only the fuel-choice decision, not burner-conversion capex;
 # conversion_factor carries the real, AIDRES-derived route efficiency instead.
 
-class NaturalGasToKilnfuel(ConversionTechnology):
+def _kiln_fuel_methods(fuel: str, with_diffusion_cap: bool):
+    """Return a dict of _set_* methods shared by every kiln-fuel-switching
+    technology. `max_diffusion_rate` is only defined when `with_diffusion_cap`
+    is true -- natural_gas_to_kilnfuel (the incumbent) has no diffusion cap;
+    hydrogen/electricity_to_kilnfuel (the switching alternatives) do."""
+
+    class _Mixin:
+        def _set_reference_carrier(self) -> Attribute:
+            return Attribute("reference_carrier", default_value=["fuel_to_kiln"], element=self)
+
+        def _set_input_carrier(self) -> Attribute:
+            return Attribute("input_carrier", default_value=[fuel], element=self)
+
+        def _set_output_carrier(self) -> Attribute:
+            return Attribute("output_carrier", default_value=["fuel_to_kiln"], element=self)
+
+        def _set_conversion_factor(self) -> Attribute:
+            cf = KILN_FUEL_SWITCH_CF[fuel]
+            return Attribute(
+                "conversion_factor",
+                default_value=[{fuel: {"default_value": cf, "unit": "GW/GW"}}],
+                element=self,
+            )
+
+        def _set_lifetime(self) -> Attribute:
+            return Attribute("lifetime", default_value=float(KILN_FUEL_TECH_LIFETIME), unit="1", element=self)
+
+        def _set_capacity_existing(self) -> Attribute:
+            return ProcessParametrizationDataset().get_kiln_fuel_switch_capacity_existing(self, fuel)
+
+    if with_diffusion_cap:
+        def _set_max_diffusion_rate(self) -> Attribute:
+            return Attribute("max_diffusion_rate", default_value=0.13, unit="1", element=self)
+
+        _Mixin._set_max_diffusion_rate = _set_max_diffusion_rate
+
+    return _Mixin
+
+
+class NaturalGasToKilnfuel(_kiln_fuel_methods("natural_gas", with_diffusion_cap=False), ConversionTechnology):
+    """Converts natural_gas into the shared fuel_to_kiln carrier -- the
+    incumbent kiln fuel route, with existing capacity and no diffusion cap."""
+
     name = "natural_gas_to_kilnfuel"
 
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
 
-    def _set_reference_carrier(self) -> Attribute:
-        return Attribute("reference_carrier", default_value=["fuel_to_kiln"], element=self)
 
-    def _set_input_carrier(self) -> Attribute:
-        return Attribute("input_carrier", default_value=["natural_gas"], element=self)
+class HydrogenToKilnfuel(_kiln_fuel_methods("hydrogen", with_diffusion_cap=True), ConversionTechnology):
+    """Converts hydrogen into the shared fuel_to_kiln carrier -- a switching
+    alternative to natural_gas_to_kilnfuel, built from scratch."""
 
-    def _set_output_carrier(self) -> Attribute:
-        return Attribute("output_carrier", default_value=["fuel_to_kiln"], element=self)
-
-    def _set_conversion_factor(self) -> Attribute:
-        cf = KILN_FUEL_SWITCH_CF["natural_gas"]
-        return Attribute(
-            "conversion_factor",
-            default_value=[{"natural_gas": {"default_value": cf, "unit": "GW/GW"}}],
-            element=self,
-        )
-
-    def _set_lifetime(self) -> Attribute:
-        return Attribute("lifetime", default_value=float(KILN_FUEL_TECH_LIFETIME), unit="1", element=self)
-
-    def _set_capacity_existing(self) -> Attribute:
-        return ProcessParametrizationDataset().get_kiln_fuel_switch_capacity_existing(self, "natural_gas")
-
-
-class HydrogenToKilnfuel(ConversionTechnology):
     name = "hydrogen_to_kilnfuel"
 
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
 
-    def _set_reference_carrier(self) -> Attribute:
-        return Attribute("reference_carrier", default_value=["fuel_to_kiln"], element=self)
 
-    def _set_input_carrier(self) -> Attribute:
-        return Attribute("input_carrier", default_value=["hydrogen"], element=self)
+class ElectricityToKilnfuel(_kiln_fuel_methods("electricity", with_diffusion_cap=True), ConversionTechnology):
+    """Converts electricity into the shared fuel_to_kiln carrier -- a
+    switching alternative to natural_gas_to_kilnfuel, built from scratch."""
 
-    def _set_output_carrier(self) -> Attribute:
-        return Attribute("output_carrier", default_value=["fuel_to_kiln"], element=self)
-
-    def _set_conversion_factor(self) -> Attribute:
-        cf = KILN_FUEL_SWITCH_CF["hydrogen"]
-        return Attribute(
-            "conversion_factor",
-            default_value=[{"hydrogen": {"default_value": cf, "unit": "GW/GW"}}],
-            element=self,
-        )
-
-    def _set_lifetime(self) -> Attribute:
-        return Attribute("lifetime", default_value=float(KILN_FUEL_TECH_LIFETIME), unit="1", element=self)
-
-    def _set_max_diffusion_rate(self) -> Attribute:
-        return Attribute("max_diffusion_rate", default_value=0.13, unit="1", element=self)
-
-    def _set_capacity_existing(self) -> Attribute:
-        return ProcessParametrizationDataset().get_kiln_fuel_switch_capacity_existing(self, "hydrogen")
-
-
-class ElectricityToKilnfuel(ConversionTechnology):
     name = "electricity_to_kilnfuel"
 
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
-
-    def _set_reference_carrier(self) -> Attribute:
-        return Attribute("reference_carrier", default_value=["fuel_to_kiln"], element=self)
-
-    def _set_input_carrier(self) -> Attribute:
-        return Attribute("input_carrier", default_value=["electricity"], element=self)
-
-    def _set_output_carrier(self) -> Attribute:
-        return Attribute("output_carrier", default_value=["fuel_to_kiln"], element=self)
-
-    def _set_conversion_factor(self) -> Attribute:
-        cf = KILN_FUEL_SWITCH_CF["electricity"]
-        return Attribute(
-            "conversion_factor",
-            default_value=[{"electricity": {"default_value": cf, "unit": "GW/GW"}}],
-            element=self,
-        )
-
-    def _set_lifetime(self) -> Attribute:
-        return Attribute("lifetime", default_value=float(KILN_FUEL_TECH_LIFETIME), unit="1", element=self)
-
-    def _set_max_diffusion_rate(self) -> Attribute:
-        return Attribute("max_diffusion_rate", default_value=0.13, unit="1", element=self)
-
-    def _set_capacity_existing(self) -> Attribute:
-        return ProcessParametrizationDataset().get_kiln_fuel_switch_capacity_existing(self, "electricity")

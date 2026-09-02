@@ -99,7 +99,7 @@ class GenericRetrofittingTechnology(RetrofittingTechnology):
         return attr
 
     def _set_input_carrier(self) -> Attribute:
-        attr = self.input_carrier  # get default value`
+        attr = self.input_carrier  # get default value
         return attr
 
     def _set_output_carrier(self) -> Attribute:

@@ -36,8 +36,6 @@ _TEMP_COLUMNS = {
     "500-1000": "temp_500_1000",
     ">1000": "temp_gt1000",
 }
-LOW_TEMP_BINS = ("<100", "100-200")
-
 
 def _load_rehfeldt_sector(sector: str) -> dict:
     df = pd.read_csv(_REHFELDT_DIR / "Rehfeldt2017.csv")
@@ -103,10 +101,6 @@ def weighted_avg_temp_dist(data: dict, weights: dict) -> dict:
     return result
 
 
-def low_temp_fraction(temp_dist: dict) -> float:
-    return sum(temp_dist[b] for b in LOW_TEMP_BINS)
-
-
 def GJ_per_t_to_conversion_factor(energy_GJ_t: float) -> float:
     return energy_GJ_t / 3600.0
 
@@ -138,11 +132,6 @@ class SectorParams:
     @property
     def lt_GJ_t(self) -> float:
         return self.lt_GJ_t_0_100 + self.lt_GJ_t_100_200
-
-    @property
-    def lt_frac(self) -> float:
-        total = self.fuel_GJ_t + self.lt_GJ_t
-        return self.lt_GJ_t / total if total > 0 else 0.0
 
     @property
     def cf_lt(self) -> float:
@@ -177,10 +166,6 @@ def idees_workbook_path(country: str, dataset: str) -> Path:
     return _IDEES_ROOT / country / f"JRC-IDEES-2023_{dataset}_{country}.xlsx"
 
 
-def idees_read_sheet(country: str, dataset: str, sheet_name: str | int = 0) -> pd.DataFrame:
-    return pd.read_excel(idees_workbook_path(country, dataset), sheet_name=sheet_name)
-
-
 def idees_year_column(year: int) -> int:
     return year - IDEES_FIRST_YEAR + 1
 
@@ -190,7 +175,6 @@ def idees_year_column(year: int) -> int:
 # ---------------------------------------------------------------------------
 _FAOSTAT_DIR = INPUT_DATA / "FAOSTAT"
 _FAOSTAT_PROD_FILE = _FAOSTAT_DIR / "Production_Crops_Livestock_E_Europe.csv"
-_FAOSTAT_FBS_FILE = _FAOSTAT_DIR / "FoodBalanceSheets_E_Europe.csv"
 
 NODE_TO_AREA = {
     "AT": "Austria", "BE": "Belgium", "BG": "Bulgaria", "CH": "Switzerland",
@@ -204,18 +188,10 @@ NODE_TO_AREA = {
 }
 
 
+@functools.lru_cache(maxsize=None)
 def faostat_production_by_node(item: str, year: int) -> dict[str, float]:
     df = pd.read_csv(_FAOSTAT_PROD_FILE, encoding="latin1", usecols=["Area", "Item", "Element", f"Y{year}"])
     rows = df[(df["Element"] == "Production") & (df["Item"] == item)].set_index("Area")[f"Y{year}"]
-    return {
-        node: float(rows[area]) if area in rows.index and pd.notna(rows[area]) else 0.0
-        for node, area in NODE_TO_AREA.items()
-    }
-
-
-def faostat_feed_by_node(item: str, year: int) -> dict[str, float]:
-    df = pd.read_csv(_FAOSTAT_FBS_FILE, encoding="latin1", usecols=["Area", "Item", "Element", f"Y{year}"])
-    rows = df[(df["Element"] == "Feed") & (df["Item"] == item)].drop_duplicates("Area").set_index("Area")[f"Y{year}"]
     return {
         node: float(rows[area]) if area in rows.index and pd.notna(rows[area]) else 0.0
         for node, area in NODE_TO_AREA.items()
@@ -269,6 +245,7 @@ def thermal_fec_by_carrier(df: pd.DataFrame, parent_rows: list[str], year: int) 
     return totals
 
 
+@functools.lru_cache(maxsize=None)
 def read_sector_thermal_fec(country: str, sector: str, year: int) -> dict[str, float]:
     sheet, parent_rows = SECTOR_THERMAL_FEC_ROWS[sector]
     df = pd.read_excel(idees_workbook_path(country, "Industry"), sheet_name=sheet, header=None)
@@ -294,8 +271,6 @@ def renormalized_fuel_shares(shares: dict[str, float], cutoff: float = 0.10) -> 
 # ---------------------------------------------------------------------------
 LIST_FIELDS = ("reference_carrier", "input_carrier", "output_carrier")
 CONVERSION_FACTOR_PREFIX = "conversion_factor:"
-META_COLUMNS = {"parameter", "unit", "source", "comment"}
-COMPARISON_PREFIX = "XX_"
 
 
 def _label_to_row(ws) -> dict[str, int]:
@@ -318,15 +293,6 @@ def load_param_column(xlsx_path: Path, sheet_name: str, column_header: str) -> d
     ws = wb[sheet_name]
     col = _column_index(ws, column_header)
     return {label: ws.cell(row=row, column=col).value for label, row in _label_to_row(ws).items()}
-
-
-def tech_columns(xlsx_path: Path, sheet_name: str) -> list[str]:
-    wb = openpyxl.load_workbook(xlsx_path)
-    ws = wb[sheet_name]
-    return [
-        cell.value for cell in ws[1]
-        if cell.value not in META_COLUMNS and not str(cell.value).startswith(COMPARISON_PREFIX)
-    ]
 
 
 def build_tech_from_table(xlsx_path: Path, sheet_name: str, column_header: str) -> dict:
@@ -546,6 +512,11 @@ OPERATING_HOURS = 8000
 HOURS_PER_YEAR = 8760
 KTOE_TO_GJ = 41868.0  # 1 ktoe = 1000 toe × 41.868 GJ/toe
 
+# Population-proxy scaling for UK (not covered by JRC-IDEES): DE 2023 population
+# 83.5M, UK 2023 population 69.9M (Eurostat/ONS). Used to scale glass/ceramic
+# capacity_existing/demand from DE as a population proxy.
+UK_DE_POPULATION_RATIO = 69.9 / 83.5
+
 # Lifetimes (years) used to spread existing capacity across vintage cohorts.
 # Production tech lifetimes from process_parametrization.xlsx / JRC-EU-TIMES (see ASSUMPTIONS.md).
 # Boiler lifetimes from heat_tech_parametrization.xlsx (Crystal Ball values).
@@ -573,18 +544,6 @@ FOOD_PRODUCTION_ITEMS = {
     "brewing": "Beer of barley, malted", "bread_bakery": "Wheat",
     "sugar": "Raw cane or beet sugar (centrifugal only)",
 }
-FOOD_FEED_ITEMS = {
-    "dairy": "Milk - Excluding Butter", "meat_processing": "Meat",
-    "brewing": "Barley and products", "bread_bakery": "Wheat and products",
-    "sugar": "Sugar beet",
-}
-
-DAVID2017_COUNTRY_TO_NODE = {
-    "Austria": "AT", "Czech Republic": "CZ", "Denmark": "DK", "Finland": "FI",
-    "France": "FR", "Italy": "IT", "Netherlands": "NL", "Norway": "NO",
-    "Slovakia": "SK", "Sweden": "SE", "Switzerland": "CH",
-}
-DAVID2017_DEFAULT_YEAR = 1998
 
 EUROSTAT_COUNTRY_TO_NODE = {
     "Belgium": "BE", "Bulgaria": "BG", "Czechia": "CZ", "Denmark": "DK",
@@ -634,6 +593,7 @@ def section_by_label(df: pd.DataFrame, year: int, header: str) -> dict[str, floa
     return values
 
 
+@functools.lru_cache(maxsize=None)
 def _sector_kt(country: str, sector: str, year: int, header: str) -> float:
     sheet, row_labels = SECTOR_CAPACITY_ROWS[sector]
     df = pd.read_excel(idees_workbook_path(country, "Industry"), sheet_name=sheet, header=None)
@@ -649,6 +609,7 @@ def physical_output_kt(country, sector, year):
     return _sector_kt(country, sector, year, PHYSICAL_OUTPUT_HEADER)
 
 
+@functools.lru_cache(maxsize=None)
 def capacity_existing_df(sector, year, lifetime=None, year_construction=None):
     # Compute total capacity per node
     node_caps: dict[str, float] = {}
@@ -659,7 +620,7 @@ def capacity_existing_df(sector, year, lifetime=None, year_construction=None):
     if sector in ("glass", "ceramic"):
         node_caps["CH"] = node_caps["AT"]
         node_caps["NO"] = node_caps["FI"]
-        node_caps["UK"] = node_caps["DE"] * (69.9 / 83.5)
+        node_caps["UK"] = node_caps["DE"] * UK_DE_POPULATION_RATIO
 
     # Build rows: spread uniformly over `lifetime` vintage years ending at reference_year,
     # or return a single row (backward-compatible path used by demand methods).
@@ -676,6 +637,7 @@ def capacity_existing_df(sector, year, lifetime=None, year_construction=None):
     return pd.DataFrame(rows)
 
 
+@functools.lru_cache(maxsize=None)
 def industry_demand_df(sector, year):
     rows = []
     for node in MODEL_NODES:
@@ -694,10 +656,11 @@ def industry_demand_df(sector, year):
         # NO: use FI values (5.6M vs 5.6M — same population)
         df.loc[df["node"] == "NO", "demand"] = fi_demand
         # UK: scale from DE by population ratio (69.9M / 83.5M)
-        df.loc[df["node"] == "UK", "demand"] = de_demand * (69.9 / 83.5)
+        df.loc[df["node"] == "UK", "demand"] = de_demand * UK_DE_POPULATION_RATIO
     return df
 
 
+@functools.lru_cache(maxsize=None)
 def ceramic_demand_from_fec_df(year: int) -> pd.DataFrame:
     """Derive ceramic production (kt/yr) from JRC-IDEES thermal FEC ÷ Rehfeldt specific energy.
 
@@ -726,10 +689,11 @@ def ceramic_demand_from_fec_df(year: int) -> pd.DataFrame:
     de_kt = float(df.loc[df["node"] == "DE", "kt_yr"].values[0])
     df.loc[df["node"] == "CH", "kt_yr"] = at_kt
     df.loc[df["node"] == "NO", "kt_yr"] = fi_kt
-    df.loc[df["node"] == "UK", "kt_yr"] = de_kt * (69.9 / 83.5)
+    df.loc[df["node"] == "UK", "kt_yr"] = de_kt * UK_DE_POPULATION_RATIO
     return df
 
 
+@functools.lru_cache(maxsize=None)
 def food_capacity_existing_df(year, lifetime=None, year_construction=None):
     activity_mt = {node: 0.0 for node in MODEL_NODES}
     for subsector, item in FOOD_PRODUCTION_ITEMS.items():
@@ -752,18 +716,6 @@ def food_capacity_existing_df(year, lifetime=None, year_construction=None):
     return pd.DataFrame(rows)
 
 
-def food_demand_df(year):
-    feed_kt = {node: 0.0 for node in MODEL_NODES}
-    for item in FOOD_FEED_ITEMS.values():
-        feed = faostat_feed_by_node(item, year)
-        for node in MODEL_NODES:
-            feed_kt[node] += feed[node]
-    return pd.DataFrame([
-        {"node": node, "demand": feed_kt[node] * 1000 / HOURS_PER_YEAR}
-        for node in MODEL_NODES
-    ])
-
-
 def heat_pump_capacity_existing_df():
     return pd.DataFrame([
         {"node": node, "year_construction": 2022, "capacity_existing": 0.0}
@@ -771,6 +723,7 @@ def heat_pump_capacity_existing_df():
     ])
 
 
+@functools.lru_cache(maxsize=None)
 def eurostat_gross_heat_gwh(sheet, year, xlsx=EUROSTAT_EB_XLSX):
     df = pd.read_excel(INPUT_DATA / "Eurostat" / xlsx, sheet_name=sheet, header=None)
     [header_row] = df.index[df[0] == "TIME"]
@@ -799,16 +752,6 @@ def _boiler_capacity_df_from_node_caps(node_caps, year, lifetime, year_construct
         for node in MODEL_NODES:
             rows.append({"node": node, "year_construction": ref_year, "capacity_existing": node_caps[node]})
     return pd.DataFrame(rows)
-
-
-def boiler_capacity_existing_df(sheet, year, lifetime=None, year_construction=None):
-    heat_gwh = eurostat_gross_heat_gwh(sheet, year)
-    node_caps: dict[str, float] = {}
-    for node in MODEL_NODES:
-        country = NODE_TO_EUROSTAT_COUNTRY.get(node)
-        gwh = heat_gwh.get(country, 0.0) if country else 0.0
-        node_caps[node] = gwh / OPERATING_HOURS
-    return _boiler_capacity_df_from_node_caps(node_caps, year, lifetime, year_construction)
 
 
 def total_industry_heat_demand_gw(year: int) -> dict[str, float]:
@@ -988,43 +931,12 @@ def _demand_based_boiler_capacity_gw(year: int) -> dict[str, dict[str, float]]:
     return result
 
 
-def biomass_boiler_capacity_existing_df(year, lifetime=None, year_construction=None):
+def boiler_capacity_existing_df_for_fuel(fuel_key: str, year, lifetime=None, year_construction=None):
+    """Per-node boiler capacity_existing (GW) for one fuel ("biomass",
+    "natural_gas", "electrode", "oil", "coal", or "waste"), scaled from
+    total industry heat demand via Eurostat/BFE fuel-mix shares -- see
+    _demand_based_boiler_capacity_gw()."""
     caps = _demand_based_boiler_capacity_gw(year)
     return _boiler_capacity_df_from_node_caps(
-        {node: caps[node]["biomass"] for node in MODEL_NODES}, year, lifetime, year_construction
-    )
-
-
-def natural_gas_boiler_capacity_existing_df(year, lifetime=None, year_construction=None):
-    caps = _demand_based_boiler_capacity_gw(year)
-    return _boiler_capacity_df_from_node_caps(
-        {node: caps[node]["natural_gas"] for node in MODEL_NODES}, year, lifetime, year_construction
-    )
-
-
-def electrode_boiler_capacity_existing_df(year, lifetime=None, year_construction=None):
-    caps = _demand_based_boiler_capacity_gw(year)
-    return _boiler_capacity_df_from_node_caps(
-        {node: caps[node]["electrode"] for node in MODEL_NODES}, year, lifetime, year_construction
-    )
-
-
-def oil_boiler_capacity_existing_df(year, lifetime=None, year_construction=None):
-    caps = _demand_based_boiler_capacity_gw(year)
-    return _boiler_capacity_df_from_node_caps(
-        {node: caps[node]["oil"] for node in MODEL_NODES}, year, lifetime, year_construction
-    )
-
-
-def coal_boiler_capacity_existing_df(year, lifetime=None, year_construction=None):
-    caps = _demand_based_boiler_capacity_gw(year)
-    return _boiler_capacity_df_from_node_caps(
-        {node: caps[node]["coal"] for node in MODEL_NODES}, year, lifetime, year_construction
-    )
-
-
-def waste_boiler_capacity_existing_df(year, lifetime=None, year_construction=None):
-    caps = _demand_based_boiler_capacity_gw(year)
-    return _boiler_capacity_df_from_node_caps(
-        {node: caps[node]["waste"] for node in MODEL_NODES}, year, lifetime, year_construction
+        {node: caps[node][fuel_key] for node in MODEL_NODES}, year, lifetime, year_construction
     )

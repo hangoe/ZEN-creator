@@ -14,7 +14,6 @@ from zen_creator.datasets.datasets._industry_heat_utils import (
     INPUT_DATA,
     SECTOR_LIFETIMES,
     food_capacity_existing_df,
-    food_demand_df,
 )
 from zen_creator.datasets.datasets.dataset import Dataset
 from zen_creator.datasets.datasets.metadata import MetaData, SourceInformation
@@ -65,14 +64,5 @@ class FaostatFoodDataset(Dataset[pd.DataFrame]):
         attr.set_data(
             df=demand_df.set_index("node")["demand"],
             source=self._source_info("Food demand set equal to capacity_existing (v4.2 assumption)."),
-        )
-        return attr
-
-    def get_food_demand(self, element: Element, year: int) -> Attribute:
-        df = food_demand_df(year)
-        attr = Attribute("demand", default_value=0.0, unit="tonproduct/hour", element=element)
-        attr.set_data(
-            df=df.set_index("node")["demand"],
-            source=self._source_info("Food demand from FAOSTAT Food Balance Sheet."),
         )
         return attr

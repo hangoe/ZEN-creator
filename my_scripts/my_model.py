@@ -1,3 +1,4 @@
+import os
 import shutil
 from pathlib import Path
 
@@ -23,7 +24,11 @@ from zen_creator.elements.energy_systems.crystal_ball_industry import (  # noqa:
     CrystalBallIndustryEnergySystem,
 )
 
-data_path = "/Users/hannegoericke/ZEN-models/data/Crystal_Ball"
+# Override with the ZEN_CRYSTAL_BALL_DATA_PATH env var to run this on another
+# machine/checkout without editing the script.
+data_path = os.environ.get(
+    "ZEN_CRYSTAL_BALL_DATA_PATH", "/Users/hannegoericke/ZEN-models/data/Crystal_Ball"
+)
 output_path = Path(__file__).parent.parent / "outputs"
 VERSION = "Crystal_Ball_ind_heat_v9_0"
 

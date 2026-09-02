@@ -1,4 +1,3 @@
-import math
 from pathlib import Path
 
 import pandas as pd
@@ -50,63 +49,29 @@ class Mayer2024Dataset(Dataset[pd.DataFrame]):
     def _source_info(self, description: str) -> SourceInformation:
         return SourceInformation(description=description, metadata=self.metadata)
 
-    def get_efficiency_charge(self, element: Element) -> Attribute:
-        csv_name = TECH_NAME_MAP[element.name]
-        eta = float(self.data.at[csv_name, "efficiency"])
-        attr = Attribute("efficiency_charge", element=element)
-        attr.set_data(
-            default_value=math.sqrt(eta),
-            unit="1",
-            source=self._source_info(
-                "Charge efficiency = sqrt(round-trip efficiency)"
-                " from Mayer2024 Table 3."
-            ),
-        )
-        return attr
+    # attr_name -> (CSV column, description noun)
+    _COST_ATTRS: dict[str, tuple[str, str]] = {
+        "capex_specific_storage_energy": ("invest_cost_EUR_kWh", "Investment cost"),
+        "opex_specific_fixed_energy": ("fixed_OaM_cost_EUR_kWh", "Fixed O&M cost"),
+    }
 
-    def get_efficiency_discharge(self, element: Element) -> Attribute:
+    def _get_cost_attr(self, element: Element, attr_name: str) -> Attribute:
         csv_name = TECH_NAME_MAP[element.name]
-        eta = float(self.data.at[csv_name, "efficiency"])
-        attr = Attribute("efficiency_discharge", element=element)
+        column, noun = self._COST_ATTRS[attr_name]
+        cost_eur_mwh = float(self.data.at[csv_name, column]) * 1000.0
+        attr = Attribute(attr_name, element=element)
         attr.set_data(
-            default_value=math.sqrt(eta),
-            unit="1",
-            source=self._source_info(
-                "Discharge efficiency = sqrt(round-trip efficiency)"
-                " from Mayer2024 Table 3."
-            ),
+            default_value=cost_eur_mwh,
+            unit="Euro/MWh",
+            source=self._source_info(f"{noun} from Mayer2024 Table 3, converted from EUR/kWh to EUR/MWh."),
         )
         return attr
 
     def get_capex_specific_storage_energy(self, element: Element) -> Attribute:
-        csv_name = TECH_NAME_MAP[element.name]
-        cost_eur_kwh = float(self.data.at[csv_name, "invest_cost_EUR_kWh"])
-        cost_eur_mwh = cost_eur_kwh * 1000.0
-        attr = Attribute("capex_specific_storage_energy", element=element)
-        attr.set_data(
-            default_value=cost_eur_mwh,
-            unit="Euro/MWh",
-            source=self._source_info(
-                "Investment cost from Mayer2024 Table 3,"
-                " converted from EUR/kWh to EUR/MWh."
-            ),
-        )
-        return attr
+        return self._get_cost_attr(element, "capex_specific_storage_energy")
 
     def get_opex_specific_fixed_energy(self, element: Element) -> Attribute:
-        csv_name = TECH_NAME_MAP[element.name]
-        cost_eur_kwh = float(self.data.at[csv_name, "fixed_OaM_cost_EUR_kWh"])
-        cost_eur_mwh = cost_eur_kwh * 1000.0
-        attr = Attribute("opex_specific_fixed_energy", element=element)
-        attr.set_data(
-            default_value=cost_eur_mwh,
-            unit="Euro/MWh",
-            source=self._source_info(
-                "Fixed O&M cost from Mayer2024 Table 3,"
-                " converted from EUR/kWh to EUR/MWh."
-            ),
-        )
-        return attr
+        return self._get_cost_attr(element, "opex_specific_fixed_energy")
 
     def get_lifetime(self, element: Element) -> Attribute:
         csv_name = TECH_NAME_MAP[element.name]

@@ -16,7 +16,6 @@ from zen_creator.datasets.datasets._industry_heat_utils import (
     SECTOR_LIFETIMES,
     capacity_existing_df,
     ceramic_demand_from_fec_df,
-    industry_demand_df,
 )
 from zen_creator.datasets.datasets.dataset import Dataset
 from zen_creator.datasets.datasets.metadata import MetaData, SourceInformation
@@ -24,6 +23,23 @@ from zen_creator.utils.attribute import Attribute
 
 _IDEES_DIR = INPUT_DATA / "JRC-IDEES-2023"
 _BAT_PAPER_CSV = INPUT_DATA / "JRC-BAT" / "JRC_BAT_Paper2014_Table1_2.csv"
+_BAT_PAPER_NODES = {"Switzerland": "CH", "Norway": "NO", "United Kingdom": "UK"}
+
+
+def _apply_paper_bat_override(df: pd.DataFrame, value_col: str, divisor: float) -> pd.DataFrame:
+    """Overwrite `value_col` for CH/NO/UK (not covered by JRC-IDEES) with
+    JRC-BAT-Paper2014 consumption figures, converted from kt/yr to a per-hour
+    rate via `divisor` (an operating-hours convention).
+
+    Returns a copy -- never mutates `df` in place, since callers may pass a
+    DataFrame owned by a cached function (e.g. capacity_existing_df)."""
+    df = df.copy()
+    bat = pd.read_csv(_BAT_PAPER_CSV)
+    bat = bat[bat["country"].isin(_BAT_PAPER_NODES)]
+    for _, row in bat.iterrows():
+        node = _BAT_PAPER_NODES[row["country"]]
+        df.loc[df["node"] == node, value_col] = row["consumption_1000t_2008"] * 1000 / divisor
+    return df
 
 
 class JrcIdeesIndustryDataset(Dataset[pd.DataFrame]):
@@ -57,13 +73,7 @@ class JrcIdeesIndustryDataset(Dataset[pd.DataFrame]):
         lifetime = SECTOR_LIFETIMES[sector]
         df = capacity_existing_df(sector, year, lifetime=lifetime, year_construction=year_construction)
         if sector == "paper":
-            bat = pd.read_csv(_BAT_PAPER_CSV)
-            bat_nodes = {"Switzerland": "CH", "Norway": "NO", "United Kingdom": "UK"}
-            bat = bat[bat["country"].isin(bat_nodes)]
-            for _, row in bat.iterrows():
-                node = bat_nodes[row["country"]]
-                total_cap = row["consumption_1000t_2008"] * 1000 / 8000
-                df.loc[df["node"] == node, "capacity_existing"] = total_cap / lifetime
+            df = _apply_paper_bat_override(df, "capacity_existing", OPERATING_HOURS * lifetime)
         attr = Attribute("capacity_existing", default_value=0.0, unit="tonproduct/hour", element=element)
         attr.set_data(
             df=df.set_index(["node", "year_construction"]),
@@ -76,32 +86,11 @@ class JrcIdeesIndustryDataset(Dataset[pd.DataFrame]):
         df = capacity_existing_df(sector, year)
         demand_df = df[["node", "capacity_existing"]].rename(columns={"capacity_existing": "demand"})
         if sector == "paper":
-            bat = pd.read_csv(_BAT_PAPER_CSV)
-            bat_nodes = {"Switzerland": "CH", "Norway": "NO", "United Kingdom": "UK"}
-            bat = bat[bat["country"].isin(bat_nodes)]
-            for _, row in bat.iterrows():
-                node = bat_nodes[row["country"]]
-                demand_df.loc[demand_df["node"] == node, "demand"] = row["consumption_1000t_2008"] * 1000 / OPERATING_HOURS
+            demand_df = _apply_paper_bat_override(demand_df, "demand", OPERATING_HOURS)
         attr = Attribute("demand", default_value=0.0, unit="tonproduct/hour", element=element)
         attr.set_data(
             df=demand_df.set_index("node")["demand"],
             source=self._source_info(f"Demand for {sector} set equal to capacity_existing (v4.2 assumption)."),
-        )
-        return attr
-
-    def get_demand(self, element: Element, sector: str, year: int) -> Attribute:
-        df = industry_demand_df(sector, year)
-        if sector == "paper":
-            bat = pd.read_csv(_BAT_PAPER_CSV)
-            bat_nodes = {"Switzerland": "CH", "Norway": "NO", "United Kingdom": "UK"}
-            bat = bat[bat["country"].isin(bat_nodes)]
-            for _, row in bat.iterrows():
-                node = bat_nodes[row["country"]]
-                df.loc[df["node"] == node, "demand"] = row["consumption_1000t_2008"] * 1000 / 8760
-        attr = Attribute("demand", default_value=0.0, unit="tonproduct/hour", element=element)
-        attr.set_data(
-            df=df.set_index("node")["demand"],
-            source=self._source_info(f"Demand for {sector} from JRC-IDEES-2023 physical output."),
         )
         return attr
 

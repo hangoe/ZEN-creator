@@ -2,6 +2,9 @@ raw_data/
 test.py
 tests/end_to_end/outputs
 
+# generated model output, regenerate via my_scripts/my_model.py
+outputs/
+
 # Large raw GHG-inventory export (~1.9 GB); superseded by the small derived
 # input_data/Emissionbudget/sector_emissions_2022.csv, will be deleted soon.
 *.sl3

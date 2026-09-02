@@ -46,7 +46,7 @@ model2.write()
 
 # 3) Create an empty model and add sectors/elements programmatically
 m = Model()
-m.add_sector_by_name("electricity")
+m.add_sector_by_name("industry_heat")  # a sector registered by this repo
 m.add_element_by_name("electricity", generic="carrier")
 m.build()
 ```

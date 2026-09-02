@@ -97,58 +97,46 @@ class HeatTechParametrizationDataset(Dataset[pd.DataFrame]):
                 entry[carrier]["default_value"] = round(1.0 / cop_override, 12)
         return Attribute("conversion_factor", default_value=data["conversion_factor"], element=element)
 
-    def get_lifetime(self, element: Element, base_tech: str) -> Attribute:
+    # attr_name -> source description template (formatted with base_tech)
+    _SIMPLE_ATTRS = {
+        "lifetime": "Lifetime for {base_tech} from heat_tech_parametrization.xlsx.",
+        "capex_specific_conversion": "CAPEX for {base_tech}.",
+        "opex_specific_fixed": "Fixed OPEX for {base_tech}.",
+        "opex_specific_variable": "Variable OPEX for {base_tech}.",
+        "min_load": "Min load for {base_tech}.",
+        "max_load": "Max load for {base_tech}.",
+        "carbon_intensity_technology": "Carbon intensity for {base_tech}.",
+        "max_diffusion_rate": "Max diffusion rate for {base_tech}.",
+    }
+
+    def _get_simple_attr(self, element: Element, base_tech: str, attr_name: str) -> Attribute:
         data = self._get_tech_dict(base_tech)
-        val, unit = self._extract_numeric(data, "lifetime")
-        attr = Attribute("lifetime", element=element)
-        attr.set_data(default_value=val, unit=unit, source=self._source_info(f"Lifetime for {base_tech} from heat_tech_parametrization.xlsx."))
+        val, unit = self._extract_numeric(data, attr_name)
+        attr = Attribute(attr_name, element=element)
+        description = self._SIMPLE_ATTRS[attr_name].format(base_tech=base_tech)
+        attr.set_data(default_value=val, unit=unit, source=self._source_info(description))
         return attr
+
+    def get_lifetime(self, element: Element, base_tech: str) -> Attribute:
+        return self._get_simple_attr(element, base_tech, "lifetime")
 
     def get_capex_specific_conversion(self, element: Element, base_tech: str) -> Attribute:
-        data = self._get_tech_dict(base_tech)
-        val, unit = self._extract_numeric(data, "capex_specific_conversion")
-        attr = Attribute("capex_specific_conversion", element=element)
-        attr.set_data(default_value=val, unit=unit, source=self._source_info(f"CAPEX for {base_tech}."))
-        return attr
+        return self._get_simple_attr(element, base_tech, "capex_specific_conversion")
 
     def get_opex_specific_fixed(self, element: Element, base_tech: str) -> Attribute:
-        data = self._get_tech_dict(base_tech)
-        val, unit = self._extract_numeric(data, "opex_specific_fixed")
-        attr = Attribute("opex_specific_fixed", element=element)
-        attr.set_data(default_value=val, unit=unit, source=self._source_info(f"Fixed OPEX for {base_tech}."))
-        return attr
+        return self._get_simple_attr(element, base_tech, "opex_specific_fixed")
 
     def get_opex_specific_variable(self, element: Element, base_tech: str) -> Attribute:
-        data = self._get_tech_dict(base_tech)
-        val, unit = self._extract_numeric(data, "opex_specific_variable")
-        attr = Attribute("opex_specific_variable", element=element)
-        attr.set_data(default_value=val, unit=unit, source=self._source_info(f"Variable OPEX for {base_tech}."))
-        return attr
+        return self._get_simple_attr(element, base_tech, "opex_specific_variable")
 
     def get_min_load(self, element: Element, base_tech: str) -> Attribute:
-        data = self._get_tech_dict(base_tech)
-        val, unit = self._extract_numeric(data, "min_load")
-        attr = Attribute("min_load", element=element)
-        attr.set_data(default_value=val, unit=unit, source=self._source_info(f"Min load for {base_tech}."))
-        return attr
+        return self._get_simple_attr(element, base_tech, "min_load")
 
     def get_max_load(self, element: Element, base_tech: str) -> Attribute:
-        data = self._get_tech_dict(base_tech)
-        val, unit = self._extract_numeric(data, "max_load")
-        attr = Attribute("max_load", element=element)
-        attr.set_data(default_value=val, unit=unit, source=self._source_info(f"Max load for {base_tech}."))
-        return attr
+        return self._get_simple_attr(element, base_tech, "max_load")
 
     def get_carbon_intensity_technology(self, element: Element, base_tech: str) -> Attribute:
-        data = self._get_tech_dict(base_tech)
-        val, unit = self._extract_numeric(data, "carbon_intensity_technology")
-        attr = Attribute("carbon_intensity_technology", element=element)
-        attr.set_data(default_value=val, unit=unit, source=self._source_info(f"Carbon intensity for {base_tech}."))
-        return attr
+        return self._get_simple_attr(element, base_tech, "carbon_intensity_technology")
 
     def get_max_diffusion_rate(self, element: Element, base_tech: str) -> Attribute:
-        data = self._get_tech_dict(base_tech)
-        val, unit = self._extract_numeric(data, "max_diffusion_rate")
-        attr = Attribute("max_diffusion_rate", element=element)
-        attr.set_data(default_value=val, unit=unit, source=self._source_info(f"Max diffusion rate for {base_tech}."))
-        return attr
+        return self._get_simple_attr(element, base_tech, "max_diffusion_rate")

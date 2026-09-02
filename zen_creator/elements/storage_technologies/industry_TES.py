@@ -61,151 +61,92 @@ _TES_EFFICIENCY_SOURCE = SourceInformation(
 )
 
 
-class IndustryTESWater0100(StorageTechnology):
+class _IndustryTESTechnology:
+    """Shared logic for industry thermal energy storage (TES) technologies,
+    mixed in alongside `StorageTechnology` by every concrete class below
+    (rather than subclassed directly) so it does not add an extra level to
+    the MRO between the concrete class and `StorageTechnology` -- same
+    reasoning as `_IndustryDSMTechnology` in industry_DSM.py.
+
+    Subclasses set `_carrier_name` (the reference carrier) and the
+    `_e2p_min`/`_e2p_max` energy-to-power ratio bounds; every other attribute
+    (lifetime/capex/opex from Mayer2024, cost/efficiency assumptions) is
+    identical across all three temperature bands.
+    """
+
+    _carrier_name: str
+    _e2p_min: float
+    _e2p_max: float
+
+    def __init__(self, model: Model, power_unit: str = "MW"):
+        super().__init__(model=model, power_unit=power_unit)
+
+    def _set_reference_carrier(self) -> Attribute:
+        return Attribute(name="reference_carrier", default_value=[self._carrier_name], element=self)
+
+    def _set_lifetime(self) -> Attribute:
+        return Mayer2024Dataset().get_lifetime(element=self)
+
+    def _set_efficiency_charge(self) -> Attribute:
+        attr = Attribute("efficiency_charge", element=self)
+        attr.set_data(default_value=1.0, unit="1", source=_TES_EFFICIENCY_SOURCE)
+        return attr
+
+    def _set_efficiency_discharge(self) -> Attribute:
+        attr = Attribute("efficiency_discharge", element=self)
+        attr.set_data(default_value=1.0, unit="1", source=_TES_EFFICIENCY_SOURCE)
+        return attr
+
+    def _set_capex_specific_storage_energy(self) -> Attribute:
+        return Mayer2024Dataset().get_capex_specific_storage_energy(element=self)
+
+    def _set_opex_specific_fixed_energy(self) -> Attribute:
+        return Mayer2024Dataset().get_opex_specific_fixed_energy(element=self)
+
+    def _set_opex_specific_variable(self) -> Attribute:
+        attr = Attribute("opex_specific_variable", element=self)
+        attr.set_data(default_value=1.0, unit="Euro/GWh", source=_TES_COST_SOURCE)
+        return attr
+
+    def _set_self_discharge(self) -> Attribute:
+        attr = Attribute("self_discharge", element=self)
+        attr.set_data(default_value=0.95, unit="1", source=_TES_COST_SOURCE)
+        return attr
+
+    def _set_energy_to_power_ratio_min(self) -> Attribute:
+        attr = Attribute("energy_to_power_ratio_min", element=self)
+        attr.set_data(default_value=self._e2p_min, unit="h", source=_TES_E2P_SOURCE)
+        return attr
+
+    def _set_energy_to_power_ratio_max(self) -> Attribute:
+        attr = Attribute("energy_to_power_ratio_max", element=self)
+        attr.set_data(default_value=self._e2p_max, unit="h", source=_TES_E2P_SOURCE)
+        return attr
+
+
+class IndustryTESWater0100(_IndustryTESTechnology, StorageTechnology):
+    """Hot-water thermal storage tank for the 0-100C band (1-24h duration)."""
 
     name: str = "industry_TES_water_0_100"
-
-    def __init__(self, model: Model, power_unit: str = "MW"):
-        super().__init__(model=model, power_unit=power_unit)
-
-    def _set_reference_carrier(self) -> Attribute:
-        return Attribute(name="reference_carrier", default_value=["heat_industry_0_100"], element=self)
-
-    def _set_lifetime(self) -> Attribute:
-        return Mayer2024Dataset().get_lifetime(element=self)
-
-    def _set_efficiency_charge(self) -> Attribute:
-        attr = Attribute("efficiency_charge", element=self)
-        attr.set_data(default_value=1.0, unit="1", source=_TES_EFFICIENCY_SOURCE)
-        return attr
-
-    def _set_efficiency_discharge(self) -> Attribute:
-        attr = Attribute("efficiency_discharge", element=self)
-        attr.set_data(default_value=1.0, unit="1", source=_TES_EFFICIENCY_SOURCE)
-        return attr
-
-    def _set_capex_specific_storage_energy(self) -> Attribute:
-        return Mayer2024Dataset().get_capex_specific_storage_energy(element=self)
-
-    def _set_opex_specific_fixed_energy(self) -> Attribute:
-        return Mayer2024Dataset().get_opex_specific_fixed_energy(element=self)
-
-    def _set_opex_specific_variable(self) -> Attribute:
-        attr = Attribute("opex_specific_variable", element=self)
-        attr.set_data(default_value=1.0, unit="Euro/GWh", source=_TES_COST_SOURCE)
-        return attr
-
-    def _set_self_discharge(self) -> Attribute:
-        attr = Attribute("self_discharge", element=self)
-        attr.set_data(default_value=0.95, unit="1", source=_TES_COST_SOURCE)
-        return attr
-
-    def _set_energy_to_power_ratio_min(self) -> Attribute:
-        attr = Attribute("energy_to_power_ratio_min", element=self)
-        attr.set_data(default_value=1.0, unit="h", source=_TES_E2P_SOURCE)
-        return attr
-
-    def _set_energy_to_power_ratio_max(self) -> Attribute:
-        attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=24.0, unit="h", source=_TES_E2P_SOURCE)
-        return attr
+    _carrier_name = "heat_industry_0_100"
+    _e2p_min = 1.0
+    _e2p_max = 24.0
 
 
-class IndustryTESWater100150(StorageTechnology):
+class IndustryTESWater100150(_IndustryTESTechnology, StorageTechnology):
+    """Hot-water thermal storage tank for the 100-150C band (1-24h duration)."""
 
     name: str = "industry_TES_water_100_150"
-
-    def __init__(self, model: Model, power_unit: str = "MW"):
-        super().__init__(model=model, power_unit=power_unit)
-
-    def _set_reference_carrier(self) -> Attribute:
-        return Attribute(name="reference_carrier", default_value=["heat_industry_100_150"], element=self)
-
-    def _set_lifetime(self) -> Attribute:
-        return Mayer2024Dataset().get_lifetime(element=self)
-
-    def _set_efficiency_charge(self) -> Attribute:
-        attr = Attribute("efficiency_charge", element=self)
-        attr.set_data(default_value=1.0, unit="1", source=_TES_EFFICIENCY_SOURCE)
-        return attr
-
-    def _set_efficiency_discharge(self) -> Attribute:
-        attr = Attribute("efficiency_discharge", element=self)
-        attr.set_data(default_value=1.0, unit="1", source=_TES_EFFICIENCY_SOURCE)
-        return attr
-
-    def _set_capex_specific_storage_energy(self) -> Attribute:
-        return Mayer2024Dataset().get_capex_specific_storage_energy(element=self)
-
-    def _set_opex_specific_fixed_energy(self) -> Attribute:
-        return Mayer2024Dataset().get_opex_specific_fixed_energy(element=self)
-
-    def _set_opex_specific_variable(self) -> Attribute:
-        attr = Attribute("opex_specific_variable", element=self)
-        attr.set_data(default_value=1.0, unit="Euro/GWh", source=_TES_COST_SOURCE)
-        return attr
-
-    def _set_self_discharge(self) -> Attribute:
-        attr = Attribute("self_discharge", element=self)
-        attr.set_data(default_value=0.95, unit="1", source=_TES_COST_SOURCE)
-        return attr
-
-    def _set_energy_to_power_ratio_min(self) -> Attribute:
-        attr = Attribute("energy_to_power_ratio_min", element=self)
-        attr.set_data(default_value=1.0, unit="h", source=_TES_E2P_SOURCE)
-        return attr
-
-    def _set_energy_to_power_ratio_max(self) -> Attribute:
-        attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=24.0, unit="h", source=_TES_E2P_SOURCE)
-        return attr
+    _carrier_name = "heat_industry_100_150"
+    _e2p_min = 1.0
+    _e2p_max = 24.0
 
 
-class IndustryTESSteam150200(StorageTechnology):
+class IndustryTESSteam150200(_IndustryTESTechnology, StorageTechnology):
+    """Steam accumulator for the 150-200C band (0.25-4h duration -- shorter
+    than the water tanks, being an inherently short-duration pressure vessel)."""
 
     name: str = "industry_TES_steam_150_200"
-
-    def __init__(self, model: Model, power_unit: str = "MW"):
-        super().__init__(model=model, power_unit=power_unit)
-
-    def _set_reference_carrier(self) -> Attribute:
-        return Attribute(name="reference_carrier", default_value=["heat_industry_150_200"], element=self)
-
-    def _set_lifetime(self) -> Attribute:
-        return Mayer2024Dataset().get_lifetime(element=self)
-
-    def _set_efficiency_charge(self) -> Attribute:
-        attr = Attribute("efficiency_charge", element=self)
-        attr.set_data(default_value=1.0, unit="1", source=_TES_EFFICIENCY_SOURCE)
-        return attr
-
-    def _set_efficiency_discharge(self) -> Attribute:
-        attr = Attribute("efficiency_discharge", element=self)
-        attr.set_data(default_value=1.0, unit="1", source=_TES_EFFICIENCY_SOURCE)
-        return attr
-
-    def _set_capex_specific_storage_energy(self) -> Attribute:
-        return Mayer2024Dataset().get_capex_specific_storage_energy(element=self)
-
-    def _set_opex_specific_fixed_energy(self) -> Attribute:
-        return Mayer2024Dataset().get_opex_specific_fixed_energy(element=self)
-
-    def _set_opex_specific_variable(self) -> Attribute:
-        attr = Attribute("opex_specific_variable", element=self)
-        attr.set_data(default_value=1.0, unit="Euro/GWh", source=_TES_COST_SOURCE)
-        return attr
-
-    def _set_self_discharge(self) -> Attribute:
-        attr = Attribute("self_discharge", element=self)
-        attr.set_data(default_value=0.95, unit="1", source=_TES_COST_SOURCE)
-        return attr
-
-    def _set_energy_to_power_ratio_min(self) -> Attribute:
-        attr = Attribute("energy_to_power_ratio_min", element=self)
-        attr.set_data(default_value=0.25, unit="h", source=_TES_E2P_SOURCE)
-        return attr
-
-    def _set_energy_to_power_ratio_max(self) -> Attribute:
-        attr = Attribute("energy_to_power_ratio_max", element=self)
-        attr.set_data(default_value=4.0, unit="h", source=_TES_E2P_SOURCE)
-        return attr
+    _carrier_name = "heat_industry_150_200"
+    _e2p_min = 0.25
+    _e2p_max = 4.0

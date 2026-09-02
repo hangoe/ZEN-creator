@@ -136,7 +136,7 @@ def test_from_existing():
     # Compares file trees and files
     compare_trees(existing_model_path, model.output_path, raise_error=True)
 
-    # check that no types are generic (i.e. all custom classes were registered)
+    # check that all elements are generic types (i.e. no custom classes were registered)
     _all_types_generic(model)
 
 

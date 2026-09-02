@@ -41,6 +41,8 @@ def _add_carrier_setters(cls, carrier_name: str):
 
 
 class Glass(Carrier):
+    """Glass product carrier; demand set equal to capacity_existing (JRC-IDEES-2023)."""
+
     name = "glass"
 
     def __init__(self, model: Model):
@@ -54,6 +56,9 @@ _add_carrier_setters(Glass, "glass")
 
 
 class Ceramic(Carrier):
+    """Ceramic product carrier; demand set equal to capacity_existing
+    (JRC-IDEES-2023 thermal FEC / Rehfeldt2017 specific energy)."""
+
     name = "ceramic"
 
     def __init__(self, model: Model):
@@ -67,6 +72,8 @@ _add_carrier_setters(Ceramic, "ceramic")
 
 
 class Paper(Carrier):
+    """Paper product carrier; demand set equal to capacity_existing (JRC-IDEES-2023)."""
+
     name = "paper"
 
     def __init__(self, model: Model):
@@ -80,6 +87,8 @@ _add_carrier_setters(Paper, "paper")
 
 
 class Food(Carrier):
+    """Food product carrier; demand set equal to capacity_existing (FAOSTAT)."""
+
     name = "food"
 
     def __init__(self, model: Model):
@@ -93,6 +102,8 @@ _add_carrier_setters(Food, "food")
 
 
 class HeatIndustry0100(Carrier):
+    """Energy carrier for industrial process heat in the 0-100C band."""
+
     name = "heat_industry_0_100"
 
     def __init__(self, model: Model):
@@ -103,6 +114,8 @@ _add_carrier_setters(HeatIndustry0100, "heat_industry_0_100")
 
 
 class HeatIndustry100150(Carrier):
+    """Energy carrier for industrial process heat in the 100-150C band."""
+
     name = "heat_industry_100_150"
 
     def __init__(self, model: Model):
@@ -113,6 +126,9 @@ _add_carrier_setters(HeatIndustry100150, "heat_industry_100_150")
 
 
 class HeatIndustry150200(Carrier):
+    """Energy carrier for industrial process heat in the 150-200C band --
+    the level every boiler produces and the top of the temperature cascade."""
+
     name = "heat_industry_150_200"
 
     def __init__(self, model: Model):
@@ -123,6 +139,10 @@ _add_carrier_setters(HeatIndustry150200, "heat_industry_150_200")
 
 
 class FuelToKiln(Carrier):
+    """Shared kiln-fuel carrier that ceramic_production/glass_production draw
+    on instead of a direct natural_gas input, switchable to hydrogen/
+    electricity via *_to_kilnfuel technologies (see industry_heat_supply.py)."""
+
     name = "fuel_to_kiln"
 
     def __init__(self, model: Model):

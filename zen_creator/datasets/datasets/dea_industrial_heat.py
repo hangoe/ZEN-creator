@@ -149,29 +149,32 @@ class DeaIndustrialHeatDataset(Dataset[pd.DataFrame]):
         attr.set_data(default_value=val, unit="1", source=self._source_info(f"Technical lifetime for {tech} from DEA sheet {sheet!r}."))
         return attr
 
-    def get_capex_specific_conversion(self, element: Element, tech: str) -> Attribute:
+    def _get_interpolated_attr(
+        self, element: Element, tech: str, attr_name: str, label_map: dict[str, str],
+        unit_conversion: float, description_verb: str,
+    ) -> Attribute:
         sheet = DEA_SHEET_FOR_TECH[tech]
-        year_values = {y: v * _CAPEX_MEUR_PER_MW_TO_EUR_PER_KW for y, v in _year_values(sheet, _CAPEX_LABEL[sheet]).items()}
+        year_values = {y: v * unit_conversion for y, v in _year_values(sheet, label_map[sheet]).items()}
         series = _interpolate_to_model_years(year_values)
-        attr = Attribute("capex_specific_conversion", element=element)
+        attr = Attribute(attr_name, element=element)
         attr.set_data(
             default_value=float(series.loc[MODEL_FIRST_YEAR]), unit="Euro/kW",
-            df=None if _is_constant(series) else series.to_frame("capex_specific_conversion"),
-            source=self._source_info(f"Nominal investment for {tech} from DEA sheet {sheet!r}, interpolated over {MODEL_FIRST_YEAR}-{MODEL_LAST_YEAR}."),
+            df=None if _is_constant(series) else series.to_frame(attr_name),
+            source=self._source_info(f"{description_verb} for {tech} from DEA sheet {sheet!r}, interpolated over {MODEL_FIRST_YEAR}-{MODEL_LAST_YEAR}."),
         )
         return attr
 
-    def get_opex_specific_fixed(self, element: Element, tech: str) -> Attribute:
-        sheet = DEA_SHEET_FOR_TECH[tech]
-        year_values = {y: v * _OPEX_FIXED_EUR_PER_MW_Y_TO_EUR_PER_KW_Y for y, v in _year_values(sheet, _OPEX_FIXED_LABEL[sheet]).items()}
-        series = _interpolate_to_model_years(year_values)
-        attr = Attribute("opex_specific_fixed", element=element)
-        attr.set_data(
-            default_value=float(series.loc[MODEL_FIRST_YEAR]), unit="Euro/kW",
-            df=None if _is_constant(series) else series.to_frame("opex_specific_fixed"),
-            source=self._source_info(f"Fixed O&M for {tech} from DEA sheet {sheet!r}, interpolated over {MODEL_FIRST_YEAR}-{MODEL_LAST_YEAR}."),
+    def get_capex_specific_conversion(self, element: Element, tech: str) -> Attribute:
+        return self._get_interpolated_attr(
+            element, tech, "capex_specific_conversion", _CAPEX_LABEL,
+            _CAPEX_MEUR_PER_MW_TO_EUR_PER_KW, "Nominal investment",
         )
-        return attr
+
+    def get_opex_specific_fixed(self, element: Element, tech: str) -> Attribute:
+        return self._get_interpolated_attr(
+            element, tech, "opex_specific_fixed", _OPEX_FIXED_LABEL,
+            _OPEX_FIXED_EUR_PER_MW_Y_TO_EUR_PER_KW_Y, "Fixed O&M",
+        )
 
     def get_opex_specific_variable(self, element: Element, tech: str) -> Attribute:
         """opex_specific_variable is read by ZEN-garden with index_sets

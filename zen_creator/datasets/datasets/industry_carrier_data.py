@@ -36,6 +36,7 @@ class IndustryCarrierDataset(Dataset[pd.DataFrame]):
 
     def __init__(self, source_path: Path | str | None = None):
         super().__init__(source_path=source_path)
+        self._carrier_dicts: dict[str, dict] = {}
 
     def _set_metadata(self) -> MetaData:
         return MetaData(
@@ -56,6 +57,8 @@ class IndustryCarrierDataset(Dataset[pd.DataFrame]):
         return SourceInformation(description=description, metadata=self.metadata)
 
     def get_carrier_dict(self, carrier_name: str) -> dict:
+        if carrier_name in self._carrier_dicts:
+            return self._carrier_dicts[carrier_name]
         if carrier_name in _PRODUCT_CARRIERS:
             template = copy.deepcopy(PRODUCT_CARRIER_TEMPLATE)
         else:
@@ -64,7 +67,9 @@ class IndustryCarrierDataset(Dataset[pd.DataFrame]):
         if carrier_name in ("heat_industry_100_150", "heat_industry_150_200"):
             excel_col = "heat_industry_100_200"
         overrides = load_param_column(_CARRIER_XLSX, _CARRIER_SHEET, excel_col)
-        return apply_excel_overrides(template, overrides)
+        data = apply_excel_overrides(template, overrides)
+        self._carrier_dicts[carrier_name] = data
+        return data
 
     def get_carrier_attr(self, element: Element, carrier_name: str, attr_name: str) -> Attribute:
         data = self.get_carrier_dict(carrier_name)

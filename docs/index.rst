@@ -44,6 +44,7 @@ Documentation
    files/api/techno_economic_dataset
    files/api/config
    files/api/compare_trees
+   files/api/industry
 
 .. toctree::
    :maxdepth: 1
@@ -52,6 +53,7 @@ Documentation
    files/developer_guide/installation
    files/developer_guide/contributing
    files/developer_guide/add_new_params
+   files/developer_guide/workflow
 
 .. toctree::
    :maxdepth: 1

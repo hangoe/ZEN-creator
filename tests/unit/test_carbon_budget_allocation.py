@@ -62,6 +62,22 @@ def test_get_carbon_emissions_budget_variant_a(model: Model):
     assert new_budget.default_value == pytest.approx(23.7352, abs=1e-3)
 
 
+def test_get_carbon_emissions_budget_variant_c(model: Model):
+    """Variant C (process-only for glass/ceramics) extends the budget to ~23.8691 Gt.
+
+    Unlike A/B (each already exercised end-to-end above), variant C was
+    previously only checked in isolation via get_new_sector_emissions("C")
+    (see test_old_and_new_sector_emissions_from_real_data) -- this closes that
+    gap by running the actual code path used when variant C is selected.
+    """
+    energy_system = CrystalBallIndustryEnergySystem(model=model)
+    dataset = Mannhardt2026CarbonBudgetDataset()
+
+    new_budget = dataset.get_carbon_emissions_budget(energy_system, _old_budget(energy_system), variant="C")
+
+    assert new_budget.default_value == pytest.approx(23.8691, abs=1e-3)
+
+
 def test_get_carbon_emissions_budget_zero_new_sectors_is_a_noop(model: Model):
     """If no sector contributes new emissions, the budget must stay unchanged."""
     energy_system = CrystalBallIndustryEnergySystem(model=model)

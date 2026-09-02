@@ -1,18 +1,70 @@
-"""Unit tests for industry DSM (product storage) technologies.
+"""Unit tests for zen_creator.elements.storage_technologies.industry_DSM
+(the industry DSM/product storage *technologies* -- not the same-named
+zen_creator.sectors.industry_dsm sector-grouping module; see test_sectors.py
+for that).
 
 See ASSUMPTIONS.md ("Product DSM storage efficiency") for why efficiency is not 1.0.
 """
 
 from __future__ import annotations
 
+import pandas as pd
 import pytest
 
 from zen_creator.elements.storage_technologies.industry_DSM import (
+    AmmoniaDSMOptimistic,
     AmmoniaDSMPessimistic,
+    CeramicDSMOptimistic,
+    CeramicDSMPessimistic,
+    ClinkerDSMOptimistic,
+    ClinkerDSMPessimistic,
+    FoodDSMOptimistic,
+    FoodDSMPessimistic,
     GlassDSMOptimistic,
+    GlassDSMPessimistic,
     MethanolDSMOptimistic,
+    MethanolDSMPessimistic,
+    OlefinDSMOptimistic,
+    OlefinDSMPessimistic,
+    PaperDSMOptimistic,
+    PaperDSMPessimistic,
+    PrimarysteelDSMOptimistic,
+    PrimarysteelDSMPessimistic,
+    SecondarysteelDSMOptimistic,
+    SecondarysteelDSMPessimistic,
+    _SECTOR_CATEGORIES,
 )
 from zen_creator.model import Model
+
+ALL_DSM_CLASSES = [
+    GlassDSMOptimistic, GlassDSMPessimistic,
+    CeramicDSMOptimistic, CeramicDSMPessimistic,
+    PaperDSMOptimistic, PaperDSMPessimistic,
+    FoodDSMOptimistic, FoodDSMPessimistic,
+    AmmoniaDSMOptimistic, AmmoniaDSMPessimistic,
+    ClinkerDSMOptimistic, ClinkerDSMPessimistic,
+    MethanolDSMOptimistic, MethanolDSMPessimistic,
+    PrimarysteelDSMOptimistic, PrimarysteelDSMPessimistic,
+    SecondarysteelDSMOptimistic, SecondarysteelDSMPessimistic,
+    OlefinDSMOptimistic, OlefinDSMPessimistic,
+]
+
+
+@pytest.mark.parametrize("technology_cls", ALL_DSM_CLASSES)
+def test_build_succeeds_and_matches_declared_category(technology_cls, model: Model):
+    """Every DSM technology class must build successfully and its
+    energy_to_power_ratio_max must match the _CATEGORY_PARAMS entry for its
+    declared (_carrier_name, _variant) category -- catches a dropped/mismatched
+    entry in _SECTOR_CATEGORIES for any of the 20 classes."""
+    from zen_creator.elements.storage_technologies.industry_DSM import _CATEGORY_PARAMS
+
+    technology = technology_cls(model=model)
+    technology.build()
+
+    category = _SECTOR_CATEGORIES[technology._carrier_name][technology._variant]
+    _, _, expected_e2p_max = _CATEGORY_PARAMS[category]
+    assert technology.energy_to_power_ratio_max.default_value == pytest.approx(expected_e2p_max)
+    assert technology.reference_carrier.default_value == [technology._carrier_name]
 
 
 @pytest.mark.parametrize("technology_cls", [GlassDSMOptimistic, AmmoniaDSMPessimistic])
@@ -72,6 +124,37 @@ def test_energy_to_power_ratio_is_not_lhv_converted(model: Model):
 
     assert ammonia.energy_to_power_ratio_max.default_value == pytest.approx(2.0)
     assert glass.energy_to_power_ratio_max.default_value == pytest.approx(2.0)
+
+
+def test_dsm_capacity_limit_uses_real_carrier_demand(model: Model):
+    """The non-early-return branch of _dsm_capacity_limit: when the carrier is
+    registered on model.elements with a populated demand, capacity_limit must
+    equal exactly 1x that per-node demand (see _dsm_capacity_limit docstring)."""
+    from zen_creator.elements.carriers.industry_carriers import Glass
+
+    glass = Glass(model=model)
+    glass.build()
+    model.elements["glass"] = glass
+
+    technology = GlassDSMOptimistic(model=model)
+    technology.build()
+
+    assert technology.capacity_limit.df is not None
+    limit = technology.capacity_limit.df["capacity_limit"]
+    demand = glass.demand.df
+    pd.testing.assert_series_equal(
+        limit.sort_index(), demand.rename("capacity_limit").sort_index(), check_dtype=False
+    )
+
+
+def test_dsm_capacity_limit_early_returns_without_registered_carrier(model: Model):
+    """When the carrier isn't registered on model.elements, capacity_limit must
+    fall back to an unset Attribute (no default_value, no df) -- the early-return
+    branch every other existing test in this file exercises."""
+    technology = GlassDSMOptimistic(model=model)
+    technology.build()
+    assert technology.capacity_limit.df is None
+    assert technology.capacity_limit.default_value is None
 
 
 if __name__ == "__main__":

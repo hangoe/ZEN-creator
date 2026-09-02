@@ -62,37 +62,34 @@ class WasteBoilerDhProxyDataset(Dataset[pd.DataFrame]):
     def _source_info(self, description: str) -> SourceInformation:
         return SourceInformation(description=description, metadata=self.metadata)
 
-    def get_lifetime(self, element: Element) -> Attribute:
-        attr = Attribute("lifetime", element=element)
+    # attr_name -> (frozen value, unit, description noun)
+    _ATTRS: dict[str, tuple[float, str, str]] = {
+        "lifetime": (_LIFETIME_YEARS, "1", "Technical lifetime"),
+        "capex_specific_conversion": (_CAPEX_EUR_PER_KW, "Euro/kW", "Capex"),
+        "opex_specific_fixed": (_OPEX_FIXED_EUR_PER_KW_Y, "Euro/kW", "Fixed O&M"),
+        "opex_specific_variable": (_OPEX_VARIABLE_EUR_PER_MWH, "Euro/MWh", "Variable O&M"),
+    }
+
+    def _get_frozen_attr(self, element: Element, attr_name: str) -> Attribute:
+        value, unit, noun = self._ATTRS[attr_name]
+        attr = Attribute(attr_name, element=element)
         attr.set_data(
-            default_value=_LIFETIME_YEARS, unit="1",
-            source=self._source_info("Technical lifetime for waste_boiler_industry, proxied from Crystal Ball's waste_boiler_DH."),
+            default_value=value, unit=unit,
+            source=self._source_info(f"{noun} for waste_boiler_industry, proxied from Crystal Ball's waste_boiler_DH."),
         )
         return attr
+
+    def get_lifetime(self, element: Element) -> Attribute:
+        return self._get_frozen_attr(element, "lifetime")
 
     def get_capex_specific_conversion(self, element: Element) -> Attribute:
-        attr = Attribute("capex_specific_conversion", element=element)
-        attr.set_data(
-            default_value=_CAPEX_EUR_PER_KW, unit="Euro/kW",
-            source=self._source_info("Capex for waste_boiler_industry, proxied from Crystal Ball's waste_boiler_DH."),
-        )
-        return attr
+        return self._get_frozen_attr(element, "capex_specific_conversion")
 
     def get_opex_specific_fixed(self, element: Element) -> Attribute:
-        attr = Attribute("opex_specific_fixed", element=element)
-        attr.set_data(
-            default_value=_OPEX_FIXED_EUR_PER_KW_Y, unit="Euro/kW",
-            source=self._source_info("Fixed O&M for waste_boiler_industry, proxied from Crystal Ball's waste_boiler_DH."),
-        )
-        return attr
+        return self._get_frozen_attr(element, "opex_specific_fixed")
 
     def get_opex_specific_variable(self, element: Element) -> Attribute:
-        attr = Attribute("opex_specific_variable", element=element)
-        attr.set_data(
-            default_value=_OPEX_VARIABLE_EUR_PER_MWH, unit="Euro/MWh",
-            source=self._source_info("Variable O&M for waste_boiler_industry, proxied from Crystal Ball's waste_boiler_DH."),
-        )
-        return attr
+        return self._get_frozen_attr(element, "opex_specific_variable")
 
     def get_conversion_factor(self, element: Element) -> Attribute:
         attr = Attribute("conversion_factor", element=element)

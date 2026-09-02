@@ -153,33 +153,27 @@ class PostCombCCDataset(Dataset[pd.DataFrame]):
         )
         return attr
 
-    def get_capex_specific_conversion(self, element: Element, sector: str) -> Attribute:
-        year_values = {y: v * _MILL_EUR_PER_TCO2H_TO_EUR_PER_TCO2EQH for y, v in _year_values(_CAPEX_LABEL).items()}
+    def _get_interpolated_attr(
+        self, element: Element, sector: str, attr_name: str, label: str, description_noun: str,
+    ) -> Attribute:
+        year_values = {y: v * _MILL_EUR_PER_TCO2H_TO_EUR_PER_TCO2EQH for y, v in _year_values(label).items()}
         series = _interpolate_to_model_years(year_values)
-        attr = Attribute("capex_specific_conversion", element=element)
+        attr = Attribute(attr_name, element=element)
         attr.set_data(
             default_value=float(series.loc[MODEL_FIRST_YEAR]), unit="Euro/(kilotCO2eq/hour)",
-            df=None if _is_constant(series) else series.to_frame("capex_specific_conversion"),
+            df=None if _is_constant(series) else series.to_frame(attr_name),
             source=self._source_info(
-                f"Specific investment for {sector}_post_comb from DEA sheet {_WS!r}, "
+                f"{description_noun} for {sector}_post_comb from DEA sheet {_WS!r}, "
                 f"interpolated over {MODEL_FIRST_YEAR}-{MODEL_LAST_YEAR}."
             ),
         )
         return attr
 
+    def get_capex_specific_conversion(self, element: Element, sector: str) -> Attribute:
+        return self._get_interpolated_attr(element, sector, "capex_specific_conversion", _CAPEX_LABEL, "Specific investment")
+
     def get_opex_specific_fixed(self, element: Element, sector: str) -> Attribute:
-        year_values = {y: v * _MILL_EUR_PER_TCO2H_TO_EUR_PER_TCO2EQH for y, v in _year_values(_OPEX_FIXED_LABEL).items()}
-        series = _interpolate_to_model_years(year_values)
-        attr = Attribute("opex_specific_fixed", element=element)
-        attr.set_data(
-            default_value=float(series.loc[MODEL_FIRST_YEAR]), unit="Euro/(kilotCO2eq/hour)",
-            df=None if _is_constant(series) else series.to_frame("opex_specific_fixed"),
-            source=self._source_info(
-                f"Fixed O&M for {sector}_post_comb from DEA sheet {_WS!r}, "
-                f"interpolated over {MODEL_FIRST_YEAR}-{MODEL_LAST_YEAR}."
-            ),
-        )
-        return attr
+        return self._get_interpolated_attr(element, sector, "opex_specific_fixed", _OPEX_FIXED_LABEL, "Fixed O&M")
 
     def get_opex_specific_variable(self, element: Element, sector: str) -> Attribute:
         val = _value_2020(_OPEX_VARIABLE_LABEL)
