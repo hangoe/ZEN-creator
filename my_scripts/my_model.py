@@ -1,8 +1,8 @@
+import logging
+import math
 import os
 import shutil
 from pathlib import Path
-
-import numpy as np
 
 from zen_creator.model import Model
 from zen_creator.utils.attribute import Attribute
@@ -24,11 +24,21 @@ from zen_creator.elements.energy_systems.crystal_ball_industry import (  # noqa:
     CrystalBallIndustryEnergySystem,
 )
 
+logger = logging.getLogger(__name__)
+
 # Override with the ZEN_CRYSTAL_BALL_DATA_PATH env var to run this on another
 # machine/checkout without editing the script.
-data_path = os.environ.get(
-    "ZEN_CRYSTAL_BALL_DATA_PATH", "/Users/hannegoericke/ZEN-models/data/Crystal_Ball"
+data_path = Path(
+    os.environ.get(
+        "ZEN_CRYSTAL_BALL_DATA_PATH",
+        "/Users/hannegoericke/ZEN-models/data/Crystal_Ball",
+    )
 )
+if not data_path.exists():
+    raise FileNotFoundError(
+        f"Data path '{data_path}' does not exist. Set the ZEN_CRYSTAL_BALL_DATA_PATH "
+        "env var to point at a valid ZEN-garden input folder."
+    )
 output_path = Path(__file__).parent.parent / "outputs"
 VERSION = "Crystal_Ball_ind_heat_v9_0"
 
@@ -73,7 +83,7 @@ def disable_diffusion_limits(model: Model) -> None:
     """
     for technology in model.technologies.values():
         technology.max_diffusion_rate = Attribute(
-            "max_diffusion_rate", default_value=np.inf, unit="1", element=technology
+            "max_diffusion_rate", default_value=math.inf, unit="1", element=technology
         )
 
 
@@ -90,19 +100,40 @@ def delete_old_outputs(path: Path, keep_names: set[str]) -> None:
             entry.unlink()
 
 
+if not SCENARIOS:
+    raise ValueError(
+        "SCENARIOS is empty — refusing to run (would delete existing outputs and "
+        "write nothing)."
+    )
+
 delete_old_outputs(
     output_path, keep_names={f"{VERSION}{suffix}" for suffix, _ in SCENARIOS}
 )
 
+# Loaded once and copied per scenario below: reading the existing model's
+# system.json and inferring carriers per technology is real disk I/O, and
+# every scenario needs it with only `elements.insert.energy_system` differing.
+base_config = Config.load_from_existing_model(data_path)
+base_config.elements.insert.energy_system = "crystal_ball_industry_energy_system"
+
 for suffix, sectors in SCENARIOS:
-    config = Config.load_from_existing_model(data_path)
-    config.elements.insert.energy_system = "crystal_ball_industry_energy_system"
+    config = base_config.model_copy(deep=True)
     model = Model.from_existing(data_path, config=config)
+    n_elements_before = len(model.elements)
     for sector_name in sectors:
-        model.add_sector_by_name(sector_name)
+        try:
+            model.add_sector_by_name(sector_name)
+        except ValueError as e:
+            raise ValueError(f"Scenario '{VERSION}{suffix}': {e}") from e
+    if sectors and len(model.elements) == n_elements_before:
+        raise ValueError(
+            f"Scenario '{VERSION}{suffix}': sectors {sectors} were added but "
+            "contributed no elements to the model."
+        )
     model.build()
     if suffix in DIFFUSION_DISABLED_SUFFIXES:
         disable_diffusion_limits(model)
     model.name = f"{VERSION}{suffix}"
     model.output_folder = output_path
     model.write()
+    logger.info(f"Wrote scenario '{model.name}' ({len(model.elements)} elements).")

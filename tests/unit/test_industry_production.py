@@ -58,6 +58,8 @@ def test_conversion_factor_includes_active_heat_temperature_bands_only(technolog
     technology = technology_cls(model=model)
     technology.build()
 
+    for e in technology.conversion_factor.default_value:
+        assert len(e) == 1, f"expected exactly one carrier per conversion_factor entry, got {e}"
     cf_carriers = {next(iter(e)) for e in technology.conversion_factor.default_value}
     heat_carriers_in_cf = {c for c in cf_carriers if c.startswith("heat_industry")}
     heat_carriers_in_input = {c for c in technology.input_carrier.default_value if c.startswith("heat_industry")}

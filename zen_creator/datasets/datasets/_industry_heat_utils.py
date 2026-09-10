@@ -3,17 +3,16 @@ shares, JRC-IDEES/FAOSTAT loaders, capacity/demand helpers, Excel I/O, JSON
 templates, and Rehfeldt2017/AIDRES2023/JRC-EU-TIMES data access.
 """
 
-import csv
 import functools
-import json
-import warnings
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-import numpy as np
 import openpyxl
 import pandas as pd
 import xlrd
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Path anchors — all relative to the repo root
@@ -83,18 +82,25 @@ AIDRES2023_GLASS_SHARES = {
 # ---------------------------------------------------------------------------
 
 def activity_weights(data: dict) -> dict:
+    if not data:
+        raise ValueError("activity_weights: `data` is empty, cannot compute weights.")
     total = sum(e["activity_Mt"] for e in data.values())
+    if total == 0:
+        raise ValueError("activity_weights: all activity_Mt values are zero.")
     return {k: e["activity_Mt"] / total for k, e in data.items()}
 
 
 def weighted_average(data: dict, weights: dict, key: str) -> float:
+    if not weights:
+        raise ValueError("weighted_average: `weights` is empty.")
     return sum(weights[k] * data[k][key] for k in weights)
 
 
 def weighted_avg_temp_dist(data: dict, weights: dict) -> dict:
     result = {b: sum(weights[k] * data[k]["temp_dist"][b] for k in weights) for b in TEMP_BINS}
     total = sum(result.values())
-    assert abs(total - 1.0) < 1e-6, f"Temperature shares do not sum to 1: {total}"
+    if abs(total - 1.0) >= 1e-6:
+        raise ValueError(f"Temperature shares do not sum to 1: {total}")
     return result
 
 
@@ -237,7 +243,13 @@ def thermal_fec_by_carrier(df: pd.DataFrame, parent_rows: list[str], year: int) 
             raise ValueError(f"Row {parent!r} not found in sheet")
         i = matches[0] + 1
         while i < len(df) and labels[i] in THERMAL_CARRIER_LABELS:
-            totals[labels[i]] = totals.get(labels[i], 0.0) + float(df.iat[i, col])
+            cell = df.iat[i, col]
+            if pd.isna(cell):
+                raise ValueError(
+                    f"thermal_fec_by_carrier: blank/NaN cell for carrier "
+                    f"{labels[i]!r} under {parent!r} (row {i}, col {col})."
+                )
+            totals[labels[i]] = totals.get(labels[i], 0.0) + float(cell)
             i += 1
     return totals
 
@@ -251,6 +263,8 @@ def read_sector_thermal_fec(country: str, sector: str, year: int) -> dict[str, f
 
 def fec_shares(breakdown: dict[str, float]) -> dict[str, float]:
     total = sum(breakdown.values())
+    if total == 0:
+        raise ValueError("fec_shares: breakdown sums to 0, cannot compute shares.")
     return {c: v / total for c, v in breakdown.items()}
 
 
@@ -260,6 +274,11 @@ def renormalized_fuel_shares(shares: dict[str, float], cutoff: float = 0.10) -> 
         if c in MODEL_CARRIER_MAP and s >= cutoff
     }
     total = sum(kept.values())
+    if total == 0:
+        raise ValueError(
+            f"renormalized_fuel_shares: no carrier in {list(shares)} reached the "
+            f"cutoff ({cutoff}); nothing to renormalize."
+        )
     return {c: s / total for c, s in kept.items()}
 
 
@@ -283,6 +302,15 @@ def _column_index(ws, column_header: str) -> int:
         if cell.value == column_header:
             return cell.column
     raise KeyError(f"Column {column_header!r} not found in sheet {ws.title!r}")
+
+
+def _single_row_index(matches, description: str) -> int:
+    """Return the sole index in `matches`, raising a descriptive KeyError otherwise."""
+    if len(matches) == 0:
+        raise KeyError(f"{description}: no matching row found.")
+    if len(matches) > 1:
+        raise KeyError(f"{description}: expected exactly one matching row, found {len(matches)}.")
+    return matches[0]
 
 
 def load_param_column(xlsx_path: Path, sheet_name: str, column_header: str) -> dict[str, object]:
@@ -327,8 +355,17 @@ def apply_excel_overrides(data: dict, overrides: dict[str, object], conversion_f
                 if carrier in entry:
                     entry[carrier]["default_value"] = value
                     break
+            else:
+                logger.warning(
+                    f"apply_excel_overrides: override column {label!r} did not match "
+                    f"any conversion_factor carrier (resolved carrier={carrier!r}); ignored."
+                )
             continue
         if label not in data:
+            logger.warning(
+                f"apply_excel_overrides: override column {label!r} does not match any "
+                "field in `data`; ignored."
+            )
             continue
         if label in LIST_FIELDS:
             data[label]["default_value"] = [v.strip() for v in str(value).split(";")]
@@ -435,12 +472,14 @@ def read_ind_process_params(tech_name: str) -> dict:
     }
     result = {k: 0.0 for k in ("INVCOST", "FIXOM", "VAROM", "LIFE", "EMISSIONS_INDCO2P")}
     current_tech = None
+    matched_tech = False
     for i in range(ws.nrows):
         name = ws.cell_value(i, col["TechName"])
         if name and name != "TechName":
             current_tech = name
         if current_tech != tech_name:
             continue
+        matched_tech = True
         for key, col_key in [("INVCOST", "INVCOST"), ("FIXOM", "FIXOM"), ("VAROM", "VAROM"),
                              ("LIFE", "LIFE"), ("EMISSIONS_INDCO2P", "CO2")]:
             v = ws.cell_value(i, col[col_key])
@@ -450,7 +489,16 @@ def read_ind_process_params(tech_name: str) -> dict:
                 try:
                     result[key] = float(v)
                 except ValueError:
-                    pass
+                    logger.warning(
+                        f"read_ind_process_params({tech_name!r}): row {i}, "
+                        f"column {col_key!r} has an unparseable value {v!r}; "
+                        "left at its 0.0 default."
+                    )
+    if not matched_tech:
+        raise ValueError(
+            f"read_ind_process_params: tech_name {tech_name!r} not found in "
+            f"{_SUBRES_IND_FILE.name}!IND."
+        )
     return result
 
 
@@ -463,8 +511,18 @@ def gdp_deflator_ratio(from_year: int, to_year: int) -> float:
         val = ws.cell_value(i, 1)
         if label and isinstance(val, (int, float)):
             obs[int(label[:4])] = float(val)
+    if not obs:
+        raise ValueError(
+            f"gdp_deflator_ratio: no numeric GDP-deflator observations found in "
+            f"{_SUBRES_IND_FILE.name}!GDPdeflator rows 3-12."
+        )
     years_sorted = sorted(obs)
     first_y, last_y = years_sorted[0], years_sorted[-1]
+    if first_y == last_y:
+        raise ValueError(
+            f"gdp_deflator_ratio: only one observation year ({first_y}) found; "
+            "cannot compute a CAGR."
+        )
     cagr = (obs[last_y] / obs[first_y]) ** (1 / (last_y - first_y)) - 1
 
     def _index(year: int) -> float:
@@ -481,6 +539,11 @@ def sector_weighted_params(jrc_mapping, activity_wts, target_year) -> dict[str, 
     deflator = gdp_deflator_ratio(PARAM_BASE_YEAR, target_year)
     capex = fixom = varom = co2 = life = 0.0
     for sub_key, jrc_code in jrc_mapping.items():
+        if sub_key not in activity_wts:
+            raise KeyError(
+                f"sector_weighted_params: jrc_mapping key {sub_key!r} has no "
+                f"matching entry in activity_wts ({list(activity_wts)})."
+            )
         w = activity_wts[sub_key]
         p = read_ind_process_params(jrc_code)
         capex += w * p["INVCOST"]
@@ -578,7 +641,9 @@ EUROSTAT_NONREN_MUN_WASTE_HEAT_SHEET = "Sheet 66"  # "Non-renewable municipal wa
 def section_by_label(df: pd.DataFrame, year: int, header: str) -> dict[str, float]:
     col = idees_year_column(year)
     labels = df[0]
-    [header_idx] = df.index[labels == header]
+    header_idx = _single_row_index(
+        df.index[labels == header], f"section_by_label: header {header!r}"
+    )
     values: dict[str, float] = {}
     for i in range(header_idx + 1, len(df)):
         label = labels[i]
@@ -606,21 +671,14 @@ def physical_output_kt(country, sector, year):
     return _sector_kt(country, sector, year, PHYSICAL_OUTPUT_HEADER)
 
 
-@functools.lru_cache(maxsize=None)
-def capacity_existing_df(sector, year, lifetime=None, year_construction=None):
-    # Compute total capacity per node
-    node_caps: dict[str, float] = {}
-    for node in MODEL_NODES:
-        node_caps[node] = 0.0 if node in NODES_WITHOUT_IDEES else installed_capacity_kt(node, sector, year) * 1000 / OPERATING_HOURS
+def _capacity_df_from_node_caps(node_caps, year, lifetime, year_construction):
+    """Spread per-node capacity/demand totals into vintage-year rows.
 
-    # Population-proxy overrides for glass/ceramic (CH/NO/UK not covered by IDEES)
-    if sector in ("glass", "ceramic"):
-        node_caps["CH"] = node_caps["AT"]
-        node_caps["NO"] = node_caps["FI"]
-        node_caps["UK"] = node_caps["DE"] * UK_DE_POPULATION_RATIO
-
-    # Build rows: spread uniformly over `lifetime` vintage years ending at reference_year,
-    # or return a single row (backward-compatible path used by demand methods).
+    With `lifetime` given, spreads each node's total uniformly over `lifetime`
+    vintage years ending at `year_construction` (or `year`). Without it, returns
+    one row per node at that reference year (the backward-compatible path used
+    by demand methods).
+    """
     ref_year = year_construction or year
     rows = []
     if lifetime is not None:
@@ -635,7 +693,33 @@ def capacity_existing_df(sector, year, lifetime=None, year_construction=None):
 
 
 @functools.lru_cache(maxsize=None)
-def industry_demand_df(sector, year):
+def _capacity_existing_df_cached(sector, year, lifetime=None, year_construction=None):
+    # Compute total capacity per node
+    node_caps: dict[str, float] = {}
+    for node in MODEL_NODES:
+        node_caps[node] = 0.0 if node in NODES_WITHOUT_IDEES else installed_capacity_kt(node, sector, year) * 1000 / OPERATING_HOURS
+
+    # Population-proxy overrides for glass/ceramic (CH/NO/UK not covered by IDEES)
+    if sector in ("glass", "ceramic"):
+        node_caps["CH"] = node_caps["AT"]
+        node_caps["NO"] = node_caps["FI"]
+        node_caps["UK"] = node_caps["DE"] * UK_DE_POPULATION_RATIO
+
+    return _capacity_df_from_node_caps(node_caps, year, lifetime, year_construction)
+
+
+def capacity_existing_df(sector, year, lifetime=None, year_construction=None):
+    """Per-node capacity_existing DataFrame for `sector`.
+
+    Returns a fresh copy on every call: the inner cache holds one shared
+    DataFrame, and a caller mutating an uncopied result would silently corrupt
+    every later call with the same arguments.
+    """
+    return _capacity_existing_df_cached(sector, year, lifetime, year_construction).copy()
+
+
+@functools.lru_cache(maxsize=None)
+def _industry_demand_df_cached(sector, year):
     rows = []
     for node in MODEL_NODES:
         if node in NODES_WITHOUT_IDEES:
@@ -657,18 +741,14 @@ def industry_demand_df(sector, year):
     return df
 
 
+def industry_demand_df(sector, year):
+    """Per-node demand DataFrame for `sector`. Returns a fresh copy each call
+    (see `capacity_existing_df`)."""
+    return _industry_demand_df_cached(sector, year).copy()
+
+
 @functools.lru_cache(maxsize=None)
-def ceramic_demand_from_fec_df(year: int) -> pd.DataFrame:
-    """Derive ceramic production (kt/yr) from JRC-IDEES thermal FEC ÷ Rehfeldt specific energy.
-
-    JRC-IDEES 'Ceramics & other NMM (kt bricks eq.)' is dominated by bricks (~1-2 GJ/t),
-    which are not covered by Rehfeldt2017 (tiles/technical/houseware, ~8 GJ/t weighted avg).
-    Using thermal FEC from NMM_fec kiln/furnace rows (the same rows used for fuel shares)
-    divided by Rehfeldt's weighted specific energy gives a production volume consistent
-    with Rehfeldt's energy intensity.
-
-    Returns a DataFrame with columns ['node', 'kt_yr'].
-    """
+def _ceramic_demand_from_fec_df_cached(year: int) -> pd.DataFrame:
     ceramic_w = activity_weights(REHFELDT2017_CERAMIC)
     rehfeldt_fuel_GJ_t = weighted_average(REHFELDT2017_CERAMIC, ceramic_w, "fuels_GJ_t")
     rows = []
@@ -690,8 +770,23 @@ def ceramic_demand_from_fec_df(year: int) -> pd.DataFrame:
     return df
 
 
+def ceramic_demand_from_fec_df(year: int) -> pd.DataFrame:
+    """Derive ceramic production (kt/yr) from JRC-IDEES thermal FEC ÷ Rehfeldt specific energy.
+
+    JRC-IDEES 'Ceramics & other NMM (kt bricks eq.)' is dominated by bricks (~1-2 GJ/t),
+    which are not covered by Rehfeldt2017 (tiles/technical/houseware, ~8 GJ/t weighted avg).
+    Using thermal FEC from NMM_fec kiln/furnace rows (the same rows used for fuel shares)
+    divided by Rehfeldt's weighted specific energy gives a production volume consistent
+    with Rehfeldt's energy intensity.
+
+    Returns a DataFrame with columns ['node', 'kt_yr'] — a fresh copy each call
+    (see `capacity_existing_df`).
+    """
+    return _ceramic_demand_from_fec_df_cached(year).copy()
+
+
 @functools.lru_cache(maxsize=None)
-def food_capacity_existing_df(year, lifetime=None, year_construction=None):
+def _food_capacity_existing_df_cached(year, lifetime=None, year_construction=None):
     activity_mt = {node: 0.0 for node in MODEL_NODES}
     for subsector, item in FOOD_PRODUCTION_ITEMS.items():
         production = faostat_production_by_node(item, year)
@@ -700,17 +795,13 @@ def food_capacity_existing_df(year, lifetime=None, year_construction=None):
             share = production[node] / total if total else 0.0
             activity_mt[node] += share * REHFELDT2017_FOOD[subsector]["activity_Mt"]
     node_caps = {node: activity_mt[node] * 1e6 / OPERATING_HOURS for node in MODEL_NODES}
-    ref_year = year_construction or year
-    rows = []
-    if lifetime is not None:
-        for node in MODEL_NODES:
-            cap_per_yr = node_caps[node] / lifetime
-            for yc in range(ref_year - lifetime + 1, ref_year + 1):
-                rows.append({"node": node, "year_construction": yc, "capacity_existing": cap_per_yr})
-    else:
-        for node in MODEL_NODES:
-            rows.append({"node": node, "year_construction": ref_year, "capacity_existing": node_caps[node]})
-    return pd.DataFrame(rows)
+    return _capacity_df_from_node_caps(node_caps, year, lifetime, year_construction)
+
+
+def food_capacity_existing_df(year, lifetime=None, year_construction=None):
+    """Per-node food capacity_existing DataFrame. Returns a fresh copy each call
+    (see `capacity_existing_df`)."""
+    return _food_capacity_existing_df_cached(year, lifetime, year_construction).copy()
 
 
 def heat_pump_capacity_existing_df():
@@ -723,7 +814,9 @@ def heat_pump_capacity_existing_df():
 @functools.lru_cache(maxsize=None)
 def eurostat_gross_heat_gwh(sheet, year, xlsx=EUROSTAT_EB_XLSX):
     df = pd.read_excel(INPUT_DATA / "Eurostat" / xlsx, sheet_name=sheet, header=None)
-    [header_row] = df.index[df[0] == "TIME"]
+    header_row = _single_row_index(
+        df.index[df[0] == "TIME"], f"eurostat_gross_heat_gwh: sheet {sheet!r}"
+    )
     values: dict[str, float] = {}
     for i in range(header_row + 1, len(df)):
         label = df.iat[i, 0]
@@ -734,21 +827,12 @@ def eurostat_gross_heat_gwh(sheet, year, xlsx=EUROSTAT_EB_XLSX):
             if cell != ":":
                 values[label] = float(cell)
                 break
+        else:
+            logger.warning(
+                f"eurostat_gross_heat_gwh: no data for {label!r} in sheet {sheet!r} "
+                f"between {EUROSTAT_HEAT_FIRST_YEAR} and {year}; omitted from result."
+            )
     return values
-
-
-def _boiler_capacity_df_from_node_caps(node_caps, year, lifetime, year_construction):
-    ref_year = year_construction or year
-    rows = []
-    if lifetime is not None:
-        for node in MODEL_NODES:
-            cap_per_yr = node_caps[node] / lifetime
-            for yc in range(ref_year - lifetime + 1, ref_year + 1):
-                rows.append({"node": node, "year_construction": yc, "capacity_existing": cap_per_yr})
-    else:
-        for node in MODEL_NODES:
-            rows.append({"node": node, "year_construction": ref_year, "capacity_existing": node_caps[node]})
-    return pd.DataFrame(rows)
 
 
 def total_industry_heat_demand_gw(year: int) -> dict[str, float]:
@@ -832,7 +916,9 @@ BFE_CH_WASTE_SHEET = "Industrieabfälle"
 
 def _bfe_ch_branch_total_tj(sheet: str, year: int) -> float:
     df = pd.read_excel(INPUT_DATA / "BFE2025" / BFE_CH_XLSX, sheet_name=sheet, header=None)
-    [header_row] = df.index[df[0] == "BranchenNr."]
+    header_row = _single_row_index(
+        df.index[df[0] == "BranchenNr."], f"_bfe_ch_branch_total_tj: sheet {sheet!r}"
+    )
     header = df.iloc[header_row]
     year_cols = [c for c in header.index if isinstance(header[c], (int, float)) and header[c] <= year]
     if not year_cols:
@@ -840,9 +926,13 @@ def _bfe_ch_branch_total_tj(sheet: str, year: int) -> float:
     col = max(year_cols, key=lambda c: header[c])
     total = 0.0
     for branch in BFE_CH_BRANCHES:
-        [row] = df.index[df[0] == branch]
+        row = _single_row_index(
+            df.index[df[0] == branch], f"_bfe_ch_branch_total_tj: sheet {sheet!r}, branch {branch}"
+        )
         value = df.iat[row, col]
-        total += float(value) if value is not None else 0.0
+        if pd.isna(value):
+            continue
+        total += float(value)
     return total
 
 
@@ -886,15 +976,7 @@ def _eurostat_waste_gwh(year: int) -> dict[str, float]:
 
 
 @functools.lru_cache(maxsize=4)
-def _demand_based_boiler_capacity_gw(year: int) -> dict[str, dict[str, float]]:
-    """Per-node boiler capacity (GW) scaled to total heat demand with Eurostat fuel shares.
-
-    Returns {node: {"biomass": GW, "natural_gas": GW, "electrode": GW, "oil": GW,
-    "coal": GW, "waste": GW}}. CH has no Eurostat entry; it uses Switzerland-specific
-    fuel shares derived from BFE's industry-energy survey (BFE2025) instead — see
-    _bfe_ch_fuel_shares(). "biomass" includes biogases (Sheet 63) alongside primary
-    solid biofuels (Sheet 74) — see ASSUMPTIONS.md, "Boiler (industry) capacity".
-    """
+def _demand_based_boiler_capacity_gw_cached(year: int) -> dict[str, dict[str, float]]:
     total_demand = total_industry_heat_demand_gw(year)
     biomass_gwh = eurostat_gross_heat_gwh(EUROSTAT_BIOMASS_HEAT_SHEET, year)
     biogas_gwh = eurostat_gross_heat_gwh(EUROSTAT_BIOGAS_HEAT_SHEET, year, xlsx=EUROSTAT_NEW_EB_XLSX)
@@ -915,6 +997,10 @@ def _demand_based_boiler_capacity_gw(year: int) -> dict[str, dict[str, float]]:
         elif node == "CH":
             share_bio, share_ng, share_elec, share_oil, share_coal, share_waste = ch_shares
         else:
+            logger.warning(
+                f"_demand_based_boiler_capacity_gw: node {node!r} has no Eurostat "
+                "country mapping and is not 'CH'; defaulting to 100% natural gas."
+            )
             share_bio, share_ng, share_elec, share_oil, share_coal, share_waste = 0.0, 1.0, 0.0, 0.0, 0.0, 0.0
         total = total_demand[node]
         result[node] = {
@@ -928,12 +1014,27 @@ def _demand_based_boiler_capacity_gw(year: int) -> dict[str, dict[str, float]]:
     return result
 
 
+def _demand_based_boiler_capacity_gw(year: int) -> dict[str, dict[str, float]]:
+    """Per-node boiler capacity (GW) scaled to total heat demand with Eurostat fuel shares.
+
+    Returns {node: {"biomass": GW, "natural_gas": GW, "electrode": GW, "oil": GW,
+    "coal": GW, "waste": GW}}. CH has no Eurostat entry; it uses Switzerland-specific
+    fuel shares derived from BFE's industry-energy survey (BFE2025) instead — see
+    _bfe_ch_fuel_shares(). "biomass" includes biogases (Sheet 63) alongside primary
+    solid biofuels (Sheet 74) — see ASSUMPTIONS.md, "Boiler (industry) capacity".
+
+    Returns a fresh copy on every call: the inner cache holds one shared dict, and
+    a caller mutating an uncopied result would silently corrupt every later call.
+    """
+    return {node: dict(v) for node, v in _demand_based_boiler_capacity_gw_cached(year).items()}
+
+
 def boiler_capacity_existing_df_for_fuel(fuel_key: str, year, lifetime=None, year_construction=None):
     """Per-node boiler capacity_existing (GW) for one fuel ("biomass",
     "natural_gas", "electrode", "oil", "coal", or "waste"), scaled from
     total industry heat demand via Eurostat/BFE fuel-mix shares -- see
     _demand_based_boiler_capacity_gw()."""
     caps = _demand_based_boiler_capacity_gw(year)
-    return _boiler_capacity_df_from_node_caps(
+    return _capacity_df_from_node_caps(
         {node: caps[node][fuel_key] for node in MODEL_NODES}, year, lifetime, year_construction
     )

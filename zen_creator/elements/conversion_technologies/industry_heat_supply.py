@@ -319,54 +319,54 @@ class WasteBoilerIndustry(
 
 # -- Temperature conversion cascade ------------------------------------------
 
-class HeatIndustryTempConversion150(ConversionTechnology):
+def _temp_conversion_methods(output_carrier: str, input_carrier: str):
+    """Return a dict of _set_* methods shared by the two temperature-downgrade
+    conversion techs (150-200 -> 100-150 band, 100-150 -> 0-100 band): lossless
+    (conversion_factor = 1.0), zero variable OPEX, 30-year lifetime.
+    """
+
+    class _Mixin:
+        def _set_reference_carrier(self) -> Attribute:
+            return Attribute("reference_carrier", default_value=[output_carrier], element=self)
+
+        def _set_input_carrier(self) -> Attribute:
+            return Attribute("input_carrier", default_value=[input_carrier], element=self)
+
+        def _set_output_carrier(self) -> Attribute:
+            return Attribute("output_carrier", default_value=[output_carrier], element=self)
+
+        def _set_conversion_factor(self) -> Attribute:
+            return Attribute(
+                "conversion_factor",
+                default_value=[{input_carrier: {"default_value": 1.0, "unit": "GW/GW"}}],
+                element=self,
+            )
+
+        def _set_lifetime(self) -> Attribute:
+            return Attribute("lifetime", default_value=30, unit="1", element=self)
+
+        def _set_opex_specific_variable(self) -> Attribute:
+            return Attribute("opex_specific_variable", default_value=0.0, unit="Euro/GWh", element=self)
+
+    return _Mixin
+
+
+class HeatIndustryTempConversion150(
+    _temp_conversion_methods("heat_industry_100_150", "heat_industry_150_200"), ConversionTechnology
+):
     name = "heat_industry_temp_conversion_150"
 
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
 
-    def _set_reference_carrier(self) -> Attribute:
-        return Attribute("reference_carrier", default_value=["heat_industry_100_150"], element=self)
 
-    def _set_input_carrier(self) -> Attribute:
-        return Attribute("input_carrier", default_value=["heat_industry_150_200"], element=self)
-
-    def _set_output_carrier(self) -> Attribute:
-        return Attribute("output_carrier", default_value=["heat_industry_100_150"], element=self)
-
-    def _set_conversion_factor(self) -> Attribute:
-        return Attribute("conversion_factor", default_value=[{"heat_industry_150_200": {"default_value": 1.0, "unit": "GW/GW"}}], element=self)
-
-    def _set_lifetime(self) -> Attribute:
-        return Attribute("lifetime", default_value=30, unit="1", element=self)
-
-    def _set_opex_specific_variable(self) -> Attribute:
-        return Attribute("opex_specific_variable", default_value=0.0, unit="Euro/GWh", element=self)
-
-
-class HeatIndustryTempConversion100(ConversionTechnology):
+class HeatIndustryTempConversion100(
+    _temp_conversion_methods("heat_industry_0_100", "heat_industry_100_150"), ConversionTechnology
+):
     name = "heat_industry_temp_conversion_100"
 
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
-
-    def _set_reference_carrier(self) -> Attribute:
-        return Attribute("reference_carrier", default_value=["heat_industry_0_100"], element=self)
-
-    def _set_input_carrier(self) -> Attribute:
-        return Attribute("input_carrier", default_value=["heat_industry_100_150"], element=self)
-
-    def _set_output_carrier(self) -> Attribute:
-        return Attribute("output_carrier", default_value=["heat_industry_0_100"], element=self)
-
-    def _set_conversion_factor(self) -> Attribute:
-        return Attribute("conversion_factor", default_value=[{"heat_industry_100_150": {"default_value": 1.0, "unit": "GW/GW"}}], element=self)
-
-    def _set_lifetime(self) -> Attribute:
-        return Attribute("lifetime", default_value=30, unit="1", element=self)
-
-    def _set_opex_specific_variable(self) -> Attribute:
-        return Attribute("opex_specific_variable", default_value=0.0, unit="Euro/GWh", element=self)
 
 
 # -- Kiln fuel switching (fuel_to_kiln) --------------------------------------

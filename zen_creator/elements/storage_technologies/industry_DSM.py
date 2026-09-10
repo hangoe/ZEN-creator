@@ -192,10 +192,27 @@ def _dsm_capacity_limit(element, carrier_name: str) -> Attribute:
     carrier = element.model.elements.get(carrier_name)
     attr = Attribute("capacity_limit", element=element)
     if carrier is None or carrier.demand.df is None:
+        # No per-node demand data available: fall back to the same unbounded
+        # default_value used for any node missing from `limit_df` below, so this
+        # branch returns an Attribute shaped the same way as the success path
+        # (unit/source set, no df) rather than a bare, unpopulated one.
+        reason = "carrier not found" if carrier is None else "demand.df is None"
+        attr.set_data(
+            default_value=np.inf,
+            unit=element.power_unit,
+            source=SourceInformation(
+                description=(
+                    f"capacity_limit for {carrier_name} DSM: no per-node demand "
+                    f"data available for carrier {carrier_name!r} ({reason}); "
+                    "defaulting to unbounded (no limit)."
+                ),
+                metadata=_DSM_METADATA,
+            ),
+        )
         return attr
     raw = carrier.demand.df
     # df may be a Series (node index) or a DataFrame (node index, "demand" column)
-    demand_series = raw if hasattr(raw, "iloc") and raw.ndim == 1 else raw.iloc[:, 0]
+    demand_series = raw if raw.ndim == 1 else raw.iloc[:, 0]
     limit_df = (demand_series * 1.0).rename("capacity_limit").to_frame()
     attr.set_data(
         default_value=np.inf,

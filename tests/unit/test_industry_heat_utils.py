@@ -7,6 +7,7 @@ process_parametrization.py and the DEA/JRC-derived datasets.
 
 from __future__ import annotations
 
+import pandas as pd
 import pytest
 
 from zen_creator.datasets.datasets._industry_heat_utils import (
@@ -18,7 +19,11 @@ from zen_creator.datasets.datasets._industry_heat_utils import (
     activity_weights,
     boiler_capacity_existing_df_for_fuel,
     compute_sector_params,
+    fec_shares,
     gdp_deflator_ratio,
+    read_ind_process_params,
+    renormalized_fuel_shares,
+    thermal_fec_by_carrier,
     total_industry_heat_demand_gw,
     weighted_average,
     weighted_avg_temp_dist,
@@ -53,8 +58,44 @@ def test_weighted_average_is_linear_interpolation():
     assert weighted_average(data, weights, "x") == pytest.approx(17.5)
 
 
+def test_activity_weights_rejects_empty_data():
+    with pytest.raises(ValueError, match="empty"):
+        activity_weights({})
+
+
+def test_activity_weights_rejects_all_zero_activity():
+    with pytest.raises(ValueError, match="zero"):
+        activity_weights({"a": {"activity_Mt": 0.0}, "b": {"activity_Mt": 0.0}})
+
+
+def test_weighted_average_rejects_empty_weights():
+    with pytest.raises(ValueError, match="empty"):
+        weighted_average({"a": {"x": 1.0}}, {}, "x")
+
+
+def test_fec_shares_rejects_zero_total():
+    with pytest.raises(ValueError, match="sums to 0"):
+        fec_shares({"natural_gas": 0.0, "biomass": 0.0})
+
+
+def test_renormalized_fuel_shares_rejects_nothing_above_cutoff():
+    with pytest.raises(ValueError, match="cutoff"):
+        renormalized_fuel_shares({"Natural gas and biogas": 0.05}, cutoff=0.10)
+
+
+def test_thermal_fec_by_carrier_rejects_missing_parent_row():
+    df = pd.DataFrame({0: ["Some other row"], 1: [123.0]})
+    with pytest.raises(ValueError, match="not found in sheet"):
+        thermal_fec_by_carrier(df, ["Glass: Thermal melting tank"], year=2015)
+
+
+def test_read_ind_process_params_rejects_unknown_tech_name():
+    with pytest.raises(ValueError, match="not found"):
+        read_ind_process_params("NOT_A_REAL_JRC_TECH_CODE")
+
+
 def test_weighted_avg_temp_dist_sums_to_one_on_real_data():
-    """weighted_avg_temp_dist asserts internally that shares sum to 1 -- confirm
+    """weighted_avg_temp_dist validates internally that shares sum to 1 -- confirm
     this holds for real Rehfeldt2017 glass data, not just a synthetic case."""
     weights = activity_weights(REHFELDT2017_GLASS)
     dist = weighted_avg_temp_dist(REHFELDT2017_GLASS, weights)
@@ -65,7 +106,7 @@ def test_weighted_avg_temp_dist_rejects_shares_not_summing_to_one():
     temp_dist = {"<100": 0.5, "100-200": 0.3, "200-500": 0.1, "500-1000": 0.05, ">1000": 0.05}
     # deliberately mis-scaled so shares no longer sum to 1
     bad_data = {"a": {"temp_dist": {k: v * 2 for k, v in temp_dist.items()}}}
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError, match="do not sum to 1"):
         weighted_avg_temp_dist(bad_data, {"a": 1.0})
 
 

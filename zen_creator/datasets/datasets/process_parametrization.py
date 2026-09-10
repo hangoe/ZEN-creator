@@ -3,9 +3,7 @@ parameters, fuel-mix shares, and the production technology dict builder."""
 
 from __future__ import annotations
 
-import copy
 import csv
-import functools
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -28,7 +26,7 @@ from zen_creator.datasets.datasets._industry_heat_utils import (
     REHFELDT2017_GLASS,
     REHFELDT2017_PAPER,
     HOURS_PER_YEAR,
-    _boiler_capacity_df_from_node_caps,
+    _capacity_df_from_node_caps,
     activity_weights,
     apply_excel_overrides,
     build_conversion_tech,
@@ -177,9 +175,20 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
             wolf = {row["industriezweig"]: row for row in reader}
         result = {}
         for sector, wolf_name in SECTOR_TO_WOLF.items():
+            if wolf_name not in wolf:
+                raise KeyError(
+                    f"_compute_wolf_split: SECTOR_TO_WOLF maps {sector!r} to "
+                    f"{wolf_name!r}, which has no row in {_WOLF_CSV.name}."
+                )
             row = wolf[wolf_name]
-            s100 = float(row["PW_bis_150C"].strip("%")) / 100
-            s150 = float(row["PW_bis_200C"].strip("%")) / 100
+            try:
+                s100 = float(row["PW_bis_150C"].strip("%")) / 100
+                s150 = float(row["PW_bis_200C"].strip("%")) / 100
+            except ValueError as e:
+                raise ValueError(
+                    f"_compute_wolf_split: malformed percentage for {wolf_name!r} "
+                    f"in {_WOLF_CSV.name}: {e}"
+                ) from e
             total = s100 + s150
             result[sector] = (s100 / total, s150 / total) if total > 0 else (0.5, 0.5)
         return result
@@ -298,11 +307,27 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
 
     def get_conversion_factor(self, element: Element, sector: str) -> Attribute:
         data = self.get_production_tech_dict(sector)
-        return Attribute("conversion_factor", default_value=data["conversion_factor"], element=element)
+        attr = Attribute("conversion_factor", element=element)
+        attr.set_data(
+            default_value=data["conversion_factor"],
+            source=self._source_info(
+                f"Conversion factors for {sector}_production from process_parametrization.xlsx "
+                "(with Excel overrides applied)."
+            ),
+        )
+        return attr
 
     def get_input_carrier(self, element: Element, sector: str) -> Attribute:
         data = self.get_production_tech_dict(sector)
-        return Attribute("input_carrier", default_value=data["input_carrier"]["default_value"], element=element)
+        attr = Attribute("input_carrier", element=element)
+        attr.set_data(
+            default_value=data["input_carrier"]["default_value"],
+            source=self._source_info(
+                f"Input carriers for {sector}_production from process_parametrization.xlsx "
+                "(with Excel overrides applied)."
+            ),
+        )
+        return attr
 
     # attr_name -> (source description template, whether to pass unit=)
     _SIMPLE_ATTRS: dict[str, tuple[str, bool]] = {
@@ -354,7 +379,7 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         ceramic combined (both sectors draw on the shared fuel_to_kiln carrier — see
         ASSUMPTIONS.md, "Ceramic and glass kiln fuel switching"). Spread across the tech's
         own lifetime ending at CAPACITY_YEAR, same vintage-spreading convention as the
-        boiler/production-tech capacities (`_boiler_capacity_df_from_node_caps`).
+        boiler/production-tech capacities (`_capacity_df_from_node_caps`).
         hydrogen_to_kilnfuel/electricity_to_kilnfuel start at 0 (built from scratch).
         """
         attr = Attribute("capacity_existing", default_value=0.0, unit="GW", element=element)
@@ -375,7 +400,7 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
             for node in MODEL_NODES:
                 node_caps[node] += demand.get(node, 0.0) * cf
 
-        df = _boiler_capacity_df_from_node_caps(node_caps, FEC_YEAR, KILN_FUEL_TECH_LIFETIME, CAPACITY_YEAR)
+        df = _capacity_df_from_node_caps(node_caps, FEC_YEAR, KILN_FUEL_TECH_LIFETIME, CAPACITY_YEAR)
         attr.set_data(
             df=df.set_index(["node", "year_construction"]),
             source=self._source_info(
@@ -400,6 +425,11 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         for level in HEAT_TEMP_LEVELS:
             totals[level] = sum(demand_volumes[s] * cfs[s][level] for s in demand_volumes)
         grand_total = sum(totals.values())
+        if grand_total == 0:
+            raise ValueError(
+                "get_heat_capacity_split: total heat demand across all sectors is 0; "
+                "cannot compute a capacity split."
+            )
         return {level: totals[level] / grand_total for level in HEAT_TEMP_LEVELS}
 
     def get_waste_heat_capacity_limit(self, element: "Element", temp_level: str) -> Attribute:

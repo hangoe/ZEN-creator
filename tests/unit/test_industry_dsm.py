@@ -150,12 +150,13 @@ def test_dsm_capacity_limit_uses_real_carrier_demand(model: Model):
 
 def test_dsm_capacity_limit_early_returns_without_registered_carrier(model: Model):
     """When the carrier isn't registered on model.elements, capacity_limit must
-    fall back to an unset Attribute (no default_value, no df) -- the early-return
-    branch every other existing test in this file exercises."""
+    fall back to an unbounded Attribute (no df, default_value=inf) -- the same
+    "no limit" convention every Technology's capacity_limit uses by default
+    (see Technology.__init__), not a bare unset Attribute."""
     technology = GlassDSMOptimistic(model=model)
     technology.build()
     assert technology.capacity_limit.df is None
-    assert technology.capacity_limit.default_value is None
+    assert technology.capacity_limit.default_value == float("inf")
 
 
 if __name__ == "__main__":

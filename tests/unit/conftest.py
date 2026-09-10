@@ -13,7 +13,16 @@ from zen_creator.utils.singleton_registry_meta import SingletonRegistryMeta
 
 @pytest.fixture(autouse=True)
 def reset_singleton_registries() -> Iterator[None]:
-    """Reset singleton registries for test isolation."""
+    """Reset singleton registries for test isolation.
+
+    Note: this does NOT clear the module-level `functools.lru_cache` caches in
+    `zen_creator/datasets/datasets/_industry_heat_utils.py` (e.g.
+    `faostat_production_by_node`, `read_sector_thermal_fec`) -- those cache real
+    Excel/CSV reads across the whole test session for speed. Harmless as long as
+    no test monkeypatches the underlying source-data paths after an earlier test
+    has already populated one of those caches; if a future test needs to do that,
+    it must explicitly call `.cache_clear()` on the relevant function(s) itself.
+    """
     SingletonRegistryMeta._registries.clear()
     yield
     SingletonRegistryMeta._registries.clear()
