@@ -57,6 +57,9 @@ SCENARIOS = [
     # combines _no_flexibility and _nodiffusion: no_flexibility sectors, with
     # every technology's max_diffusion_rate also overridden to inf
     ("_no_flexibility_nodiffusion", ["industry_heat", "industry_low_temp_heat"]),
+    # combines _no_flexibility and _single_temp: no TES/DSM flexibility, and
+    # only the highest (150-200) temperature band (no industry_low_temp_heat)
+    ("_no_flex_single_temp", ["industry_heat"]),
 ]
 
 DIFFUSION_DISABLED_SUFFIXES = {"_nodiffusion", "_no_flexibility_nodiffusion"}
