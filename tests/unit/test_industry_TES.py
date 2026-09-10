@@ -1,9 +1,4 @@
-"""Unit tests for industry thermal energy storage (TES) technologies.
-
-industry_TES.py had zero test coverage before this (see cleanup plan, Phase 2
-item 6) -- unlike its sibling industry_DSM.py, which is exercised (partially)
-by test_industry_dsm.py.
-"""
+"""Unit tests for industry thermal energy storage (TES) technologies."""
 
 from __future__ import annotations
 
@@ -45,9 +40,9 @@ def test_reference_carrier_matches_temperature_band(technology_cls, expected_car
     assert technology.reference_carrier.default_value == [expected_carrier]
 
 
-def test_efficiency_is_lossless_v7_convention(model: Model):
-    """v7.0 onward: charge/discharge efficiency is 1.0 -- all losses are
-    represented via self_discharge instead (see module docstring)."""
+def test_efficiency_is_lossless(model: Model):
+    """Charge/discharge efficiency is 1.0 -- all losses are represented via
+    self_discharge instead."""
     for technology_cls in TES_CLASSES:
         technology = technology_cls(model=model)
         technology.build()

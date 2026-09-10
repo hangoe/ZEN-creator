@@ -2,8 +2,7 @@
 
 These functions back the unit conversions, weighted averages, temperature-band
 allocation, and GDP-deflator extrapolation used throughout
-process_parametrization.py and the DEA/JRC-derived datasets, but had no direct
-test coverage (see cleanup plan, Phase 2 item 1).
+process_parametrization.py and the DEA/JRC-derived datasets.
 """
 
 from __future__ import annotations
@@ -108,8 +107,7 @@ def test_gdp_deflator_ratio_is_positive_and_invertible():
 
 class TestBoilerCapacityExistingDf:
     """Characterization tests pinning current boiler-capacity output for DE/CH/FR,
-    2022, via the collapsed boiler_capacity_existing_df_for_fuel() (formerly six
-    near-identical per-fuel functions -- see cleanup plan, Phase 4 #2)."""
+    2022, via boiler_capacity_existing_df_for_fuel()."""
 
     YEAR = 2022
     EXPECTED = {

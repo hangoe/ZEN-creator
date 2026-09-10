@@ -129,8 +129,8 @@ _CATEGORY_PARAMS: dict[int, tuple[float, float, float]] = {
 # both variants, matching Golmohamadi2021's characterization of clinker production as an
 # uninterruptible process with only low/very-low/medium flexibility potential.
 #
-# primary_steel is Cat 3 in both variants — a new evaluation, not what
-# DSM_literature_review.md's cited sources (Boldrini2024, Golmohamadi2021) would give
+# primary_steel is Cat 3 in both variants, overriding what
+# DSM_literature_review.md's cited sources (Boldrini2024, Golmohamadi2021) suggest
 # for the optimistic (H2-DRI-EAF) case (Cat 2); see _CATEGORY_OVERRIDE_NOTES below.
 _SECTOR_CATEGORIES: dict[str, dict[str, int]] = {
     "glass": {"pessimistic": 3, "optimistic": 3},

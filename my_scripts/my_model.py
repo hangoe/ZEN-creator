@@ -18,7 +18,7 @@ from zen_creator.sectors.industry_dsm import (  # noqa: F401
 )
 
 # import energy system (triggers auto-registration via __init_subclass__);
-# extends carbon_emissions_budget to credit the new industry sectors, see
+# extends carbon_emissions_budget to credit the industry sectors, see
 # carbon_budget_allocation.py and ASSUMPTIONS.md ("Carbon emissions budget")
 from zen_creator.elements.energy_systems.crystal_ball_industry import (  # noqa: F401
     CrystalBallIndustryEnergySystem,
@@ -32,7 +32,7 @@ data_path = os.environ.get(
 output_path = Path(__file__).parent.parent / "outputs"
 VERSION = "Crystal_Ball_ind_heat_v9_0"
 
-# Case-study scenarios from MT_report_HG/Sections/03_SI.tex (table:SIScenarios).
+# Case-study scenarios: which sectors are active for each run.
 # industry_heat must come first in every combination: glass/ceramic/paper/food
 # carriers are defined there and referenced by the DSM/TES/low-temp-heat technologies.
 # DSM sectors use the optimistic demand-shiftability category assumptions by default
@@ -78,15 +78,7 @@ def disable_diffusion_limits(model: Model) -> None:
 
 
 def delete_old_outputs(path: Path, keep_names: set[str]) -> None:
-    """Delete everything currently in `path` (including any leftover `archive`
-    folder from the old archive-instead-of-delete convention), except entries
-    whose name is in `keep_names` (i.e. this run is about to regenerate them
-    under the same name).
-
-    Run at the start of every model-generation run so that only the models
-    written by the current run sit under `outputs/` — old versions (e.g. a
-    previous VERSION) are deleted outright rather than moved aside.
-    """
+    """Delete everything in `path` except entries whose name is in `keep_names`."""
     if not path.exists():
         return
     for entry in path.iterdir():

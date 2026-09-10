@@ -3,7 +3,8 @@
 zen_creator.sectors.industry_dsm sector-grouping module; see test_sectors.py
 for that).
 
-See ASSUMPTIONS.md ("Product DSM storage efficiency") for why efficiency is not 1.0.
+See ASSUMPTIONS.md ("Industry demand-side management (DSM)", "Near-lossless, not
+lossless") for why efficiency is not 1.0.
 """
 
 from __future__ import annotations

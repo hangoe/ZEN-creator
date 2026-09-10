@@ -26,7 +26,7 @@ _DEA_SHEET = "alldata_flat"
 # Which DEA technology sheet backs each model tech. Both heat pump tiers below
 # 150°C output use "2.a High temp. hp Up to 125C"/"2.b .. Up to 150" as a cost
 # proxy; the 150-200°C band reuses 2.b since DEA has no higher tier. See
-# ASSUMPTIONS.md ("New in sector v7.0").
+# ASSUMPTIONS.md ("Heat pump & boiler cost/efficiency parametrization (DEA)").
 DEA_SHEET_FOR_TECH = {
     "heat_pump_industry_0_100": "2.a High temp. hp Up to 125C",
     "heat_pump_industry_100_200": "2.b High temp. hp Up to 150",

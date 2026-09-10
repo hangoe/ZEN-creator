@@ -1,10 +1,5 @@
 """Unit tests for industry_ccs.py: ceramic/glass post-combustion carbon capture
-retrofits.
-
-Neither CeramicPostComb nor GlassPostComb -- nor RetrofittingTechnology's
-contract in general -- had any test coverage before this (see cleanup plan,
-Phase 2 item 9).
-"""
+retrofits."""
 
 from __future__ import annotations
 

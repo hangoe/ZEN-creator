@@ -1,8 +1,7 @@
 """Unit tests for DeaIndustrialHeatDataset (dea_industrial_heat.py).
 
 Covers the interpolation/constant-detection helpers shared with post_comb_cc.py,
-and the boiler efficiency -> conversion_factor inversion -- none of which had
-direct test coverage (see cleanup plan, Phase 2 item 3).
+and the boiler efficiency -> conversion_factor inversion.
 """
 
 from __future__ import annotations

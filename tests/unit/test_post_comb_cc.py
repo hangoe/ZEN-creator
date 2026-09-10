@@ -2,8 +2,7 @@
 
 Covers the renormalized natural_gas/hard_coal fuel-split and the
 retrofit_flow_coupling_factor derivation (base carbon intensity x DEA capture
-rate) -- none of which had direct test coverage (see cleanup plan, Phase 2
-item 5).
+rate).
 """
 
 from __future__ import annotations

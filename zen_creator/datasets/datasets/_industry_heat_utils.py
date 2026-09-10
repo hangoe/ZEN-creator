@@ -1,9 +1,6 @@
-"""Consolidated utility functions for industry heat datasets.
-
-Absorbs all logic previously in zen_creator/industry_heat_eu/:
-  process_params, fuel_shares, jrc_idees, faostat, capacity_and_demand,
-  excel_io (read-only), json_templates, data/rehfeldt2017, data/aidres2023,
-  data/jrc_eu_times.
+"""Utility functions for industry heat datasets: process parameters, fuel
+shares, JRC-IDEES/FAOSTAT loaders, capacity/demand helpers, Excel I/O, JSON
+templates, and Rehfeldt2017/AIDRES2023/JRC-EU-TIMES data access.
 """
 
 import csv
@@ -860,8 +857,8 @@ def _bfe_ch_fuel_shares(year: int) -> tuple[float, float, float, float, float, f
     dominated by drives and lighting rather than boilers, and heat-pump/electrode
     boiler capacity is assumed zero for Switzerland (see David2017, "Heat pump
     (industry) capacity"). Kohle (coal, ~2% of the combustion total) and
-    Industrieabfälle (industrial waste, ~7%) were previously dropped entirely; both
-    are now included now that coal_boiler_industry/waste_boiler_industry exist — see
+    Industrieabfälle (industrial waste, ~7%) are included because
+    coal_boiler_industry/waste_boiler_industry consume them — see
     ASSUMPTIONS.md, "Boiler (industry) capacity".
     """
     ng = _bfe_ch_branch_total_tj(BFE_CH_GAS_SHEET, year)

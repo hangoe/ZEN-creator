@@ -60,7 +60,8 @@ def _hp_methods(base_tech: str, dea_tech: str, temp_level: str, cop: float):
     opex/lifetime: "heat_pump_industry_0_100" (DEA "up to 125°C") for the 0-100°C
     band, "heat_pump_industry_100_200" (DEA "up to 150°C") for both 100-150°C and
     150-200°C — DEA has no tier above 150°C, so its highest tier is reused as the
-    cost proxy for the top band too (see ASSUMPTIONS.md, "New in sector v7.0").
+    cost proxy for the top band too (see ASSUMPTIONS.md, "Heat pump & boiler
+    cost/efficiency parametrization (DEA)").
     """
     carrier = f"heat_industry_{temp_level}"
 

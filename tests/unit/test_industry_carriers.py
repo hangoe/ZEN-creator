@@ -1,10 +1,7 @@
 """Unit tests for industry_carriers.py: glass/ceramic/paper/food product
-carriers and the heat_industry_*/fuel_to_kiln energy carriers.
-
-None of these 8 Element subclasses -- nor the _add_carrier_setters/
-_make_carrier_setter metaprogramming helpers that wire up their shared
-attributes -- had any test coverage before this (see cleanup plan, Phase 2
-item 9).
+carriers and the heat_industry_*/fuel_to_kiln energy carriers, including the
+_add_carrier_setters/_make_carrier_setter metaprogramming helpers that wire up
+their shared attributes.
 """
 
 from __future__ import annotations
@@ -43,8 +40,7 @@ def test_build_succeeds_and_shared_attrs_are_set(carrier_cls, model: Model):
 
 
 def test_max_shed_demand_setter_is_dead_code(model: Model):
-    """KNOWN BUG (found while writing this test, not yet fixed -- see cleanup
-    plan follow-up): _CARRIER_ATTRS includes "max_shed_demand" and
+    """KNOWN BUG, not yet fixed: _CARRIER_ATTRS includes "max_shed_demand" and
     _add_carrier_setters wires up a _set_max_shed_demand method for every
     industry carrier, but the base Carrier class (carrier.py) never declares
     "max_shed_demand" as a real attribute (no property, not in

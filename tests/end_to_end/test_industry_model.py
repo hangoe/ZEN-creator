@@ -2,11 +2,9 @@
 against the crystal_ball fixture (the same base every other end-to-end test in
 this directory uses).
 
-Before this, nothing in the test suite ever built a Model with any industry
-sector at all -- so cross-sector composition issues (registration order,
-shared carriers between industry_heat/industry_low_temp_heat/industry_tes/
-industry_dsm_optimistic, the custom energy system) went unchecked (see cleanup
-plan, Phase 2 item 11). This mirrors my_scripts/my_model.py's main-scenario
+Checks cross-sector composition (registration order, shared carriers between
+industry_heat/industry_low_temp_heat/industry_tes/industry_dsm_optimistic, the
+custom energy system). This mirrors my_scripts/my_model.py's main-scenario
 sector combination exactly, just against the small local fixture instead of
 the external Crystal Ball model directory.
 """

@@ -2,8 +2,7 @@
 
 Covers the kiln-fuel-switching share split, the Wolf2017 100-150/150-200
 temperature split, the hand-derived JRC/Gardarsdottir cost formulas per sector,
-and the heat-capacity/waste-heat allocation helpers -- none of which had direct
-test coverage (see cleanup plan, Phase 2 item 2).
+and the heat-capacity/waste-heat allocation helpers.
 """
 
 from __future__ import annotations

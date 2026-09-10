@@ -1,9 +1,5 @@
-"""Dataset for production technology parametrization.
-
-Absorbs the cached computation logic from _params.py: sector_params,
-wolf_100_200_split, sector_heat_cfs, fuel_mix_shares, jrc_cost_params,
-and the production tech dict builder from production_techs.py.
-"""
+"""Dataset for production technology parametrization: sector cost/heat
+parameters, fuel-mix shares, and the production technology dict builder."""
 
 from __future__ import annotations
 
@@ -290,10 +286,9 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         }
         overrides = load_param_column(_PROCESS_XLSX, _PROCESS_SHEET, f"{sector}_production")
         data = apply_excel_overrides(data, overrides, conversion_factor_map=cf_map)
-        # Re-set carrier lists after Excel overrides — the Excel may still
-        # have old 2-level carriers (heat_industry_100_200) which the code
-        # has replaced with 3-level carriers. The old code avoided this
-        # because apply_attrs_dict skipped list-valued carrier attributes.
+        # Re-set carrier lists after Excel overrides — the Excel file still
+        # uses the legacy 2-level carrier name (heat_industry_100_200), which
+        # would otherwise silently override the 3-level carrier list above.
         data["input_carrier"]["default_value"] = [*shares.keys(), *active_carriers, "electricity"]
         data["reference_carrier"]["default_value"] = [sector]
         data["output_carrier"]["default_value"] = [sector]

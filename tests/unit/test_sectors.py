@@ -1,9 +1,8 @@
 """Unit tests for the industry Sector definitions (zen_creator/sectors/*.py).
 
-Nothing previously checked that a Sector's `.elements` list is complete --
-a silently dropped technology/carrier would go unnoticed by every other test
-in this suite, since none of them build a full sector (see cleanup plan,
-Phase 2 item 8).
+Checks that each Sector's `.elements` list is complete -- a silently dropped
+technology/carrier would otherwise go unnoticed, since no other test in this
+suite builds a full sector.
 """
 
 from __future__ import annotations

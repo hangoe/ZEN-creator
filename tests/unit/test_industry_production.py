@@ -1,9 +1,5 @@
 """Unit tests for industry_production.py: glass/ceramic/paper/food production
-technologies.
-
-None of these 4 Element subclasses had any test coverage before this (see
-cleanup plan, Phase 2 item 9).
-"""
+technologies."""
 
 from __future__ import annotations
 

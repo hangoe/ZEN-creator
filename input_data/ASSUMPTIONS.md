@@ -5,56 +5,53 @@ industry conversion technologies and carriers (glass, ceramic, paper, food) and 
 shared `heat_industry_*` carriers. It does not cover assumptions in the input Excel
 files (`process_parametrization.xlsx`, `industry_carriers.xlsx`,
 `heat_tech_parametrization.xlsx`) — those document their own sources in their
-`source`/`comment` columns. This file describes only the current version's assumptions,
-not the history of how they were derived.
+`source`/`comment` columns.
 
-## New in sector v7.0
+## Boiler technologies
 
-- **`oil_boiler_industry`**: a fourth 150–200°C boiler technology, alongside
-  `biomass_boiler_industry`, `natural_gas_boiler_industry`, and
-  `electrode_boiler_industry`. `input_carrier` is `oil` instead of `natural_gas`;
-  capex/opex/lifetime/efficiency are DEA-sourced like the other three boilers (see
-  "Heat pump & boiler cost/efficiency parametrization (DEA)" below) — DEA's
-  gas-and-oil boiler sheet covers both fuels with one set of techno-economics, so
-  `natural_gas_boiler_industry` and `oil_boiler_industry` share identical
-  capex/opex/lifetime/efficiency, differing only in `input_carrier`. No coal-fired
-  boiler was added: coal is a minor EU industrial heating fuel and is already
-  represented as a *process* fuel for glass/ceramic/paper/food (`Solids` →
-  `hard_coal` in the JRC-IDEES thermal-FEC shares), not as boiler technology.
-- **Oil data source**: `input_data/Eurostat/Eurostat_new.xlsx` is a second Eurostat
-  `nrg_bal_c` extract (custom_22192472) that, unlike `Eurostat_EB_GWh.xlsx`
-  (custom_21840385), includes oil products under "Gross heat production". Sheet 23,
-  "Oil and petroleum products (excluding biofuel portion)" — the full oil
-  aggregate — was chosen over the narrower "Fuel oil" (Sheet 39). Comparison of
-  EU27 fuel-mix shares (natural_gas/biomass/electricity/oil only), 2023:
+Six 150–200°C boiler technologies are modeled: `biomass_boiler_industry`,
+`natural_gas_boiler_industry`, `oil_boiler_industry`, `electrode_boiler_industry`,
+`coal_boiler_industry`, and `waste_boiler_industry`. `oil_boiler_industry`'s
+`input_carrier` is `oil` instead of `natural_gas`; capex/opex/lifetime/efficiency
+are DEA-sourced like the gas boiler (see "Heat pump & boiler cost/efficiency
+parametrization (DEA)" below) — DEA's gas-and-oil boiler sheet covers both fuels
+with one set of techno-economics, so `natural_gas_boiler_industry` and
+`oil_boiler_industry` share identical capex/opex/lifetime/efficiency, differing
+only in `input_carrier`. No coal-fired *boiler* was added beyond
+`coal_boiler_industry` (see "Boiler (industry) capacity" below): coal is a minor
+EU industrial heating fuel and is already represented as a *process* fuel for
+glass/ceramic/paper/food (`Solids` → `hard_coal` in the JRC-IDEES thermal-FEC
+shares), not only as a boiler technology.
 
-  | carrier | Eurostat, oil = full aggregate (Sheet 23) | Eurostat, oil = "Fuel oil" only (Sheet 39) | Fraunhofer2012, industry-specific (glass+ceramic+paper+food, <100/100–200°C) |
-  |---|---|---|---|
-  | natural_gas | 53.0% | 55.0% | 48.2% |
-  | biomass | 41.5% | 43.0% | 43.2% |
-  | electricity | 0.9% | 0.9% | 1.2% |
-  | oil | **4.6%** | 1.0% | 7.4% (fuel oil) |
+**Oil data source**: `input_data/Eurostat/Eurostat_new.xlsx` is a Eurostat
+`nrg_bal_c` extract (custom_22192472) that, unlike `Eurostat_EB_GWh.xlsx`
+(custom_21840385), includes oil products under "Gross heat production". Sheet 23,
+"Oil and petroleum products (excluding biofuel portion)" — the full oil
+aggregate — is used over the narrower "Fuel oil" (Sheet 39). Comparison of
+EU27 fuel-mix shares (natural_gas/biomass/electricity/oil only), 2023:
 
-  The full aggregate (4.6%) is closer to Fraunhofer's industry-specific fuel-oil
-  share (7.4%) than the narrow "Fuel oil" sheet (1.0%) — Eurostat's economy-wide
-  "Gross heat production" statistic is dominated by district-heating/CHP plants
-  rather than industrial boilers, and industrial oil use spans gas oil/diesel,
-  LPG and refinery gas alongside heavy fuel oil, not just fuel oil narrowly. Using
-  the full aggregate also keeps oil consistent with how biomass is already
-  defined (`Primary solid biofuels`, itself a broad aggregate, not one narrow
-  sub-product).
+| carrier | Eurostat, oil = full aggregate (Sheet 23) | Eurostat, oil = "Fuel oil" only (Sheet 39) | Fraunhofer2012, industry-specific (glass+ceramic+paper+food, <100/100–200°C) |
+|---|---|---|---|
+| natural_gas | 53.0% | 55.0% | 48.2% |
+| biomass | 41.5% | 43.0% | 43.2% |
+| electricity | 0.9% | 0.9% | 1.2% |
+| oil | **4.6%** | 1.0% | 7.4% (fuel oil) |
 
-### Heat pump & boiler cost/efficiency parametrization (DEA)
+The full aggregate (4.6%) is closer to Fraunhofer's industry-specific fuel-oil
+share (7.4%) than the narrow "Fuel oil" sheet (1.0%) — Eurostat's economy-wide
+"Gross heat production" statistic is dominated by district-heating/CHP plants
+rather than industrial boilers, and industrial oil use spans gas oil/diesel,
+LPG and refinery gas alongside heavy fuel oil, not just fuel oil narrowly. Using
+the full aggregate also keeps oil consistent with how biomass is defined
+(`Primary solid biofuels`, itself a broad aggregate, not one narrow sub-product).
+
+## Heat pump & boiler cost/efficiency parametrization (DEA)
 
 `heat_pump_industry` (all 6 temperature-level/source variants),
 `biomass_boiler_industry`, `natural_gas_boiler_industry`, `oil_boiler_industry`,
-and `electrode_boiler_industry` previously borrowed `capex_specific_conversion`,
-`opex_specific_fixed`, `opex_specific_variable`, and `lifetime` from the base
-(non-industry) Crystal_Ball techs (`heat_pump`, `natural_gas_boiler`,
-`biomass_boiler`, `electrode_boiler`) — a placeholder, since those numbers were
-never industry-specific. They're now sourced from
+and `electrode_boiler_industry` are sourced from
 `input_data/DanishEnergyAgency/technology_data_for_industrial_process_heat.xlsx`
-(Danish Energy Agency, "Technology Data for Industrial Process Heat"), via the new
+(Danish Energy Agency, "Technology Data for Industrial Process Heat"), via
 `zen_creator/datasets/datasets/dea_industrial_heat.py`.
 
 - **Sheet-to-tech mapping** (central (`ctrl`) estimates only):
@@ -82,9 +79,7 @@ never industry-specific. They're now sourced from
   gas/oil boiler (90 €/kW), which doesn't hold up against its peers. Gas/oil and
   biomass boilers only have one DEA size each, so no such choice was needed there.
 - **Boiler efficiency**: `conversion_factor` (`1 / efficiency`) for all 4 boilers
-  now comes from DEA's `Total efficiency, net [%], nominel load`, replacing the
-  previous placeholder values (e.g. `natural_gas_boiler_industry`'s ~99.5%, copied
-  from the base non-industry tech).
+  comes from DEA's `Total efficiency, net [%], nominel load`.
 - **Time-varying costs**: DEA gives values at 5 sample years (2025, 2030, 2035,
   2040, 2050), all in real 2025€. Capex/opex are interpolated (linear) onto every
   calendar year 2022–2050. Years before 2025 (2022–2024) hold flat at the 2025
@@ -108,59 +103,19 @@ never industry-specific. They're now sourced from
     same mechanism already used for e.g. the `oil` carrier's
     `price_import_yearly_variation.csv`) — via `Attribute.yearly_variations_df`,
     not `Attribute.df`.
-- **Lifetime**: also switched to DEA's technical lifetime (heat pumps 20 yr, all
-  boilers 25 yr) — a real change from the previous placeholders (heat pump 19,
-  natural gas/oil 21, biomass 20, electrode 30). `BOILER_LIFETIMES` in
-  `_industry_heat_utils.py` (used to spread *existing* capacity across
-  construction-year vintage cohorts, independent of the optimization `lifetime`
-  attribute) was updated to match (25 for all 4 boilers).
-- **Out of scope**: `input_data/Parametrization/heat_tech_parametrization.xlsx`
-  still holds the old placeholder numbers for `lifetime`/`capex_specific_conversion`/
-  `opex_specific_fixed`/`opex_specific_variable` (and, for boilers,
-  `conversion_factor`) in the 5 affected tech columns — they're no longer read for
-  these params, kept only as a record of what used to be assumed. All other
-  parameters for these techs (capacity bounds, load bounds, `construction_time`,
-  `max_diffusion_rate`, carrier lists) are unaffected and still come from that
-  file. DEA sheets 1.1/1.2 (traditional/combi heat pump, ≤60/80°C), 4 (mechanical
-  vapor recompression, 5 K lift only), 6.3 (coal boiler), and 7.1–7.3 (direct
-  firing) don't map onto the model's existing technologies and weren't used.
-
-### Other v7.0 changes
-
-- **`primary_steel_DSM` is Cat 3 in both the optimistic and pessimistic variant**
-  (previously Cat 2 optimistic / Cat 3 pessimistic). This is a new evaluation, not
-  a change in what the cited literature says — the sources
-  (`Boldrini2024`/`Golmohamadi2021`) are unchanged; see
-  `_CATEGORY_OVERRIDE_NOTES` in `zen_creator/elements/storage_technologies/industry_DSM.py`.
-- **`heat_industry_temp_conversion_150`/`_100` now have `opex_specific_variable = 0`**
-  (previously a nominal 0.1 EUR/GWh friction cost). These are lossless
-  temperature-downgrade cascade technologies (see "Heat technology
-  temperature-level structure" below); the small opex was not meaningful and made
-  no difference to results, so it was removed.
-- **`industry_TES_steam_100_150` (steam accumulator, 100–150°C) was removed** from
-  the model and from `Mayer2024Dataset`'s `TECH_NAME_MAP` — it was never chosen by
-  the optimizer and doesn't represent a sensible standalone technology once the
-  100–150°C water tank (`industry_TES_water_100_150`) and the 150–200°C steam
-  accumulator (`industry_TES_steam_150_200`) already cover that range. Only two
-  TES technologies remain at the 100–150°C level's boundaries: the water tank
-  (100–150°C) and the high-temperature steam accumulator (150–200°C).
-- **DSM `capacity_limit` is now 1× per-node carrier demand** (previously 2×) — see
-  `_dsm_capacity_limit` in `industry_DSM.py`. Halves the maximum DSM storage stock
-  the optimizer can build per carrier per node relative to v6.1.
-- **All TES technologies now have `efficiency_charge = efficiency_discharge = 1.0`**
-  (previously `√round-trip-efficiency` from Mayer2024 Table 3, ≈0.949 for water
-  tanks, ≈0.975 for the steam accumulator) — all TES losses are now represented
-  purely via `self_discharge` instead of being split across charge/discharge.
-  `self_discharge` itself **stays flat at 0.95 for all techs and all temperature
-  levels, unchanged from v6.1** — a temperature-dependent self-discharge (higher
-  standing loss at higher storage temperatures, following Newton's law of cooling)
-  was considered but deliberately deferred: Mayer2024 has no heat-loss/insulation
-  data to derive it from, and the right basis for "temperature-dependent" is itself
-  unsettled (whether stored energy should be measured relative to ambient — in
-  which case the fractional loss rate is roughly temperature-*independent* — or
-  relative to the carrier's useful floor temperature, in which case it does grow
-  with band). To be decided and implemented later; for now every TES tech uses the
-  same uniform, temperature-independent 0.95.
+- **Lifetime**: DEA's technical lifetime is used (heat pumps 20 yr, all boilers
+  25 yr). `BOILER_LIFETIMES` in `_industry_heat_utils.py` (used to spread
+  *existing* capacity across construction-year vintage cohorts, independent of
+  the optimization `lifetime` attribute) matches (25 for all 4 boilers).
+- **Out of scope**: `input_data/Parametrization/heat_tech_parametrization.xlsx`'s
+  `lifetime`/`capex_specific_conversion`/`opex_specific_fixed`/
+  `opex_specific_variable` (and, for boilers, `conversion_factor`) columns for
+  these 5 techs are not read. All other parameters for these techs (capacity
+  bounds, load bounds, `construction_time`, `max_diffusion_rate`, carrier lists)
+  come from that file. DEA sheets 1.1/1.2 (traditional/combi heat pump, ≤60/80°C),
+  4 (mechanical vapor recompression, 5 K lift only), 6.3 (coal boiler), and
+  7.1–7.3 (direct firing) don't map onto the model's existing technologies and
+  aren't used.
 
 ## General
 
@@ -267,8 +222,7 @@ never industry-specific. They're now sourced from
   limestone/raw meal in a rotary kiln; ceramics: clay/kaolin/feldspar bodies in a tunnel/periodic
   kiln), and both are bulk, comparatively low-value-added mineral products. Glass's core step —
   continuous melting of a silica-soda-lime batch into a molten state — is a more different,
-  typically more capital- and chemically-intensive process; the previous "same as glass, both use
-  a kiln" justification was the weaker analogy on its own logic.
+  typically more capital- and chemically-intensive process.
 
   Reference cement plant data (€2014, pre-capture): capacity 120.65 t clinker/h, capacity factor
   91.3%, Total Plant Cost (TPC) 204 M€, annual OPEX 41 M€/yr, economic life 25 yr. Fixed OPEX is
@@ -282,20 +236,18 @@ never industry-specific. They're now sourced from
   EUR via `gdp_deflator_ratio()` (factor ≈1.0765) for consistency with the JRC_COST_TARGET_YEAR
   used elsewhere. Resulting values (see `process_parametrization.py::_compute_jrc_cost_params()`,
   `"ceramic"` branch): capex = 1,820,124.59 EUR/(t/h), opex_fixed = 156,958.98 EUR/(t/h)/yr,
-  opex_variable = 7.27 EUR/t, lifetime = 25 yr (replacing the previously documented, inconsistent
-  20 yr — the Excel/output value actually in use before this change was 28 yr, copied from glass).
+  opex_variable = 7.27 EUR/t, lifetime = 25 yr.
 
   Cross-check against glass's JRC-derived values: cement's CAPEX and fixed OPEX land within
-  ~6–17% of glass's (ratios 0.83 and 0.94 respectively) — a similar order of magnitude, meaning
-  the previous glass-mirroring wasn't unreasonable for these two parameters, just unconfirmed.
+  ~6–17% of glass's (ratios 0.83 and 0.94 respectively) — a similar order of magnitude,
+  supporting cement as a reasonable proxy for these two parameters.
   Variable OPEX is where the two diverge sharply (cement's 7.27 EUR/t vs. glass's 59.34 EUR/t):
   glass's batch chemistry (silica sand, soda ash, cullet, refractory wear) is a materially
   different, pricier input mix than cement's raw meal (crushed limestone). Ceramics' true
   non-fuel variable cost likely sits between the two (cheaper feedstock than glass, but
   potentially pricier than cement's raw meal for glazed/technical product lines) — this remains
   the parameter with the most residual uncertainty pending real ceramic-specific literature.
-- **`carbon_intensity_technology = 0.064234` t/t** (previously `0`, "assumed negligible"):
-  back-calculated from a JRC BAT finding that process emissions are 15% of total ceramic
+- **`carbon_intensity_technology = 0.064234` t/t**, back-calculated from a JRC BAT finding that process emissions are 15% of total ceramic
   emissions, with the remaining 85% being combustion emissions already captured
   automatically via the carriers `ceramic_production` consumes (no separate
   `carbon_intensity_technology` needed for those — same convention as the heat-supply
@@ -346,7 +298,7 @@ the same way the (externally-defined, pre-existing) `cement_post_comb` retrofits
   `attributes.json` exactly, other than a small (~0.25%) uniform scaling factor on the three
   cost figures that could not be traced to anything in this repo (not the JRC GDP-deflator
   convention used elsewhere in this file, not a recognizable currency adjustment) — consistent
-  with `cement_post_comb` being static legacy data, not generated by any script in this repo.
+  with `cement_post_comb` being static external data, not generated by any script in this repo.
 - **No price-year deflator applied**: unlike the JRC-derived ceramic/glass/paper/food base
   production costs above (which are deflated to `JRC_COST_TARGET_YEAR`), the DEA figures are
   used as-is (only unit conversion), following the existing convention of
@@ -392,13 +344,11 @@ the same way the (externally-defined, pre-existing) `cement_post_comb` retrofits
 
 ## Ceramic and glass kiln fuel switching (`fuel_to_kiln`)
 
-`ceramic_production`/`glass_production` previously took their direct high-temperature
-(`>200°C`) `natural_gas` input as a fixed, non-substitutable flow — whatever JRC-IDEES-2023
-said the 2023 EU fuel mix was stays fixed for the whole model horizon (see "Fuel mix
-shares for X_production" above). A new intermediate carrier, `fuel_to_kiln`, and three
-zero-tech-cost conversion technologies (`natural_gas_to_kilnfuel`, `hydrogen_to_kilnfuel`,
-`electricity_to_kilnfuel`) now let the optimizer shift kiln firing away from natural gas
-over time, while the reference year still reproduces today's natural-gas-only kiln fuel
+`ceramic_production`/`glass_production`'s direct high-temperature (`>200°C`) `natural_gas`
+input is routed through an intermediate carrier, `fuel_to_kiln`, and three zero-tech-cost
+conversion technologies (`natural_gas_to_kilnfuel`, `hydrogen_to_kilnfuel`,
+`electricity_to_kilnfuel`) let the optimizer shift kiln firing away from natural gas
+over time, while the reference year reproduces today's natural-gas-only kiln fuel
 exactly. Implemented in
 `zen_creator/elements/carriers/industry_carriers.py` (`FuelToKiln`),
 `zen_creator/elements/conversion_technologies/industry_heat_supply.py`
@@ -423,12 +373,11 @@ exactly. Implemented in
   stays a separate, fixed 17.5% input.
 - **Ceramic: 97.4% switchable, 2.6% locked.** `KILN_NG_SWITCHABLE_SHARE["ceramic"] =
   46.26 / 47.49 ≈ 0.9741`, taken directly from the "Ceramic NG fuel-switch feasibility
-  split" section below (that section's `electrifiable_share`/`gas_only_share`, originally
-  computed as an exploratory, not-implemented calculation, is now the real basis for this
-  split — see that section for the full Rehfeldt2017/JRC-BAT-CER-2026 derivation and its
-  caveats, notably that the 2.6% "locked" share is an electrification-only feasibility
-  limit repurposed as a proxy for "can't convert to any alternative fuel," not a literal
-  hydrogen limit). `hard_coal`/`biomass`/`oil` shares stay separate, fixed inputs.
+  split" section below (see that section for the full Rehfeldt2017/JRC-BAT-CER-2026
+  derivation and its caveats, notably that the 2.6% "locked" share is an
+  electrification-only feasibility limit used as a proxy for "can't convert to any
+  alternative fuel," not a literal hydrogen limit). `hard_coal`/`biomass`/`oil` shares
+  stay separate, fixed inputs.
 - **`_kiln_fuel_shares(sector, shares)`** (`process_parametrization.py`) replaces the
   `natural_gas` entry in the sector's fuel-mix `shares` dict with a `fuel_to_kiln` entry
   (scaled by `KILN_NG_SWITCHABLE_SHARE[sector]`) plus, only where the remainder is
@@ -436,15 +385,14 @@ exactly. Implemented in
   `ProcessParametrizationDataset.get_production_tech_dict()` before `build_conversion_tech()`
   runs, so both the `input_carrier` list and `conversion_factor` values are built directly
   against the split shares. `process_parametrization.xlsx`'s `conversion_factor:natural_gas`
-  override row for `glass_production`/`ceramic_production` (a static snapshot written by
-  a previous version of `compute_params.py`) was cleared for both columns, since it would
-  otherwise silently overwrite the code-computed `fuel_to_kiln`/reduced-`natural_gas`
-  values back to the old pre-split full-NG figure.
+  override row for `glass_production`/`ceramic_production` is left blank for both columns,
+  since a nonblank value would silently overwrite the code-computed
+  `fuel_to_kiln`/reduced-`natural_gas` values.
 - **Zero tech cost, non-1:1 conversion factors.** `capex_specific_conversion`,
   `opex_specific_fixed`, `opex_specific_variable`, and `carbon_intensity_technology` are
   all `0` for the three `*_to_kilnfuel` techs (base `Technology`/`ConversionTechnology`
-  defaults, no overrides) — production-tech costs are unchanged versus before this
-  change, since this only models the fuel-*choice* decision, not burner-conversion capex.
+  defaults, no overrides), since this only models the fuel-*choice* decision, not
+  burner-conversion capex.
   Combustion CO2 stays attributed to the input fuel carrier, same convention as the
   boilers. The routes are **not** energy-equivalent, though: `conversion_factor` is
   AIDRES2023-derived (`KILN_FUEL_SWITCH_CF` in `process_parametrization.py`), from
@@ -628,8 +576,9 @@ Each boiler technology's `capacity_existing` (GW, one row per node,
 1. **Fuel-mix shares per node**, from `input_data/Eurostat/Eurostat_EB_GWh.xlsx`
    "Gross heat production": "Primary solid biofuels" (Sheet 74, biomass), "Natural
    gas" (Sheet 72), "Electricity" (Sheet 83, electrode), plus from the separate
-   extract `input_data/Eurostat/Eurostat_new.xlsx` (custom_22192472 — see "New in
-   sector v7.0" above for why this second extract exists): "Oil and petroleum
+   extract `input_data/Eurostat/Eurostat_new.xlsx` (custom_22192472, which covers
+   oil/coal/waste/biogases, unlike `Eurostat_EB_GWh.xlsx` — see "Boiler
+   technologies" above): "Oil and petroleum
    products (excluding biofuel portion)" (Sheet 23, oil), "Solid fossil fuels"
    (Sheet 2, coal), "Biogases" (Sheet 63, folded into biomass), and "Industrial
    waste (non-renewable)" + "Renewable municipal waste" + "Non-renewable municipal
@@ -644,23 +593,20 @@ Each boiler technology's `capacity_existing` (GW, one row per node,
    Eurostat, ensuring enough boiler capacity exists to meet demand at every temperature
    level.
 
-**Why coal and waste are now included (previously excluded).** The original
-4-carrier version of this calculation (biomass/gas/electrode/oil only) silently
-treated their sum as 100% of "Gross heat production", even though the same Eurostat
-extract also carries coal and waste as separate SIEC categories. Checking the
-2023 data directly: EU28-wide, "Solid fossil fuels" (coal) totals ~98.7 TWh — the
+**Why coal and waste are included.** Coal and waste are carried as separate SIEC
+categories in the same Eurostat extract used for biomass/gas/electrode/oil, and
+are too large to leave out of the fuel-mix normalization. Checking the 2023 data
+directly: EU28-wide, "Solid fossil fuels" (coal) totals ~98.7 TWh — the
 3rd-largest carrier in the whole dataset, larger than oil (~15.9 TWh) and
-electricity (~3.8 TWh) *combined*, both of which already had dedicated boiler
+electricity (~3.8 TWh) *combined*, both of which have dedicated boiler
 technologies. Waste (industrial + municipal, all categories) totals ~75.5 TWh,
 also larger than oil or electricity alone. Per country the gap is large where
 coal-fired heat plants are common: Poland's coal figure (51.4 TWh) alone exceeds
-what the model's entire 4-carrier total captured for Poland (18.5 TWh); Czechia,
-Germany, and Slovenia show similarly large gaps. This is a materially different
-situation from the Swiss case below, where the same kind of exclusion is
-explicitly checked and found genuinely small (~2%) — no equivalent check
-previously existed for the EU nodes, where the answer turns out to be the
-opposite. Biogases (Sheet 63, ~7.4 TWh EU-wide) were folded into the biomass
-total at the same time, since a biogas boiler is the same technology as a
+what a biomass/gas/electrode/oil-only total captures for Poland (18.5 TWh);
+Czechia, Germany, and Slovenia show similarly large gaps. This contrasts with the
+Swiss case below, where the same kind of check finds a genuinely small (~2%)
+share for coal and waste combined. Biogases (Sheet 63, ~7.4 TWh EU-wide) are
+folded into the biomass total, since a biogas boiler is the same technology as a
 biomass boiler.
 
 A separate check compared this Eurostat "Gross heat production" statistic
@@ -697,10 +643,9 @@ live read access to the external base model's technology definitions during
 sector-dataset construction), and, like the fuel-mix shares themselves, an
 explicit DH-sourced approximation rather than an industry-specific cost source.
 
-- **Switzerland ("CH")** has no entry in the Eurostat extract. It previously fell
-  back to Austria's fuel-mix shares (closest neighboring energy system among the
-  covered nodes) but now uses Switzerland-specific shares computed from
-  `input_data/BFE2025/BFE2025.xlsx` — the underlying data table (2013–2025, one
+- **Switzerland ("CH")** has no entry in the Eurostat extract. It uses
+  Switzerland-specific shares computed from `input_data/BFE2025/BFE2025.xlsx` —
+  the underlying data table (2013–2025, one
   sheet per energy carrier × 19 NOGA branch groups) behind BFE's annual survey
   report **BFE2025** ("Energieverbrauch in der Industrie und im
   Dienstleistungssektor", Resultate 2024, an eidgenössische Erhebung of ~13'000
@@ -715,27 +660,26 @@ explicit DH-sourced approximation rather than an industry-specific cost source.
     (→ waste). Electricity is excluded from the mix — in these branches it is
     dominated by drives/lighting rather than boilers — consistent with
     electrode/heat-pump `capacity_existing = 0` for Switzerland (see "Heat pump
-    (industry) capacity" above, David2017). Kohle and Industrieabfälle were
-    previously dropped entirely (Kohle: <3% of the combustion total, "the model
-    has no boiler technology for it"); both are now included now that
-    `coal_boiler_industry`/`waste_boiler_industry` exist. There is no equivalent
-    "renewable vs. non-renewable" split in the BFE data the way Eurostat
-    distinguishes for the EU nodes — `Industrieabfälle` is used as-is.
+    (industry) capacity" above, David2017). Kohle and Industrieabfälle are
+    included, since `coal_boiler_industry`/`waste_boiler_industry` exist to
+    consume them. There is no equivalent "renewable vs. non-renewable" split in
+    the BFE data the way Eurostat distinguishes for the EU nodes —
+    `Industrieabfälle` is used as-is.
   - **2023 values** (the year passed as `FEC_YEAR`, summed across the three
     branches): Erdgas 8596.23 TJ, Heizöl extra-leicht 2353.01 TJ, Heizöl mittel
     und schwer 0 TJ, Holz 1107.70 TJ, Kohle 298.00 TJ, Industrieabfälle 939.16 TJ.
     Shares: natural gas ≈ 64.7%, oil ≈ 17.7%, biomass ≈ 8.3%, coal ≈ 2.2%, waste
     ≈ 7.1%, electrode = 0%. (For comparison, 2022: Erdgas 8666.76 TJ, Heizöl
     extra-leicht 2792.07 TJ, Holz 963.63 TJ, Kohle 371.41 TJ, Industrieabfälle
-    926.03 TJ.) This is a substantially different mix from the Austria proxy it
-    replaced (natural gas ≈ 34.8%, biomass ≈ 59.3%, oil ≈ 5.9% — Austria's heat
-    production is comparatively biomass-heavy, e.g. district heating/CHP, which
-    is not representative of Swiss industrial process heat).
+    926.03 TJ.) For comparison, a neighboring-country fallback (e.g. Austria:
+    natural gas ≈ 34.8%, biomass ≈ 59.3%, oil ≈ 5.9%) would not be representative
+    of Swiss industrial process heat — Austria's heat production is comparatively
+    biomass-heavy, e.g. district heating/CHP.
   - These shares are applied to Switzerland's own modeled heat demand
     (`total_industry_heat_demand_gw("CH")`) to split its `capacity_existing`
     across the six boiler technologies, same as for Eurostat-covered nodes.
   - **Citation key**: `BFE2025` (BibTeX entry maintained in the paper's own
-    `.bib` file, not in this repo — see chat/PR history for the full entry).
+    `.bib` file, not in this repo).
 - **United Kingdom**: neither Eurostat extract has a 2023 (or later) value for the
   UK in any of the sheets used here (coverage ends after 2019 post-Brexit); the
   latest available year (2019) is used instead for the fuel-mix shares (Natural
@@ -882,13 +826,12 @@ reflecting the thermodynamic advantage of heat pumps at low temperatures:
   - `heat_industry_temp_conversion_100_0`: converts `heat_industry_100_150` →
     `heat_industry_0_100` (conversion factor 1.0, lossless).
 
-  No capex or existing capacity — the optimizer can freely build these bridge
-  technologies.
+  No capex, existing capacity, or opex (`opex_specific_variable = 0`) — the
+  optimizer can freely build these bridge technologies.
 
 ## Case study scenarios
 
-`my_scripts/my_model.py` generates the case-study scenarios from the SI (see
-`MT_report_HG/Sections/03_SI.tex`, table:SIScenarios) as combinations of sectors:
+`my_scripts/my_model.py` generates the case-study scenarios as combinations of sectors:
 `industry_heat` (+`industry_low_temp_heat`) for heat supply and production,
 `industry_tes`/`industry_dsm_optimistic` for flexibility. No-flexibility, DSM-only and
 TES-only simply omit the corresponding sector(s).
@@ -916,10 +859,8 @@ Two thermal energy storage (TES) technologies are added for industry heat (in th
 - **`industry_TES_water`** (water tank): stores heat at the `heat_industry_0_100` and
   `heat_industry_100_150` temperature levels.
 - **`industry_TES_steam`** (steam accumulator): stores heat at the
-  `heat_industry_150_200` temperature level. A `heat_industry_100_150` steam variant
-  also existed through v6.1 but was removed in v7.0 (see "New in sector v7.0"
-  above) — never chosen by the optimizer, and redundant with the water tank already
-  covering that level.
+  `heat_industry_150_200` temperature level. No separate steam variant exists at
+  100–150°C — the water tank already covers that level.
 
 ### Parametrization (from Mayer2024 Table 3)
 
@@ -939,17 +880,17 @@ Two thermal energy storage (TES) technologies are added for industry heat (in th
 - **`opex_specific_variable` = 1 EUR/GWh** for all TES technologies — small friction
   cost to prevent spurious charge/discharge cycling. Mayer2024 does not report a
   variable O&M cost for heat storage cycling.
-- **`efficiency_charge` = `efficiency_discharge` = 1.0** for all TES technologies
-  (v7.0 onward; see "New in sector v7.0" above) — no charge/discharge losses. Mayer
-  2024's round-trip efficiency (0.9 water tank, 0.95 steam accumulator) was
-  previously split symmetrically (`η_charge = η_discharge = √η_roundtrip`) but is no
-  longer used; all losses are represented via `self_discharge` instead.
+- **`efficiency_charge` = `efficiency_discharge` = 1.0** for all TES technologies —
+  no charge/discharge losses; all losses are represented via `self_discharge`
+  instead.
 - **`self_discharge` = 0.95** for all TES technologies, uniform across every
   temperature level — standing thermal loss per time step. Mayer et al. (2024) does
   not report self-discharge rates for industrial TES; this value is an internal
   assumption. A temperature-dependent self-discharge (higher loss at higher storage
-  temperature) is a deliberate future extension, not yet implemented — see "New in
-  sector v7.0" above for why it was deferred.
+  temperature) is not implemented: Mayer2024 has no heat-loss/insulation data to
+  derive it from, and the right basis is unsettled — whether stored energy should be
+  measured relative to ambient (fractional loss roughly temperature-independent) or
+  relative to the carrier's useful floor temperature (loss grows with band).
 - **Reference carriers**: each TES variant is assigned to one temperature level.
   - `industry_TES_water_0_100` → `heat_industry_0_100`
   - `industry_TES_water_100_150` → `heat_industry_100_150`
@@ -1057,8 +998,9 @@ Resulting Euro/GWh values (Cat value ÷ LHV in GWh/t):
 Numbered citations refer to `input_data/DSM_parametrization/DSM_literature_review.md`,
 which carries full source verification notes and BibTeX for each entry. [5] (food) is a
 placeholder citation pending Ana's last name and interview date. [†] Primary steel
-optimistic was re-evaluated to Cat 3 in v7.0 (from Cat 2 for the H2-DRI-EAF route) —
-a new evaluation, not a change in what [8]/[9] say; see "New in sector v7.0" above.
+optimistic is Cat 3, overriding what [8]/[9]'s H2-DRI-EAF characterization would
+suggest (Cat 2) — an internal re-evaluation, not a reading of new literature; see
+`_CATEGORY_OVERRIDE_NOTES` in `zen_creator/elements/storage_technologies/industry_DSM.py`.
 
 ### Shared parametrization
 
@@ -1088,10 +1030,9 @@ a new evaluation, not a change in what [8]/[9] say; see "New in sector v7.0" abo
   and `opex_specific_variable` are LHV-converted from the category's per-tonne value
   to an equivalent per-GWh value; see "Ammonia/methanol LHV conversion" above).
 - **`capacity_limit` = 1 × per-node carrier demand** (100% of the carrier's annual
-  demand rate at each node, reduced from 200% in v6.1 — see "New in sector v7.0"
-  above), derived at model build time from the carrier element's demand attribute.
-  Prevents unrealistically large DSM stocks while allowing full flexibility within
-  the demand range.
+  demand rate at each node), derived at model build time from the carrier
+  element's demand attribute. Prevents unrealistically large DSM stocks while
+  allowing full flexibility within the demand range.
 - `energy_to_power_ratio_min` is left at 0 (default) for all DSM techs — no minimum
   inventory depth is physically required.
 - `lifetime` does not vary by category — no literature basis yet to differentiate it.
@@ -1295,12 +1236,12 @@ switching" above): the 97.4% `electrifiable_share` computed below becomes the sh
 `fuel_to_kiln` carrier (switchable to `hydrogen_to_kilnfuel`/`electricity_to_kilnfuel`);
 the 2.6% `gas_only_share` remainder stays a fixed, non-substitutable `natural_gas` input.
 
-Important framing correction versus how this section originally read: the calculation
-below (§4.2.1–4.2.3) derives a feasibility ceiling for **electrification** specifically —
-kilns can't reliably run electric above ~1600°C. JRC-BAT-CER-2026 §4.2.4 (hydrogen) was
-checked directly and documents **no equivalent temperature ceiling for hydrogen firing** —
-only fossil-free-hydrogen-availability, burner-configuration and product-colour caveats,
-none of them temperature-dependent. So the 2.6% "locked" `natural_gas` share is really a
+The calculation below (§4.2.1–4.2.3) derives a feasibility ceiling for
+**electrification** specifically — kilns can't reliably run electric above
+~1600°C. JRC-BAT-CER-2026 §4.2.4 (hydrogen) documents **no equivalent
+temperature ceiling for hydrogen firing** — only fossil-free-hydrogen-
+availability, burner-configuration and product-colour caveats, none of them
+temperature-dependent. So the 2.6% "locked" `natural_gas` share is really a
 conservative stand-in for "can't convert to *any* alternative fuel" (hydrogen included),
 not a literal hydrogen limit — it likely overstates how much of ceramic's kiln NG is
 genuinely non-substitutable, since hydrogen combustion (unlike electric resistive/

@@ -1,8 +1,7 @@
 """Unit tests for HeatTechParametrizationDataset (heat_tech_parametrization.py).
 
 Covers the hand-computed Carnot-COP constants (HP_COP_WASTE_HEAT/HP_COP_WATER)
-and the heat-pump conversion_factor override, plus the simple attribute getters
--- none of which had direct test coverage (see cleanup plan, Phase 2 item 4).
+and the heat-pump conversion_factor override, plus the simple attribute getters.
 """
 
 from __future__ import annotations

@@ -1,9 +1,5 @@
 """Unit tests for industry_heat_supply.py: heat pumps, boilers, the temperature
-downgrade cascade, and kiln-fuel-switching technologies.
-
-None of these 17 Element subclasses had any test coverage before this (see
-cleanup plan, Phase 2 item 9).
-"""
+downgrade cascade, and kiln-fuel-switching technologies."""
 
 from __future__ import annotations
 
