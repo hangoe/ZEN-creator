@@ -1,6 +1,6 @@
 """Utility functions for industry heat datasets: process parameters, fuel
-shares, JRC-IDEES/FAOSTAT loaders, capacity/demand helpers, Excel I/O, JSON
-templates, and Rehfeldt2017/AIDRES2023/JRC-EU-TIMES data access.
+shares, JRC-IDEES/FAOSTAT loaders, capacity/demand helpers, JSON templates,
+and Rehfeldt2017/AIDRES2023/JRC-EU-TIMES data access.
 """
 
 import functools
@@ -8,7 +8,6 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-import openpyxl
 import pandas as pd
 import xlrd
 
@@ -282,28 +281,6 @@ def renormalized_fuel_shares(shares: dict[str, float], cutoff: float = 0.10) -> 
     return {c: s / total for c, s in kept.items()}
 
 
-# ---------------------------------------------------------------------------
-# Excel I/O (read-only) — from excel_io.py
-# ---------------------------------------------------------------------------
-LIST_FIELDS = ("reference_carrier", "input_carrier", "output_carrier")
-CONVERSION_FACTOR_PREFIX = "conversion_factor:"
-
-
-def _label_to_row(ws) -> dict[str, int]:
-    return {
-        ws.cell(row=row, column=1).value: row
-        for row in range(2, ws.max_row + 1)
-        if ws.cell(row=row, column=1).value is not None
-    }
-
-
-def _column_index(ws, column_header: str) -> int:
-    for cell in ws[1]:
-        if cell.value == column_header:
-            return cell.column
-    raise KeyError(f"Column {column_header!r} not found in sheet {ws.title!r}")
-
-
 def _single_row_index(matches, description: str) -> int:
     """Return the sole index in `matches`, raising a descriptive KeyError otherwise."""
     if len(matches) == 0:
@@ -311,67 +288,6 @@ def _single_row_index(matches, description: str) -> int:
     if len(matches) > 1:
         raise KeyError(f"{description}: expected exactly one matching row, found {len(matches)}.")
     return matches[0]
-
-
-def load_param_column(xlsx_path: Path, sheet_name: str, column_header: str) -> dict[str, object]:
-    wb = openpyxl.load_workbook(xlsx_path)
-    ws = wb[sheet_name]
-    col = _column_index(ws, column_header)
-    return {label: ws.cell(row=row, column=col).value for label, row in _label_to_row(ws).items()}
-
-
-def build_tech_from_table(xlsx_path: Path, sheet_name: str, column_header: str) -> dict:
-    wb = openpyxl.load_workbook(xlsx_path)
-    ws = wb[sheet_name]
-    col = _column_index(ws, column_header)
-    rows = {label: (ws.cell(row=row, column=col).value, ws.cell(row=row, column=2).value) for label, row in _label_to_row(ws).items()}
-    missing = [label for label, (value, _) in rows.items() if value is None]
-    if missing:
-        raise ValueError(f"{xlsx_path.name}!{sheet_name}: column {column_header!r} is missing values for {missing}")
-    list_field_values = {label: value for label, (value, _) in rows.items() if label in LIST_FIELDS}
-    data: dict[str, object] = {}
-    conversion_factor = []
-    for label, (value, unit) in rows.items():
-        if label.startswith(CONVERSION_FACTOR_PREFIX):
-            suffix = label[len(CONVERSION_FACTOR_PREFIX):]
-            carrier = str(list_field_values.get(suffix, suffix)).strip()
-            conversion_factor.append({carrier: {"default_value": value, "unit": unit}})
-        elif label in LIST_FIELDS:
-            data[label] = {"default_value": [v.strip() for v in str(value).split(";")]}
-        else:
-            data[label] = {"default_value": value, "unit": unit}
-    data["conversion_factor"] = conversion_factor
-    return data
-
-
-def apply_excel_overrides(data: dict, overrides: dict[str, object], conversion_factor_map: dict[str, str] | None = None) -> dict:
-    conversion_factor_map = conversion_factor_map or {}
-    for label, value in overrides.items():
-        if value is None or label is None:
-            continue
-        if label.startswith(CONVERSION_FACTOR_PREFIX):
-            carrier = conversion_factor_map.get(label, label[len(CONVERSION_FACTOR_PREFIX):])
-            for entry in data["conversion_factor"]:
-                if carrier in entry:
-                    entry[carrier]["default_value"] = value
-                    break
-            else:
-                logger.warning(
-                    f"apply_excel_overrides: override column {label!r} did not match "
-                    f"any conversion_factor carrier (resolved carrier={carrier!r}); ignored."
-                )
-            continue
-        if label not in data:
-            logger.warning(
-                f"apply_excel_overrides: override column {label!r} does not match any "
-                "field in `data`; ignored."
-            )
-            continue
-        if label in LIST_FIELDS:
-            data[label]["default_value"] = [v.strip() for v in str(value).split(";")]
-        else:
-            data[label]["default_value"] = value
-    return data
 
 
 # ---------------------------------------------------------------------------

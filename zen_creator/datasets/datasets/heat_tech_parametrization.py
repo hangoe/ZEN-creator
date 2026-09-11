@@ -12,16 +12,9 @@ import pandas as pd
 if TYPE_CHECKING:
     from zen_creator.elements.element import Element
 
-from zen_creator.datasets.datasets._industry_heat_utils import (
-    INPUT_DATA,
-    build_tech_from_table,
-)
 from zen_creator.datasets.datasets.dataset import Dataset
 from zen_creator.datasets.datasets.metadata import MetaData, SourceInformation
 from zen_creator.utils.attribute import Attribute
-
-_HEAT_XLSX = INPUT_DATA / "Parametrization" / "heat_tech_parametrization.xlsx"
-_HEAT_SHEET = "heat_techs"
 
 HEAT_CARRIER_NAMES = {
     "0_100": "heat_industry_0_100",
@@ -44,6 +37,77 @@ HP_COP_WATER = {
 }
 
 
+def _heat_tech(*, input_carrier: str, lifetime: float, opex_specific_fixed: float,
+                capex_specific_conversion: float, conversion_factor: float,
+                opex_specific_variable: float = 0.0) -> dict:
+    """Shared field layout for the boiler/heat-pump techs below. capacity_addition_min=0,
+    capacity_addition_max/capacity_limit=inf, capacity_existing=0, min_load=0, max_load=1,
+    construction_time=0, capacity_investment_existing=0, max_diffusion_rate=0.29 and
+    carbon_intensity_technology=0 (combustion CO2 is carried on the fuel carrier --
+    natural_gas/biomass/etc. -- not on the conversion tech) are the same for every tech here.
+    """
+    return {
+        "capacity_addition_min": {"default_value": 0, "unit": "GW"},
+        "capacity_addition_max": {"default_value": "inf", "unit": "GW"},
+        "capacity_addition_unbounded": {"default_value": 0, "unit": "GW"},
+        "capacity_existing": {"default_value": 0, "unit": "GW"},
+        "capacity_limit": {"default_value": "inf", "unit": "GW"},
+        "min_load": {"default_value": 0, "unit": "1"},
+        # heat_pump_industry has a time-varying max_load in Crystal Ball (per node/year,
+        # ~0.27-0.75); here it is 1 (unconstrained) like every other heat tech.
+        "max_load": {"default_value": 1, "unit": "1"},
+        "lifetime": {"default_value": lifetime, "unit": "1"},
+        "opex_specific_variable": {"default_value": opex_specific_variable, "unit": "Euro/MWh"},
+        "carbon_intensity_technology": {"default_value": 0, "unit": "kilotons/GWh"},
+        "construction_time": {"default_value": 0, "unit": "1"},
+        "capacity_investment_existing": {"default_value": 0, "unit": "GW"},
+        "opex_specific_fixed": {"default_value": opex_specific_fixed, "unit": "Euro/kW"},
+        "max_diffusion_rate": {"default_value": 0.29, "unit": "1"},
+        "capex_specific_conversion": {"default_value": capex_specific_conversion, "unit": "Euro/kW"},
+        "reference_carrier": {"default_value": ["heat_low_temp_industry"]},
+        "input_carrier": {"default_value": [input_carrier]},
+        "output_carrier": {"default_value": ["heat_low_temp_industry"]},
+        "conversion_factor": [{input_carrier: {"default_value": conversion_factor, "unit": "GW/GW"}}],
+    }
+
+
+# Lifetime/CAPEX/OPEX for each heat tech, "similar to existing techs" in Crystal Ball (source:
+# Crystal_Ball, per former heat_tech_parametrization.xlsx). heat_pump_industry's own
+# conversion_factor is overridden per-node/temperature-level via get_conversion_factor's
+# cop_override -- the value here is only the workbook's original placeholder COP.
+HEAT_TECH_PARAMS: dict[str, dict] = {
+    "heat_pump_industry": _heat_tech(
+        input_carrier="electricity", lifetime=19, opex_specific_fixed=20,
+        capex_specific_conversion=930.1261448256167, conversion_factor=0.3305785123966942,
+    ),
+    "electrode_boiler_industry": _heat_tech(
+        input_carrier="electricity", lifetime=30, opex_specific_fixed=3.082951203963931,
+        capex_specific_conversion=442.8517908612943, conversion_factor=1,
+        opex_specific_variable=0.5012419394718312,
+    ),
+    "natural_gas_boiler_industry": _heat_tech(
+        input_carrier="natural_gas", lifetime=21, opex_specific_fixed=17.3558850780639,
+        capex_specific_conversion=487.186345248536, conversion_factor=1.005025125628141,
+    ),
+    "biomass_boiler_industry": _heat_tech(
+        input_carrier="biomass", lifetime=20, opex_specific_fixed=11.25235822449202,
+        capex_specific_conversion=513.6365981866318, conversion_factor=1.197604790419162,
+    ),
+    "oil_boiler_industry": _heat_tech(
+        input_carrier="oil", lifetime=21, opex_specific_fixed=17.3558850780639,
+        capex_specific_conversion=487.186345248536, conversion_factor=1.005025125628141,
+    ),
+    "coal_boiler_industry": _heat_tech(
+        input_carrier="hard_coal", lifetime=21, opex_specific_fixed=17.3558850780639,
+        capex_specific_conversion=487.186345248536, conversion_factor=1.005025125628141,
+    ),
+    "waste_boiler_industry": _heat_tech(
+        input_carrier="waste", lifetime=21, opex_specific_fixed=17.3558850780639,
+        capex_specific_conversion=487.186345248536, conversion_factor=1.005025125628141,
+    ),
+}
+
+
 class HeatTechParametrizationDataset(Dataset[pd.DataFrame]):
 
     name = "heat_tech_parametrization"
@@ -62,7 +126,7 @@ class HeatTechParametrizationDataset(Dataset[pd.DataFrame]):
         )
 
     def _set_path(self) -> Path | None:
-        return _HEAT_XLSX
+        return None
 
     def _set_data(self) -> pd.DataFrame:
         return pd.DataFrame()
@@ -72,7 +136,7 @@ class HeatTechParametrizationDataset(Dataset[pd.DataFrame]):
 
     def _get_tech_dict(self, base_tech: str) -> dict:
         if base_tech not in self._tech_dicts:
-            self._tech_dicts[base_tech] = build_tech_from_table(_HEAT_XLSX, _HEAT_SHEET, base_tech)
+            self._tech_dicts[base_tech] = copy.deepcopy(HEAT_TECH_PARAMS[base_tech])
         return self._tech_dicts[base_tech]
 
     def get_heat_tech_dict(self, base_tech: str, temp_level: str) -> dict:
@@ -99,7 +163,7 @@ class HeatTechParametrizationDataset(Dataset[pd.DataFrame]):
 
     # attr_name -> source description template (formatted with base_tech)
     _SIMPLE_ATTRS = {
-        "lifetime": "Lifetime for {base_tech} from heat_tech_parametrization.xlsx.",
+        "lifetime": "Lifetime for {base_tech} (HEAT_TECH_PARAMS).",
         "capex_specific_conversion": "CAPEX for {base_tech}.",
         "opex_specific_fixed": "Fixed OPEX for {base_tech}.",
         "opex_specific_variable": "Variable OPEX for {base_tech}.",

@@ -1,4 +1,7 @@
-"""Dataset for industry carrier attributes from industry_carriers.xlsx."""
+"""Dataset for industry carrier attributes (product carriers glass/ceramic/paper/food,
+energy carriers heat_industry_*/fuel_to_kiln). All carriers use the plain
+PRODUCT_CARRIER_TEMPLATE/ENERGY_CARRIER_TEMPLATE defaults from _industry_heat_utils.py --
+no carrier-specific overrides exist."""
 
 from __future__ import annotations
 
@@ -14,17 +17,11 @@ if TYPE_CHECKING:
 
 from zen_creator.datasets.datasets._industry_heat_utils import (
     ENERGY_CARRIER_TEMPLATE,
-    INPUT_DATA,
     PRODUCT_CARRIER_TEMPLATE,
-    apply_excel_overrides,
-    load_param_column,
 )
 from zen_creator.datasets.datasets.dataset import Dataset
 from zen_creator.datasets.datasets.metadata import MetaData, SourceInformation
 from zen_creator.utils.attribute import Attribute
-
-_CARRIER_XLSX = INPUT_DATA / "Parametrization" / "industry_carriers.xlsx"
-_CARRIER_SHEET = "carriers"
 
 _PRODUCT_CARRIERS = {"glass", "ceramic", "paper", "food"}
 _ENERGY_CARRIERS = {"heat_industry_0_100", "heat_industry_100_150", "heat_industry_150_200"}
@@ -48,7 +45,7 @@ class IndustryCarrierDataset(Dataset[pd.DataFrame]):
         )
 
     def _set_path(self) -> Path | None:
-        return _CARRIER_XLSX
+        return None
 
     def _set_data(self) -> pd.DataFrame:
         return pd.DataFrame()
@@ -60,14 +57,9 @@ class IndustryCarrierDataset(Dataset[pd.DataFrame]):
         if carrier_name in self._carrier_dicts:
             return self._carrier_dicts[carrier_name]
         if carrier_name in _PRODUCT_CARRIERS:
-            template = copy.deepcopy(PRODUCT_CARRIER_TEMPLATE)
+            data = copy.deepcopy(PRODUCT_CARRIER_TEMPLATE)
         else:
-            template = copy.deepcopy(ENERGY_CARRIER_TEMPLATE)
-        excel_col = carrier_name
-        if carrier_name in ("heat_industry_100_150", "heat_industry_150_200"):
-            excel_col = "heat_industry_100_200"
-        overrides = load_param_column(_CARRIER_XLSX, _CARRIER_SHEET, excel_col)
-        data = apply_excel_overrides(template, overrides)
+            data = copy.deepcopy(ENERGY_CARRIER_TEMPLATE)
         self._carrier_dicts[carrier_name] = data
         return data
 
@@ -84,6 +76,6 @@ class IndustryCarrierDataset(Dataset[pd.DataFrame]):
         attr.set_data(
             default_value=float(val) if isinstance(val, (int, float, np.integer, np.floating)) else val,
             unit=unit,
-            source=self._source_info(f"{attr_name} for carrier {carrier_name} from industry_carriers.xlsx."),
+            source=self._source_info(f"{attr_name} for carrier {carrier_name} (template default)."),
         )
         return attr

@@ -28,7 +28,6 @@ from zen_creator.datasets.datasets._industry_heat_utils import (
     HOURS_PER_YEAR,
     _capacity_df_from_node_caps,
     activity_weights,
-    apply_excel_overrides,
     build_conversion_tech,
     ceramic_demand_from_fec_df,
     compute_sector_params,
@@ -36,7 +35,6 @@ from zen_creator.datasets.datasets._industry_heat_utils import (
     food_capacity_existing_df,
     gdp_deflator_ratio,
     industry_demand_df,
-    load_param_column,
     renormalized_fuel_shares,
     read_sector_thermal_fec,
     sector_weighted_params,
@@ -57,7 +55,23 @@ HEAT_CARRIER_NAMES = {
     "150_200": "heat_industry_150_200",
 }
 SECTOR_TO_WOLF = {"food": "Nahrung", "paper": "Papier", "glass": "Nichtmetall", "ceramic": "Nichtmetall"}
-OPEX_VAR = {"glass": 15.0, "ceramic": 10.0, "paper": 0.0, "food": 0.0}
+
+# Process-emission carbon intensity (ton/tonproduct) for {sector}_production -- the one
+# *_production cost/emission field that isn't derived by _compute_jrc_cost_params(). Sources:
+# JRC-EU-TIMES, IPCC2006, JRC BAT (ceramics). Paper: only direct emissions from the Kraft
+# process (calcination) are excluded/neglected, matching the JRC-EU-TIMES convention. Food: no
+# direct process CO2 emissions (combustion emissions from fuel/heating techs are captured on
+# the carriers/heating techs, not here). Glass: average across glass types (~0.2 t/t) assuming a
+# 50% EU recycling share -> 0.1 t/t. Ceramic: back-calculated from JRC BAT (process emissions =
+# 15% of total ceramic emissions, the remaining 85% = combustion emissions already captured by
+# the carriers ceramic_production consumes). Combustion emissions/t = ceramic total thermal
+# energy (8.04 GJ/t, sum of the hard_coal/natural_gas/biomass/heat_industry_0_100/
+# heat_industry_100_200 conversion_factor entries) x weighted-average carbon intensity of the
+# sector's own hard_coal/natural_gas/biomass fuel mix, applied uniformly across all thermal
+# energy as a representative heating-tech mix (biomass treated as biogenic/zero, consistent with
+# paper); weighted EF = 0.0453 tCO2/GJ, combustion = 0.364 tCO2/t. Process = combustion x
+# (0.15/0.85) = 0.0642 tCO2/t. See ASSUMPTIONS.md (Ceramic).
+CARBON_INTENSITY_TECHNOLOGY = {"glass": 0.1, "ceramic": 0.064234, "paper": 0.0, "food": 0.0}
 
 # Ceramic/glass kiln fuel switching (fuel_to_kiln carrier, see ASSUMPTIONS.md "Ceramic
 # and glass kiln fuel switching"). Share of each sector's direct high-temp natural_gas
@@ -92,8 +106,6 @@ KILN_FUEL_SWITCH_CF = {
     "electricity": 0.8438,
 }
 
-_PROCESS_XLSX = INPUT_DATA / "Parametrization" / "process_parametrization.xlsx"
-_PROCESS_SHEET = "process_techs"
 _WOLF_CSV = INPUT_DATA / "Wolf2017" / "Wolf2017_Tabelle4_7.csv"
 
 
@@ -149,7 +161,7 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         )
 
     def _set_path(self) -> Path | None:
-        return _PROCESS_XLSX
+        return None
 
     def _set_data(self) -> pd.DataFrame:
         return pd.DataFrame()
@@ -279,7 +291,11 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         params = self._sector_params[sector]
         shares = _kiln_fuel_shares(sector, self._fuel_shares[sector])
         cfs = self._heat_cfs[sector]
-        data = build_conversion_tech(product=sector, fuel_shares=shares, params=params, opex_specific_variable=OPEX_VAR.get(sector, 0.0))
+        cost = self._cost_params[sector]
+        data = build_conversion_tech(
+            product=sector, fuel_shares=shares, params=params,
+            opex_specific_variable=cost["opex_specific_variable"],
+        )
         active_levels = [l for l in HEAT_TEMP_LEVELS if cfs[l] > 0]
         active_carriers = [HEAT_CARRIER_NAMES[l] for l in active_levels]
         data["input_carrier"]["default_value"] = [*shares.keys(), *active_carriers, "electricity"]
@@ -288,17 +304,9 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
             carrier = HEAT_CARRIER_NAMES[level]
             new_cf.append({carrier: {"default_value": round(cfs[level], 12), "unit": "GW/(tonproduct/hour)"}})
         data["conversion_factor"] = new_cf
-        cf_map = {
-            **{f"conversion_factor:{c}": c for c in shares},
-            **{f"conversion_factor:{HEAT_CARRIER_NAMES[l]}": HEAT_CARRIER_NAMES[l] for l in HEAT_TEMP_LEVELS},
-            "conversion_factor:electricity": "electricity",
-        }
-        overrides = load_param_column(_PROCESS_XLSX, _PROCESS_SHEET, f"{sector}_production")
-        data = apply_excel_overrides(data, overrides, conversion_factor_map=cf_map)
-        # Re-set carrier lists after Excel overrides — the Excel file still
-        # uses the legacy 2-level carrier name (heat_industry_100_200), which
-        # would otherwise silently override the 3-level carrier list above.
-        data["input_carrier"]["default_value"] = [*shares.keys(), *active_carriers, "electricity"]
+        for field in ("lifetime", "capex_specific_conversion", "opex_specific_fixed"):
+            data[field]["default_value"] = cost[field]
+        data["carbon_intensity_technology"]["default_value"] = CARBON_INTENSITY_TECHNOLOGY[sector]
         data["reference_carrier"]["default_value"] = [sector]
         data["output_carrier"]["default_value"] = [sector]
         return data
@@ -310,10 +318,7 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         attr = Attribute("conversion_factor", element=element)
         attr.set_data(
             default_value=data["conversion_factor"],
-            source=self._source_info(
-                f"Conversion factors for {sector}_production from process_parametrization.xlsx "
-                "(with Excel overrides applied)."
-            ),
+            source=self._source_info(f"Conversion factors for {sector}_production."),
         )
         return attr
 
@@ -322,16 +327,13 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         attr = Attribute("input_carrier", element=element)
         attr.set_data(
             default_value=data["input_carrier"]["default_value"],
-            source=self._source_info(
-                f"Input carriers for {sector}_production from process_parametrization.xlsx "
-                "(with Excel overrides applied)."
-            ),
+            source=self._source_info(f"Input carriers for {sector}_production."),
         )
         return attr
 
     # attr_name -> (source description template, whether to pass unit=)
     _SIMPLE_ATTRS: dict[str, tuple[str, bool]] = {
-        "lifetime": ("Lifetime for {sector}_production from process_parametrization.xlsx.", False),
+        "lifetime": ("Lifetime for {sector}_production.", False),
         "capex_specific_conversion": ("CAPEX for {sector}_production.", True),
         "opex_specific_fixed": ("Fixed OPEX for {sector}_production.", True),
         "opex_specific_variable": ("Variable OPEX for {sector}_production.", True),

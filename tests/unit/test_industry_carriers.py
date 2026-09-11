@@ -45,9 +45,9 @@ def test_max_shed_demand_setter_is_dead_code(model: Model):
     industry carrier, but the base Carrier class (carrier.py) never declares
     "max_shed_demand" as a real attribute (no property, not in
     _attribute_names) -- so Element.build(), which only calls _set_{name}()
-    for names in _attribute_names, never invokes it. Any max_shed_demand
-    values configured in industry_carriers.xlsx are silently discarded for
-    every industry carrier today. This test pins the current (buggy) behavior
+    for names in _attribute_names, never invokes it. Any non-default
+    max_shed_demand value would be silently discarded for every industry
+    carrier today. This test pins the current (buggy) behavior
     so a silent fix doesn't go unnoticed -- flip/remove it once
     max_shed_demand is wired into Carrier._subclass_attribute_names."""
     assert "max_shed_demand" in _CARRIER_ATTRS
@@ -84,10 +84,10 @@ def test_product_carrier_demand_is_non_negative_for_every_node(carrier_cls, mode
     assert set(demand.index) == set(MODEL_NODES)
 
 
-def test_heat_industry_100_150_and_150_200_share_the_same_excel_column():
-    """industry_carrier_data.get_carrier_dict redirects both
-    heat_industry_100_150 and heat_industry_150_200 to the same
-    "heat_industry_100_200" Excel column -- confirm they get identical
+def test_heat_industry_100_150_and_150_200_share_the_same_energy_carrier_template():
+    """industry_carrier_data.get_carrier_dict gives every energy carrier a
+    deepcopy of the same ENERGY_CARRIER_TEMPLATE -- confirm
+    heat_industry_100_150 and heat_industry_150_200 get identical
     non-shared-setter attribute values as a result."""
     from zen_creator.datasets.datasets.industry_carrier_data import IndustryCarrierDataset
 
