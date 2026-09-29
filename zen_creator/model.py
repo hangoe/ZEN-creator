@@ -2,7 +2,9 @@ import json
 import logging
 import shutil
 from pathlib import Path
-from typing import Callable, Iterable, Optional, Type
+from typing import Any, Callable, Iterable, Optional, Type
+
+import yaml
 
 from zen_creator.elements import (
     Carrier,
@@ -21,7 +23,7 @@ from zen_creator.elements import (
 )
 from zen_creator.elements.element import Element
 from zen_creator.sectors import Sector
-from zen_creator.utils.config import Config, ElementTypeList
+from zen_creator.utils.config import ELEMENT_DERIVED_FIELDS, Config, ElementTypeList
 from zen_creator.utils.scenario import SETTING_BLOCKS, ScenarioRegistry
 from zen_creator.utils.settings import Settings
 
@@ -59,8 +61,8 @@ class Model:
         # internal variables for properties
         self.config: Config = Config()
         self.settings: Settings = Settings()
-        self.name: str = self.config.name
-        self._output_folder: Optional[Path] = None
+        self.name: str = ""
+        self._out_path: Optional[Path] = None
         self._source_path: Optional[Path] = None
         self._energy_system: Optional[EnergySystem] = None
 
@@ -106,8 +108,6 @@ class Model:
             if isinstance(config, Config)
             else Settings.load_from_yaml(config)
         )
-        model.name = model.config.name
-        model.output_folder = model.config.output_folder
         model.source_path = model.config.source_path
 
         insert = model.config.elements.insert
@@ -137,9 +137,9 @@ class Model:
         proper data format for ZEN-garden.
 
         If not config is specified, a configuration file is created from
-        the default configurations. The system configurations, unit
-        configurations, model name, and output folder are then taken
-        directly from the existing model.
+        the default configurations. The system configurations and unit
+        configurations are then taken directly from the existing model, and
+        the model is named after its folder.
 
         This function performs the following steps:
             1. Create a Model object using the configuration file. This
@@ -182,6 +182,7 @@ class Model:
         # construct model object
         # no data is loaded yet, only default values form zen-creator are used.
         model = cls.from_config(config)
+        model.name = existing_model_path.name
 
         # overwrite default values with values from existing model
         logger.info(
@@ -893,8 +894,11 @@ class Model:
             )
             shutil.rmtree(self.output_path)
 
-        # write system.json
+        # write system.yaml
         self.write_system_file()
+
+        # write config.yaml
+        self.write_config_file()
 
         # write energy system folder
         self.energy_system.write()
@@ -909,18 +913,25 @@ class Model:
         logger.info("Done writing model")
 
     def write_system_file(self) -> None:
-        """Write the system.json file for the model.
+        """Write the system file for the model.
 
-        This method generates the system configuration dictionary and writes it
-        to system.json in the output directory. The scenario analysis is turned
-        on whenever the model defines scenarios.
+        Only the settings that were configured are written, so that ZEN-garden
+        applies its own defaults for everything else and an existing model is
+        reproduced as it was. The scenario analysis is turned on whenever the
+        model defines scenarios.
         """
         # turn on the scenario analysis if scenarios are defined
         if self.scenarios:
             self.config.system.conduct_scenario_analysis = True
 
-        # convert the Pydantic model instance to a dictionary
-        system_json = self.config.system.model_dump(exclude_none=True)
+        # convert the Pydantic model instance to a dictionary, keeping only the
+        # settings that were configured and dropping the fields that are
+        # derived from the elements of the model
+        system_json = {
+            key: value
+            for key, value in self.config.system.model_dump(exclude_unset=True).items()
+            if key not in ELEMENT_DERIVED_FIELDS
+        }
 
         # set technology lists
         technologies = {
@@ -942,9 +953,45 @@ class Model:
 
         system_json.update({k: v for k, v in technologies.items() if v})
 
-        # Step 4: Write the dictionary to a JSON file
-        with open(self.output_path / "system.json", "w") as f:
-            json.dump(system_json, f, indent=4)
+        with open(self.output_path / "system.yaml", "w", encoding="utf-8") as f:
+            yaml.safe_dump(system_json, f, sort_keys=False)
+
+    def write_config_file(self) -> None:
+        """Write the config.yaml file that ZEN-garden is run with.
+
+        The file is written once next to the datasets, in the output folder,
+        and points at this model's dataset. Only the settings that were
+        configured are written, so that ZEN-garden applies its own defaults
+        for everything else.
+
+        Raises:
+            ValueError: If the file would overwrite the config that this model
+                was loaded from.
+        """
+        config_path = self.output_folder / "config.yaml"
+
+        if self.config.loaded_from == config_path.resolve():
+            raise ValueError(
+                f"Writing the ZEN-garden config to {config_path} would "
+                "overwrite the configuration file the model was loaded from. "
+                "Move the configuration file out of the output folder, or "
+                "write the model to a different output folder."
+            )
+
+        analysis = self.config.analysis.model_dump(exclude_unset=True)
+        analysis["dataset"] = self.name
+        config_yaml: dict[str, Any] = {"analysis": analysis}
+
+        solver = self.config.solver.model_dump(exclude_unset=True)
+        if solver:
+            config_yaml["solver"] = solver
+
+        if self.config.plugins:
+            config_yaml["plugins"] = self.config.plugins
+
+        self.output_folder.mkdir(parents=True, exist_ok=True)
+        with open(config_path, "w", encoding="utf-8") as f:
+            yaml.safe_dump(config_yaml, f, sort_keys=False)
 
     def write_scenario_file(self) -> None:
         """Write the scenarios.json file for the model.

@@ -6,6 +6,7 @@ import json
 
 import pandas as pd
 import pytest
+import yaml
 
 from zen_creator.datasets.datasets.metadata import AssumptionInformation
 from zen_creator.elements.carriers.aa_template import TemplateCarrier
@@ -240,8 +241,8 @@ def test_write_model_creates_scenario_file(model: Model, tmp_path):
     model.scenarios.add("coarse", system={"set_nodes": ["DE"]})
     model.write()
 
-    with (model.output_path / "system.json").open() as f:
-        system = json.load(f)
+    with (model.output_path / "system.yaml").open() as f:
+        system = yaml.safe_load(f)
     with (model.output_path / "scenarios.json").open() as f:
         scenarios = json.load(f)
 
@@ -285,7 +286,6 @@ def test_scenarios_from_config():
     from zen_creator.utils.config import Config
 
     config = Config(
-        name="config_scenarios",
         system={
             "set_nodes": ["CH"],
             "reference_year": 2020,
@@ -314,7 +314,6 @@ def test_config_scenario_rejects_unknown_block():
     from zen_creator.utils.config import Config
 
     config = Config(
-        name="config_scenarios",
         system={
             "set_nodes": ["CH"],
             "reference_year": 2020,

@@ -76,7 +76,7 @@ def test_settings_rejects_unknown_field(dummy_category):
 def test_load_from_yaml_defaults(tmp_path: Path, dummy_category):
     """A yaml file with no settings: block yields all-default categories."""
     config_path = tmp_path / "config.yaml"
-    config_path.write_text("name: test\n")
+    config_path.write_text("system:\n  set_nodes: [CH]\n")
 
     settings = Settings.load_from_yaml(config_path)
 
@@ -87,7 +87,8 @@ def test_load_from_yaml_override(tmp_path: Path, dummy_category):
     """A settings: block in yaml overrides specific nested values."""
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
-        "name: test\n"
+        "system:\n"
+        "  set_nodes: [CH]\n"
         "settings:\n"
         "  time_settings:\n"
         "    years_in_rolling_horizon: 7\n"
@@ -103,7 +104,6 @@ def test_config_tolerates_sibling_settings_key(tmp_path: Path):
     """Config.load_from_yaml ignores an unrelated top-level settings: key."""
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
-        "name: test\n"
         "system:\n"
         "  set_nodes: [CH]\n"
         "  reference_year: 2022\n"
@@ -116,7 +116,7 @@ def test_config_tolerates_sibling_settings_key(tmp_path: Path):
 
     config = Config.load_from_yaml(config_path)
 
-    assert config.name == "test"
+    assert config.system.set_nodes == ["CH"]
 
 
 if __name__ == "__main__":

@@ -2,9 +2,10 @@ import importlib
 from pathlib import Path
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, PrivateAttr
 
 from ._base import Subscriptable
+from .analysis import AnalysisConfig
 from .data import DataConfig
 from .element import ElementConfig, ElementTypeList
 from .energy_system import (
@@ -12,20 +13,37 @@ from .energy_system import (
     ParameterInterpolationConfig,
     UnitsConfig,
 )
+from .solver import SolverConfig
 from .system import SystemConfig
 
 
 class Config(Subscriptable):
-    """Default configuration for ZEN-creator."""
+    """Default configuration for ZEN-creator.
 
-    name: str = ""
+    The ``analysis``, ``solver`` and ``plugins`` blocks are written to
+    ZEN-garden's config file, ``system`` to the dataset's system file, and
+    ``energy_system`` to the dataset's energy_system folder. The name and the
+    output folder of a model are set on the Model.
+    """
+
+    # the file this config was loaded from, used to keep the written
+    # ZEN-garden config from overwriting it
+    _loaded_from: Path | None = PrivateAttr(default=None)
+
     source_path: str | None = None
-    output_folder: str | None = None
-    elements: ElementConfig = Field(default_factory=ElementConfig)
+    analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
+    solver: SolverConfig = Field(default_factory=SolverConfig)
     system: SystemConfig = Field(default_factory=SystemConfig)
+    plugins: dict[str, Any] = Field(default_factory=dict)
+    elements: ElementConfig = Field(default_factory=ElementConfig)
     energy_system: EnergySystemConfig = Field(default_factory=EnergySystemConfig)
     data: DataConfig = Field(default_factory=DataConfig)
     scenarios: dict[str, dict[str, dict[str, Any]]] = {}
+
+    @property
+    def loaded_from(self) -> Path | None:
+        """The file this config was loaded from, if any."""
+        return self._loaded_from
 
     @classmethod
     def load_from_yaml(cls, path: str | Path) -> "Config":
@@ -48,7 +66,7 @@ class Config(Subscriptable):
         user_dict.pop("settings", None)
 
         config = cls.model_validate(user_dict)
-        config.validate_config()
+        config._loaded_from = config_path.resolve()
 
         return config
 
@@ -68,7 +86,6 @@ class Config(Subscriptable):
             )
 
         config = cls()
-        config.name = model_path.name
         config.system = SystemConfig.load_from_existing_model(model_path)
         config.elements.insert = ElementTypeList.load_from_existing_model(model_path)
         config.energy_system.units = UnitsConfig.load_from_existing_model(model_path)
@@ -76,32 +93,4 @@ class Config(Subscriptable):
             ParameterInterpolationConfig.load_from_existing_model(model_path)
         )
 
-        config.validate_config()
-
         return config
-
-    def validate_config(self) -> None:
-        if not self.name:
-            raise ValueError(
-                "The attribute `name` is missing from the configuration file"
-            )
-        if not self.system.set_nodes:
-            raise ValueError(
-                "The attribute `system.set_nodes` is missing form the "
-                "configuration file."
-            )
-        if not self.system.reference_year:
-            raise ValueError(
-                "The attribute `system.reference_year` is missing form the "
-                "configuration file."
-            )
-        if not self.system.optimized_years:
-            raise ValueError(
-                "The attribute `system.set_optimized_years` is missing form the "
-                "configuration file."
-            )
-        if not self.system.interval_between_years:
-            raise ValueError(
-                "The attribute `system.interval_between_years` is missing form the "
-                "configuration file."
-            )

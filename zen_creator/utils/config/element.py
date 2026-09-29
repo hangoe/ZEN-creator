@@ -4,6 +4,7 @@ from pathlib import Path
 from pydantic import Field
 
 from ._base import Subscriptable
+from .system import find_system_file, read_system_file
 
 
 class ElementTypeList(Subscriptable):
@@ -25,11 +26,7 @@ class ElementTypeList(Subscriptable):
         if not model_path.exists():
             raise FileNotFoundError(f"{model_path} does not exist")
 
-        system_path = model_path / "system.json"
-        if not system_path.is_file():
-            raise FileNotFoundError(f"could not find {system_path}")
-
-        system_dict = json.loads(system_path.read_text())
+        system_dict = read_system_file(find_system_file(model_path))
 
         et = cls()
         for field in (

@@ -1,9 +1,7 @@
 # global settings
-name: "test_8a_replica"
 source_path: "."
-output_folder: "./tests/end_to_end/outputs/"
 
-# all settings in the system.json file with the exception of technology lists
+# all settings in the system file with the exception of technology lists
 system:
   set_nodes:
     - CH
