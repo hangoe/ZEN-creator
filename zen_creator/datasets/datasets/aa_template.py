@@ -104,7 +104,10 @@ class TemplateDataset(Dataset[pd.DataFrame]):
         # can access self.path to load the dataset,
         # but here we will just return a dummy dataset for demonstration purposes
         data = pd.DataFrame(
-            {"max_load": [100, 150, 200, 250], "availability_import": [1, 2, 3, 4]},
+            {
+                "max_load": [0.9, 0.85, 0.8, 0.75],
+                "availability_import": [1, 2, 3, 4],
+            },
             index=[
                 "template_conversion_technology",
                 "template_storage_technology",
@@ -155,7 +158,9 @@ class TemplateDataset(Dataset[pd.DataFrame]):
         """
         Helper function for creating the 'max_load' attribute.
 
+        max_load is a fraction of the installed capacity, so it is dimensionless.
+
         All helper functions should begin with an underscore to clearly mark them as
         internal.
         """
-        return "MW"
+        return "1"

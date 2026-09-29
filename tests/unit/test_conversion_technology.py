@@ -46,8 +46,8 @@ def test_template_conversion_technology_build(
     assert technology.conversion_factor.default_value == [
         {"electricity": {"default_value": 1, "unit": "GWh/GWh"}}
     ]
-    assert technology.max_load.default_value == 100
-    assert technology.max_load.unit == "MW"
+    assert technology.max_load.default_value == 0.9
+    assert technology.max_load.unit == "1"
     assert len(technology.max_load.sources) == 1
     assert isinstance(technology.max_load.sources[0].metadata, MetaData)
     assert technology.max_load.sources[0].metadata.name == "template_dataset"

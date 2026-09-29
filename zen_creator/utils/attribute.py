@@ -198,9 +198,14 @@ class Attribute:
                 and attr_name not in element._built_attribute_names
             ):
                 if getattr(type(element), f"_set_{attr_name}", None) is not None:
+                    # the stack is empty when the field is read outside a build
+                    trigger = (
+                        f" (triggered by '{stack[-1][0].name}._set_{stack[-1][1]}')"
+                        if stack
+                        else ""
+                    )
                     logger.info(
-                        f"Auto-building '{attr_name}' of '{element.name}' "
-                        f"(triggered by '{stack[-1][0].name}._set_{stack[-1][1]}')"
+                        f"Auto-building '{attr_name}' of '{element.name}'{trigger}"
                     )
                     element._build_attribute(attr_name)
 
@@ -245,10 +250,13 @@ class Attribute:
         if isinstance(value, list):
             self._validate_list_default_value(value)
         elif self.name in _ATTRIBUTES_REQUIRING_INT:
-            if not isinstance(value, (int, np.integer)) and value is not np.nan:
+            is_whole_number = isinstance(value, (int, np.integer)) or (
+                isinstance(value, (float, np.floating)) and float(value).is_integer()
+            )
+            if not is_whole_number and value is not np.nan:
                 raise ValueError(
                     f"Attribute '{self.name}' of {self.element.name} default value "
-                    f"must be an integer. Got {type(value).__name__} ({value})."
+                    f"must be a whole number. Got {type(value).__name__} ({value})."
                 )
         elif self.name in _ATTRIBUTES_SUPPORTING_LISTS:
                 raise ValueError(
@@ -310,7 +318,11 @@ class Attribute:
                 f"Attribute '{self.name}' unit should not contain 'year'. "
                 f"Got '{value}'."
             )
-        if self.name in _ATTRIBUTES_REQUIRING_UNIT_ONE and value != "1":
+        if (
+            value is not None
+            and self.name in _ATTRIBUTES_REQUIRING_UNIT_ONE
+            and value != "1"
+        ):
             raise ValueError(
                 f"Attribute '{self.name}' unit must be '1'. Got '{value}'."
             )

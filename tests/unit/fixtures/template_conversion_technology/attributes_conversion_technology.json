@@ -28,8 +28,8 @@
         "unit": "1"
     },
     "max_load": {
-        "default_value": 100.0,
-        "unit": "MW"
+        "default_value": 0.9,
+        "unit": "1"
     },
     "opex_specific_variable": {
         "default_value": 0.0,
