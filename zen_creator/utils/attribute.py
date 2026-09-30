@@ -817,7 +817,13 @@ class Attribute:
             ValueError: If the list default value is not supported.
         """
         if self.name == "conversion_factor":
-            return default_value
+            return [
+                {
+                    carrier: {**factor, "default_value": float(factor["default_value"])}
+                    for carrier, factor in entry.items()
+                }
+                for entry in default_value
+            ]
         elif self.name in _ATTRIBUTES_SUPPORTING_LISTS:
             return {"default_value": default_value}
         else:
@@ -915,6 +921,18 @@ class Attribute:
                         raise ValueError(
                             f"Entry {name} in conversion_factor list must contain "
                             "'default_value' and 'unit' keys."
+                        )
+                    if not isinstance(factor["default_value"], (int, float)):
+                        raise ValueError(
+                            f"Entry {name} in conversion_factor list must have a "
+                            "'default_value' of type int or float, got "
+                            f"{type(factor['default_value']).__name__}."
+                        )
+                    if not isinstance(factor["unit"], str):
+                        raise ValueError(
+                            f"Entry {name} in conversion_factor list must have a "
+                            "'unit' of type str, got "
+                            f"{type(factor['unit']).__name__}."
                         )
 
     def _validate_dataframe_name(self, value: DataFrame) -> None:
