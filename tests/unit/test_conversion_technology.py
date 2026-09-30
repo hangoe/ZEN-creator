@@ -56,17 +56,17 @@ def test_template_conversion_technology_build(
 def test_template_conversion_technology_write(
     model: Model,
 ):
-    """Write persists ``attributes.json`` and matches the reference output file."""
+    """Write persists ``attributes.yaml`` and matches the reference output file."""
     technology = TemplateConversionTechnology(model=model)
     technology.build()
     technology.write()
 
-    attributes_path = technology.output_path / "attributes.json"
+    attributes_path = technology.output_path / "attributes.yaml"
     reference_path = (
         Path(__file__).parent
         / "fixtures"
         / "template_conversion_technology"
-        / "attributes_conversion_technology.json"
+        / "attributes_conversion_technology.yaml"
     )
 
     differences = compare_files(reference_path, attributes_path)

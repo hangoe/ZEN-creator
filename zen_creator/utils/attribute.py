@@ -7,7 +7,6 @@ source tracking with built-in validation for data types and formats.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import re
@@ -21,6 +20,7 @@ from zen_creator.datasets.datasets.metadata import (
     AssumptionInformation,
     SourceInformation,
 )
+from zen_creator.utils.file_io import find_data_file, read_data_file
 from zen_creator.utils.scenario import Scenario
 
 if TYPE_CHECKING:
@@ -603,29 +603,28 @@ class Attribute:
     def overwrite_from_existing_model(self, existing_element_path: Path) -> None:
         """Load attribute values from an existing model directory.
 
-        This method loads default values from attributes.json and time-series data
-        from CSV files in the existing model directory.
+        This method loads default values from the attributes file and
+        time-series data from CSV files in the existing model directory.
 
         Args:
             existing_element_path: Path to the existing element directory.
         """
-        attributes_file = existing_element_path / "attributes.json"
-        self._load_attributes_from_json(attributes_file)
+        self._load_attributes_from_file(existing_element_path)
         self._load_time_series_data(existing_element_path)
         self._load_yearly_variations_data(existing_element_path)
         self._load_year_specific_time_series_data(existing_element_path)
 
-    def _load_attributes_from_json(self, file_path: Path) -> None:
-        """Load attribute defaults from a JSON file.
+    def _load_attributes_from_file(self, element_path: Path) -> None:
+        """Load attribute defaults from the attributes file.
 
         Args:
-            file_path: Path to the attributes.json file.
+            element_path: Path to the existing element directory.
         """
-        if not file_path.exists():
+        file_path = find_data_file(element_path, "attributes")
+        if file_path is None:
             return
 
-        with open(file_path, "r") as f:
-            attributes_data = json.load(f)
+        attributes_data = read_data_file(file_path)
 
         if self.name not in attributes_data:
             return

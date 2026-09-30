@@ -1,7 +1,8 @@
-import json
 from pathlib import Path
 
 from pydantic import Field
+
+from zen_creator.utils.file_io import find_data_file, read_data_file
 
 from ._base import Subscriptable
 from .system import find_system_file, read_system_file
@@ -56,18 +57,13 @@ class ElementTypeList(Subscriptable):
 
         for attr, (subfolder, has_io) in tech_map.items():
             for tech in getattr(et, attr):
-                attr_file = (
-                    model_path
-                    / "set_technologies"
-                    / subfolder
-                    / tech
-                    / "attributes.json"
-                )
-                if not attr_file.is_file():
+                attr_dir = model_path / "set_technologies" / subfolder / tech
+                attr_file = find_data_file(attr_dir, "attributes")
+                if attr_file is None:
                     raise FileNotFoundError(
-                        f"attributes for {tech!r} not found at {attr_file}"
+                        f"attributes for {tech!r} not found in {attr_dir}"
                     )
-                data = json.loads(attr_file.read_text())
+                data = read_data_file(attr_file)
 
                 carriers |= set(
                     data.get("reference_carrier", {}).get("default_value", [])

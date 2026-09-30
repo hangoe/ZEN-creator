@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from zen_creator.utils.attribute import Attribute
     from zen_creator.utils.config import Config
     from zen_creator.utils.settings import Settings
-import json
+import yaml
 from pathlib import Path
 
 from zen_creator.utils.attribute import Attribute
@@ -71,7 +71,7 @@ class Element(ABC, Registry["Element"], is_base_registry=True):
 
     @property
     def scenario_key(self) -> str:
-        """Get the key of this element in scenarios.json.
+        """Get the key of this element in scenarios.yaml.
 
         Returns:
             str: The name under which scenarios address this element.
@@ -205,10 +205,10 @@ class Element(ABC, Registry["Element"], is_base_registry=True):
     def write(self):
         """Write the element to disk.
 
-        This method saves the attributes.json file and any associated
+        This method saves the attributes.yaml file and any associated
         data files.
         """
-        # write attributes.json file
+        # write attributes.yaml file
         self.save_attributes()
 
         # write sources.md file
@@ -242,13 +242,13 @@ class Element(ABC, Registry["Element"], is_base_registry=True):
         return output
 
     def save_attributes(self):
-        """Save the element's attributes to attributes.json."""
-        logger.info(f"Saving 'attributes.json' for element '{self.name}.'")
+        """Save the element's attributes to attributes.yaml."""
+        logger.info(f"Saving 'attributes.yaml' for element '{self.name}.'")
 
         out_path = self.output_path
         output = self.attributes_to_dict()
-        with (out_path / "attributes.json").open("w") as f:
-            json.dump(output, f, indent=4)
+        with (out_path / "attributes.yaml").open("w") as f:
+            yaml.safe_dump(output, f, sort_keys=False)
 
         self.save_scenario_attributes(output)
 
@@ -257,7 +257,7 @@ class Element(ABC, Registry["Element"], is_base_registry=True):
 
         The scenario files hold a full copy of the attributes, with the default
         values of the scenario applied, since ZEN-garden reads them in place of
-        'attributes.json'.
+        'attributes.yaml'.
 
         Args:
             base_attributes (dict): The attributes of the default scenario.
@@ -276,10 +276,10 @@ class Element(ABC, Registry["Element"], is_base_registry=True):
         out_path = self.output_path
         for suffix, attributes in overrides.items():
             logger.info(
-                f"Saving 'attributes_{suffix}.json' for element '{self.name}.'"
+                f"Saving 'attributes_{suffix}.yaml' for element '{self.name}.'"
             )
-            with (out_path / f"attributes_{suffix}.json").open("w") as f:
-                json.dump({**base_attributes, **attributes}, f, indent=4)
+            with (out_path / f"attributes_{suffix}.yaml").open("w") as f:
+                yaml.safe_dump({**base_attributes, **attributes}, f, sort_keys=False)
 
     def save_sources(self):
         """Save the element's sources to sources.md."""

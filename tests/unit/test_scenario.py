@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 import pandas as pd
 import pytest
 import yaml
@@ -173,7 +171,7 @@ def test_scenario_list_default_value_reuses_list_validation(model: Model):
 
 
 def test_energy_system_uses_its_own_key(model: Model):
-    """The energy system is addressed as 'EnergySystem' in scenarios.json."""
+    """The energy system is addressed as 'EnergySystem' in scenarios.yaml."""
     from zen_creator.elements import GenericEnergySystem
 
     energy_system = GenericEnergySystem(model=model)
@@ -203,8 +201,8 @@ def test_write_creates_scenario_files(model: Model):
     out_path = carrier.output_path
     assert (out_path / "demand_nodal.csv").exists()
 
-    with (out_path / "attributes_cheap.json").open() as f:
-        attributes = json.load(f)
+    with (out_path / "attributes_cheap.yaml").open() as f:
+        attributes = yaml.safe_load(f)
 
     assert attributes["demand"] == {"default_value": 1.0, "unit": "GW"}
     # the remaining attributes keep their default values
@@ -223,15 +221,15 @@ def test_write_merges_attributes_of_one_scenario(model: Model):
     carrier.price_shed_demand.add_scenarios(Scenario("cheap", default_value=2.0))
     carrier.write()
 
-    with (carrier.output_path / "attributes_cheap.json").open() as f:
-        attributes = json.load(f)
+    with (carrier.output_path / "attributes_cheap.yaml").open() as f:
+        attributes = yaml.safe_load(f)
 
     assert attributes["demand"]["default_value"] == 1.0
     assert attributes["price_shed_demand"]["default_value"] == 2.0
 
 
 def test_write_model_creates_scenario_file(model: Model, tmp_path):
-    """The model writes scenarios.json and turns on the scenario analysis."""
+    """The model writes scenarios.yaml and turns on the scenario analysis."""
     from zen_creator.elements import GenericEnergySystem
 
     model.energy_system = GenericEnergySystem(model=model)
@@ -243,8 +241,8 @@ def test_write_model_creates_scenario_file(model: Model, tmp_path):
 
     with (model.output_path / "system.yaml").open() as f:
         system = yaml.safe_load(f)
-    with (model.output_path / "scenarios.json").open() as f:
-        scenarios = json.load(f)
+    with (model.output_path / "scenarios.yaml").open() as f:
+        scenarios = yaml.safe_load(f)
 
     assert system["conduct_scenario_analysis"] is True
     assert scenarios == {"coarse": {"system": {"set_nodes": ["DE"]}}}

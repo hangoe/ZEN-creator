@@ -3,7 +3,7 @@
 This module provides the building blocks of the scenario analysis: the
 per-attribute variation (:class:`Scenario`), the marker for list-valued
 settings (:class:`Sweep`), and the model-wide :class:`ScenarioRegistry` that
-collects all entries and serializes them to ``scenarios.json``.
+collects all entries and serializes them to ``scenarios.yaml``.
 """
 
 from __future__ import annotations
@@ -36,10 +36,10 @@ SET_LABELS = frozenset(
     }
 )
 
-# top-level keys of scenarios.json that hold configuration overrides
+# top-level keys of scenarios.yaml that hold configuration overrides
 SETTING_BLOCKS = ("system", "analysis", "solver")
 
-# key of the energy system in scenarios.json
+# key of the energy system in scenarios.yaml
 ENERGY_SYSTEM_KEY = "EnergySystem"
 
 
@@ -63,15 +63,15 @@ class Sweep:
 class Scenario:
     """Variation of a single attribute in one scenario.
 
-    The payload determines the entry in scenarios.json: a default value is
-    written to an ``attributes_<suffix>.json``, a data frame to a
+    The payload determines the entry in scenarios.yaml: a default value is
+    written to an ``attributes_<suffix>.yaml``, a data frame to a
     ``<param>_<suffix>.csv``, and the operators are written as factors that
     ZEN-garden applies to the unmodified values. A list-valued operator is
     expanded by ZEN-garden into one sub-scenario per entry.
 
     Attributes:
         name: The name of the scenario this variation belongs to.
-        default_value: Default value replacing the one in attributes.json.
+        default_value: Default value replacing the one in attributes.yaml.
         unit: Unit of the default value, defaults to the unit of the attribute.
         df: Time-series data replacing the one of the attribute.
         yearly_variations_df: Yearly variations replacing the ones of the
@@ -127,7 +127,7 @@ class Scenario:
             self.suffix = self.name
 
     def fragments(self, param: str) -> dict[str, dict]:
-        """Build the scenarios.json entries of this variation.
+        """Build the scenarios.yaml entries of this variation.
 
         Yearly variations are a parameter of their own in ZEN-garden, so they
         are returned under a separate key.
@@ -136,7 +136,7 @@ class Scenario:
             param: Name of the attribute this variation belongs to.
 
         Returns:
-            dict: Mapping of parameter name to its scenarios.json entry.
+            dict: Mapping of parameter name to its scenarios.yaml entry.
         """
         entries = {}
 
@@ -185,7 +185,7 @@ def build_fragment(
     file_op: float | list | None = None,
     fmt: str | None = None,
 ) -> dict[str, Any]:
-    """Assemble the scenarios.json entry of a single parameter.
+    """Assemble the scenarios.yaml entry of a single parameter.
 
     Args:
         param: Name of the parameter.
@@ -265,7 +265,7 @@ def _validate_operator(param: str, key: str, value: float | list) -> None:
 
 
 class ScenarioRegistry:
-    """Collects the scenario entries of a model and writes scenarios.json.
+    """Collects the scenario entries of a model and writes scenarios.yaml.
 
     Entries come from three places: the variations attached to an attribute via
     ``Attribute.set_data``, the configuration overrides added with :meth:`add`,
@@ -320,7 +320,7 @@ class ScenarioRegistry:
         """Add the entries of an attribute variation.
 
         Args:
-            element_key: Key of the element in scenarios.json.
+            element_key: Key of the element in scenarios.yaml.
             param: Name of the attribute.
             scenario: The variation to add.
 
@@ -349,14 +349,14 @@ class ScenarioRegistry:
     ) -> None:
         """Add configuration overrides to a scenario.
 
-        The values are written to scenarios.json as they are. A :class:`Sweep`
+        The values are written to scenarios.yaml as they are. A :class:`Sweep`
         value, or a dict with a 'values' key, is expanded by ZEN-garden into one
         sub-scenario per entry.
 
         Args:
             name: Name of the scenario.
-            system: Overrides of settings in system.json.
-            analysis: Overrides of settings in analysis.json.
+            system: Overrides of settings in system.yaml.
+            analysis: Overrides of the analysis settings.
             solver: Overrides of solver settings.
 
         Examples:
@@ -521,7 +521,7 @@ class ScenarioRegistry:
                 )
 
     def to_dict(self) -> dict:
-        """Convert the registry to the content of scenarios.json.
+        """Convert the registry to the content of scenarios.yaml.
 
         Returns:
             dict: Mapping of scenario name to its entries.
@@ -530,7 +530,7 @@ class ScenarioRegistry:
 
 
 def _setting_entry(key: str, value: Any) -> Any:
-    """Convert a setting override to its scenarios.json representation.
+    """Convert a setting override to its scenarios.yaml representation.
 
     Args:
         key: Name of the setting.

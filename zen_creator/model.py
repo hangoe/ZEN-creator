@@ -1,4 +1,3 @@
-import json
 import logging
 import shutil
 from pathlib import Path
@@ -52,7 +51,7 @@ class Model:
         elements (dict[str, Element]): Dictionary of elements (carriers and
             technologies) present in the model.
         scenarios (ScenarioRegistry): Registry of all scenarios of the model,
-            written to "scenarios.json".
+            written to "scenarios.yaml".
     """
 
     def __init__(self) -> None:
@@ -212,9 +211,9 @@ class Model:
     def _initialize_scenarios(self, scenarios: dict[str, dict]) -> None:
         """Add the scenarios declared in the configuration file.
 
-        Only the settings of system.json, analysis.json, and the solver can be
-        varied this way. Variations of element data are attached to the
-        attributes themselves.
+        Only the 'system', 'analysis', and 'solver' settings can be varied
+        this way. Variations of element data are attached to the attributes
+        themselves.
 
         Args:
             scenarios: Mapping of scenario name to its configuration overrides.
@@ -924,7 +923,7 @@ class Model:
         for element in self.elements.values():
             element.write()
 
-        # write scenarios.json
+        # write scenarios.yaml
         self.write_scenario_file()
 
         logger.info("Done writing model")
@@ -1011,17 +1010,17 @@ class Model:
             yaml.safe_dump(config_yaml, f, sort_keys=False)
 
     def write_scenario_file(self) -> None:
-        """Write the scenarios.json file for the model.
+        """Write the scenarios.yaml file for the model.
 
         The file is only written if the model defines scenarios.
         """
         if not self.scenarios:
             return
 
-        logger.info(f"Writing {len(self.scenarios)} scenarios to 'scenarios.json'")
+        logger.info(f"Writing {len(self.scenarios)} scenarios to 'scenarios.yaml'")
 
-        with open(self.output_path / "scenarios.json", "w") as f:
-            json.dump(self.scenarios.to_dict(), f, indent=4)
+        with open(self.output_path / "scenarios.yaml", "w", encoding="utf-8") as f:
+            yaml.safe_dump(self.scenarios.to_dict(), f, sort_keys=False)
 
     # -------- Validate model ------------------------------------------------------
 
