@@ -8,7 +8,7 @@ tests register a small dummy category to exercise the mechanism.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterator, Type
+from typing import ClassVar, Iterator, Type
 
 import pytest
 from pydantic import ValidationError
@@ -30,7 +30,7 @@ def dummy_category() -> Type[SettingsCategory]:
     """Register a small settings category for use in tests."""
 
     class DummyTimeSettings(SettingsCategory):
-        name: str = "time_settings"
+        name: ClassVar[str] = "time_settings"
 
         years_in_rolling_horizon: int = 2
         reference_year: int = 2022

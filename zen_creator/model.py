@@ -77,12 +77,17 @@ class Model:
         self._build_stack: list[tuple[Element, str]] = []
 
     @classmethod
-    def from_config(cls, config: Config | str | Path):
+    def from_config(
+        cls, config: Config | str | Path, settings: Settings | None = None
+    ):
         """Initialize a new Model instance.
 
         Args:
             config (Config | str | Path): The configuration for the model.
                 Can be a Config object, or a path to a config file.
+            settings (Settings | None): The settings for the model. Read from
+                the config file when not given. A variant declared in a
+                models file passes the settings its patch produced.
 
         Returns:
             Model: A new Model instance initialized from the configuration.
@@ -103,15 +108,19 @@ class Model:
         model.config = (
             config if isinstance(config, Config) else Config.load_from_yaml(config)
         )
-        model.settings = (
-            Settings()
-            if isinstance(config, Config)
-            else Settings.load_from_yaml(config)
-        )
+        if settings is not None:
+            model.settings = settings
+        elif isinstance(config, Config):
+            model.settings = Settings()
+        else:
+            model.settings = Settings.load_from_yaml(config)
+        # write every registered category's controlled fields into config,
+        # so a settings field is the single place each controlled value is set
+        model.settings.apply(model.config)
+
         model.source_path = model.config.source_path
 
         insert = model.config.elements.insert
-        exclude = model.config.elements.exclude
 
         # initialize scenarios defined in the configuration file
         model._initialize_scenarios(model.config.scenarios)
@@ -122,7 +131,11 @@ class Model:
         # Add sectors (using a loop directly)
         model._initialize_sectors(insert.set_sectors)
 
-        model._initialize_technologies_and_carriers(insert, exclude)
+        model._initialize_technologies_and_carriers(
+            insert,
+            model.config.elements.exclude_sectors,
+            model.config.elements.exclude_elements,
+        )
 
         return model
 
@@ -288,18 +301,24 @@ class Model:
             self.add_sector_by_name(sector)
 
     def _initialize_technologies_and_carriers(
-        self, insert_config: ElementTypeList, exclude_config: ElementTypeList
+        self,
+        insert_config: ElementTypeList,
+        exclude_sectors: list[str],
+        exclude_elements: list[str],
     ) -> None:
         """Initialize technologies and carriers from insert/exclude config.
 
-        The method first adds elements listed in ``insert_config`` and then
-        removes elements listed in ``exclude_config``. This two-step process
-        keeps behavior consistent with existing config semantics.
+        The method first adds elements listed in ``insert_config``, then
+        removes every sector in ``exclude_sectors`` (removing the elements it
+        declares), then removes every element named in ``exclude_elements``
+        directly. Removal does not need to know an element's type, so
+        ``exclude_elements`` is a flat list of technology or carrier names.
 
         Args:
             insert_config: Element lists to be added to the model.
-            exclude_config: Element lists to be removed from the model after
-                insertion.
+            exclude_sectors: Sectors to remove after insertion.
+            exclude_elements: Technologies or carriers to remove after
+                insertion, in addition to what ``exclude_sectors`` removes.
         """
 
         # Add technologies by iterating over the technology types
@@ -316,14 +335,12 @@ class Model:
                 self.add_element_by_name(element, element_type)
 
         # Remove sectors that should be excluded
-        for sector in exclude_config.set_sectors:
+        for sector in exclude_sectors:
             self.remove_sector_by_name(sector)
 
-        # Remove technologies that should be excluded
-        for element_set in element_map.keys():
-            element_list = getattr(exclude_config, element_set)
-            for element in element_list:
-                self.remove_element_by_name(element)
+        # Remove technologies and carriers that should be excluded
+        for element in exclude_elements:
+            self.remove_element_by_name(element)
 
     # -------- Properties ----------------------------------------------------------
     @property

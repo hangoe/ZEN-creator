@@ -108,12 +108,11 @@ def test_exclude_set_sectors_removes_previously_inserted_elements(
 ) -> None:
     """`_initialize_technologies_and_carriers` removes excluded sectors."""
     insert = ElementTypeList(set_sectors=["test_root"])
-    exclude = ElementTypeList(set_sectors=["test_root"])
 
     model._initialize_sectors(insert.set_sectors)
     assert TemplateCarrier.name in model.elements
 
-    model._initialize_technologies_and_carriers(insert, exclude)
+    model._initialize_technologies_and_carriers(insert, ["test_root"], [])
     assert TemplateCarrier.name not in model.elements
 
 

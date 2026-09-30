@@ -17,6 +17,30 @@ from .solver import SolverConfig
 from .system import SystemConfig
 
 
+def _reject_controlled_paths(user_dict: dict[str, Any]) -> None:
+    """Raise if the config file sets a path that a settings category controls.
+
+    Settings is imported locally: the settings package already depends on
+    ``zen_creator.utils.config._base``, and importing it at module level here
+    would create a needless dependency between the two packages.
+    """
+    from zen_creator.utils.settings import Settings
+
+    for path, owner in Settings.controlled_paths().items():
+        node: Any = user_dict
+        for part in path.split("."):
+            if not isinstance(node, dict) or part not in node:
+                break
+            node = node[part]
+        else:
+            raise ValueError(
+                f"'{path}' is set in the configuration file, but it is "
+                f"controlled by the settings field '{owner}'. Remove it "
+                "from the configuration file and set it via settings "
+                "instead."
+            )
+
+
 class Config(Subscriptable):
     """Default configuration for ZEN-creator.
 
@@ -64,6 +88,8 @@ class Config(Subscriptable):
         # `settings:` is validated separately by Settings.load_from_yaml();
         # Config itself has extra="forbid", so this key must be stripped.
         user_dict.pop("settings", None)
+
+        _reject_controlled_paths(user_dict)
 
         config = cls.model_validate(user_dict)
         config._loaded_from = config_path.resolve()

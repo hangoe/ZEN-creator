@@ -84,7 +84,12 @@ class ElementTypeList(Subscriptable):
 
 
 class ElementConfig(Subscriptable):
-    """Config for element settings."""
+    """Config for element settings.
+
+    ``exclude_sectors`` and ``exclude_elements`` are flat, unlike ``insert``:
+    removing an element does not need to know its type, only its name.
+    """
 
     insert: ElementTypeList = Field(default_factory=ElementTypeList)
-    exclude: ElementTypeList = Field(default_factory=ElementTypeList)
+    exclude_sectors: list[str] = Field(default_factory=list)
+    exclude_elements: list[str] = Field(default_factory=list)

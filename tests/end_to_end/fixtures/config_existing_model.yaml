@@ -34,13 +34,8 @@ elements:
       - heat
       - natural_gas
 
-  exclude:
-    set_sectors: []
-    set_conversion_technologies: []
-    set_transport_technologies: []
-    set_storage_technologies: []
-    set_retrofitting_technologies: []
-    set_carriers: []
+  exclude_sectors: []
+  exclude_elements: []
 
 # settings for individual data sources
 data:
