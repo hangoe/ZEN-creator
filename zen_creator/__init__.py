@@ -33,11 +33,13 @@ from .utils.config import (
     TransportTechnologyConfig,
 )
 from .utils.scenario import Scenario, Sweep
+from .utils.structure import model_structure
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 __all__ = [
     "Model",
+    "model_structure",
     "Config",
     "compare_trees",
     "Sector",
