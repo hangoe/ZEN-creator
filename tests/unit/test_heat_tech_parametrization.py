@@ -78,7 +78,7 @@ def test_carbon_intensity_and_max_diffusion_rate(dataset, model):
     max_diffusion_rate = dataset.get_max_diffusion_rate(element, "biomass_boiler_industry")
 
     assert carbon_intensity.default_value == 0
-    assert max_diffusion_rate.default_value == pytest.approx(0.29)
+    assert max_diffusion_rate.default_value == pytest.approx(0.13)
 
 
 if __name__ == "__main__":

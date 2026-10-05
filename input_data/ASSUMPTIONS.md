@@ -439,6 +439,13 @@ exactly. Implemented in
   baseline/incumbent production techs already work in this sector
   (`ceramic_production`/`glass_production` themselves have `max_diffusion_rate = inf`,
   "baseline production tech — no diffusion bottleneck").
+- **`capacity_limit` of `natural_gas_to_kilnfuel`** (v10.0+): per node, flat
+  `fuel_to_kiln` demand of glass+ceramic (as the carriers write it, see "Product carrier
+  demand = capacity_existing") × `ZERO_COST_CAPACITY_LIMIT_MARGIN` (2.0). Without it, the
+  zero-capex, unconstrained incumbent's capacity is degenerate and switches off the
+  hydrogen/electricity alternatives' diffusion limit — see "Technology diffusion".
+  Note: `capacity_existing` above still uses the v9.0 sizing (physical output basis,
+  ~10.1 GW total), which is ~18% below the carrier-based flow (~12.3 GW); left unchanged.
 
 ## Paper
 
@@ -826,8 +833,62 @@ reflecting the thermodynamic advantage of heat pumps at low temperatures:
   - `heat_industry_temp_conversion_100_0`: converts `heat_industry_100_150` →
     `heat_industry_0_100` (conversion factor 1.0, lossless).
 
-  No capex, existing capacity, or opex (`opex_specific_variable = 0`) — the
-  optimizer can freely build these bridge technologies.
+  No capex or opex (`opex_specific_variable = 0`) and `max_diffusion_rate = inf`.
+  Since v10.0 they have `capacity_existing` and a `capacity_limit` (up to v9.0: neither,
+  so the optimizer could build them at any size) — see "Technology diffusion":
+  - `capacity_existing`: per node, flat heat demand of every band the tech passes heat
+    down to (`_temp_conversion_150`: 0–100 + 100–150 °C; `_temp_conversion_100`:
+    0–100 °C), i.e. today's boiler-supplied cascade flow (EU total 30.6 / 10.7 GW, equal
+    to the v9.0 model's own 2020 cascade flow). Spread over `TEMP_CONVERSION_LIFETIME`
+    (30 yr) vintages ending at `CAPACITY_YEAR`.
+  - `capacity_limit`: the same demand × `ZERO_COST_CAPACITY_LIMIT_MARGIN` (2.0).
+
+## Technology diffusion
+
+ZEN-garden limits each period's capacity addition
+(`constraint_technology_diffusion_limit_total`, `zen_garden/model/technology/technology.py`)
+to the sum of a knowledge term (`((1+max_diffusion_rate)^dy − 1)` × depreciated past
+additions/existing capacity), a **market-share term** (`market_share_unbounded` = 0.02 ×
+`capacity_previous` of every technology of the same class with the same reference
+carrier, the technology itself included) and `capacity_addition_unbounded`.
+
+- **`max_diffusion_rate`** (v10.0+): `0.13` for every industry heat pump and boiler
+  (`MAX_DIFFUSION_RATE` in `heat_tech_parametrization.py`; was 0.29 up to v9.0), matching
+  the kiln-fuel switching techs, district heating and the external `*_to_cement_fuel` techs.
+- **Zero-cost pass-through techs in the market-share term (fixed in v10.0).** The
+  temperature-conversion techs share the 0–100/100–150 °C heat pumps' reference carrier,
+  and `natural_gas_to_kilnfuel` shares `hydrogen/electricity_to_kilnfuel`'s. With zero
+  capex, `max_diffusion_rate = inf` and no `capacity_limit`, their installed capacity was
+  degenerate: in v9.0 the solver returned 54,000–209,000 GW (~5,000× their peak flow),
+  arbitrary across scenarios (e.g. 442 vs. 7,535 GW of allowed HP addition in 2022 for DSM
+  only vs. DSM pessimistic). 2% of that made the dependent techs' diffusion limit inactive.
+  The temperature-conversion techs also had no `capacity_existing`, so the same term was
+  exactly 0 in the first year: low/mid-temperature HPs could build nothing in 2020 and
+  everything economic in 2022 (the 0–100 °C band switched 100% to HPs in one period).
+  The 150–200 °C HPs, whose peers are the real boiler fleet, were unaffected.
+  - Excluding these techs from the peer group instead is not an option: they are the
+    only incumbent in the low/mid bands, so the HPs would have no market-share base and
+    (with no existing capacity and `capacity_addition_unbounded = 0`) could never be
+    built. ZEN-garden also offers no per-technology opt-out (`market_share_unbounded` is a
+    single global scalar; the peer group is hard-coded as class + reference carrier).
+  - Fix: give them realistic `capacity_existing` and bound them with a `capacity_limit` of
+    flat served demand × `ZERO_COST_CAPACITY_LIMIT_MARGIN` = 2.0. The margin sits ~10% above
+    the largest per-node peak-to-mean ratio observed in the v9.0 DSM runs (band heat 1.58,
+    `fuel_to_kiln` 1.80), so it doesn't restrict dispatch; it is the same in every
+    scenario so the market-share headroom stays comparable. It must stay > 1: ZEN-garden
+    forbids any capacity addition at nodes where `capacity_existing >= capacity_limit`.
+    The solver may still size these techs up to the limit, so the market-share base is at
+    most 2× the real market (vs. ~5,000× before).
+- **Known ZEN-garden inconsistency, per year vs. per period (not fixed).** ZEN-garden's
+  docs (`additional_features.rst`, "Technology diffusion") and the constraint's docstring
+  formula define the market-share term and `capacity_addition_unbounded` per **year**
+  (`dy × (ξ Σ S + ζ)`), but the code applies them once per **investment period** (no `× dy`
+  factor), while the knowledge term is correctly compounded per period. With
+  `interval_between_years = 2` (all v9.0 runs) the code therefore allows only half the
+  documented market-share/unbounded headroom (e.g. 0.65 GW = 0.02 × 32.7 GW boilers for the
+  150–200 °C HPs in 2020, not 1.3 GW). v10.0 runs use `interval_between_years = 1`
+  (ZEN-models `parameters.csv`), where both readings coincide. Revisit (or fix in
+  ZEN-garden) before running any multi-year interval again.
 
 ## Case study scenarios
 

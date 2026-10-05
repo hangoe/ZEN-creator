@@ -40,7 +40,10 @@ if not data_path.exists():
         "env var to point at a valid ZEN-garden input folder."
     )
 output_path = Path(__file__).parent.parent / "outputs"
-VERSION = "Crystal_Ball_ind_heat_v9_0"
+# v10_0: temp-conversion/natural_gas_to_kilnfuel get capacity_existing + capacity_limit,
+# heat-tech max_diffusion_rate 0.13 (see ASSUMPTIONS.md, "Technology diffusion"); run
+# with interval_between_years = 1 (ZEN-models parameters.csv).
+VERSION = "Crystal_Ball_ind_heat_v10_0"
 
 # Case-study scenarios: which sectors are active for each run.
 # industry_heat must come first in every combination: glass/ceramic/paper/food
@@ -87,12 +90,14 @@ def disable_diffusion_limits(model: Model) -> None:
         )
 
 
-def delete_old_outputs(path: Path, keep_names: set[str]) -> None:
-    """Delete everything in `path` except entries whose name is in `keep_names`."""
+def delete_old_outputs(path: Path, keep_names: set[str], prefix: str) -> None:
+    """Delete entries in `path` whose name starts with `prefix` (the current VERSION)
+    but isn't in `keep_names` - i.e. stale scenarios of this version only. Other
+    versions' outputs (e.g. v9_0 while writing v10_0) are never touched."""
     if not path.exists():
         return
     for entry in path.iterdir():
-        if entry.name in keep_names:
+        if not entry.name.startswith(prefix) or entry.name in keep_names:
             continue
         if entry.is_dir():
             shutil.rmtree(entry)
@@ -107,7 +112,7 @@ if not SCENARIOS:
     )
 
 delete_old_outputs(
-    output_path, keep_names={f"{VERSION}{suffix}" for suffix, _ in SCENARIOS}
+    output_path, keep_names={f"{VERSION}{suffix}" for suffix, _ in SCENARIOS}, prefix=VERSION
 )
 
 # Loaded once and copied per scenario below: reading the existing model's

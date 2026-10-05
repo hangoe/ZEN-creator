@@ -56,7 +56,10 @@ HEAT_TECH_CONVERSION_FACTOR: dict[str, float] = {
 # carbon_intensity_technology is 0 for every heat tech: combustion CO2 is carried on the
 # fuel carrier (natural_gas/biomass/etc.), not on the conversion tech.
 CARBON_INTENSITY_TECHNOLOGY = 0
-MAX_DIFFUSION_RATE = 0.29
+# Shared by every industry heat pump and boiler. 0.13/yr matches district heating,
+# the kiln-fuel switching techs and the external *_to_cement_fuel techs (v10.0;
+# was 0.29 up to v9.0). See ASSUMPTIONS.md, "Technology diffusion".
+MAX_DIFFUSION_RATE = 0.13
 
 
 class HeatTechParametrizationDataset(Dataset[pd.DataFrame]):

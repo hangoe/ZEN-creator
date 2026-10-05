@@ -22,6 +22,7 @@ from zen_creator.datasets.datasets.process_parametrization import (
     FEC_YEAR,
     KILN_FUEL_SWITCH_CF,
     KILN_FUEL_TECH_LIFETIME,
+    TEMP_CONVERSION_LIFETIME,
     ProcessParametrizationDataset,
 )
 from zen_creator.datasets.datasets.waste_boiler_dh_proxy import WasteBoilerDhProxyDataset
@@ -319,10 +320,16 @@ class WasteBoilerIndustry(
 
 # -- Temperature conversion cascade ------------------------------------------
 
-def _temp_conversion_methods(output_carrier: str, input_carrier: str):
+def _temp_conversion_methods(output_carrier: str, input_carrier: str, served_levels: tuple[str, ...]):
     """Return a dict of _set_* methods shared by the two temperature-downgrade
     conversion techs (150-200 -> 100-150 band, 100-150 -> 0-100 band): lossless
-    (conversion_factor = 1.0), zero variable OPEX, 30-year lifetime.
+    (conversion_factor = 1.0), zero variable OPEX, TEMP_CONVERSION_LIFETIME.
+
+    `served_levels` are the heat bands whose demand flows through the tech (its own
+    output band plus every band further down the cascade). They size its
+    capacity_existing (today's boiler-supplied cascade flow) and capacity_limit -
+    both needed so its zero-cost capacity can't inflate the heat pumps'
+    market-share diffusion term (see ZERO_COST_CAPACITY_LIMIT_MARGIN).
     """
 
     class _Mixin:
@@ -343,16 +350,23 @@ def _temp_conversion_methods(output_carrier: str, input_carrier: str):
             )
 
         def _set_lifetime(self) -> Attribute:
-            return Attribute("lifetime", default_value=30, unit="1", element=self)
+            return Attribute("lifetime", default_value=TEMP_CONVERSION_LIFETIME, unit="1", element=self)
 
         def _set_opex_specific_variable(self) -> Attribute:
             return Attribute("opex_specific_variable", default_value=0.0, unit="Euro/GWh", element=self)
+
+        def _set_capacity_existing(self) -> Attribute:
+            return ProcessParametrizationDataset().get_temp_conversion_capacity_existing(self, served_levels)
+
+        def _set_capacity_limit(self) -> Attribute:
+            return ProcessParametrizationDataset().get_temp_conversion_capacity_limit(self, served_levels)
 
     return _Mixin
 
 
 class HeatIndustryTempConversion150(
-    _temp_conversion_methods("heat_industry_100_150", "heat_industry_150_200"), ConversionTechnology
+    _temp_conversion_methods("heat_industry_100_150", "heat_industry_150_200", ("0_100", "100_150")),
+    ConversionTechnology,
 ):
     name = "heat_industry_temp_conversion_150"
 
@@ -361,7 +375,8 @@ class HeatIndustryTempConversion150(
 
 
 class HeatIndustryTempConversion100(
-    _temp_conversion_methods("heat_industry_0_100", "heat_industry_100_150"), ConversionTechnology
+    _temp_conversion_methods("heat_industry_0_100", "heat_industry_100_150", ("0_100",)),
+    ConversionTechnology,
 ):
     name = "heat_industry_temp_conversion_100"
 
@@ -408,6 +423,9 @@ def _kiln_fuel_methods(fuel: str, with_diffusion_cap: bool):
 
         def _set_capacity_existing(self) -> Attribute:
             return ProcessParametrizationDataset().get_kiln_fuel_switch_capacity_existing(self, fuel)
+
+        def _set_capacity_limit(self) -> Attribute:
+            return ProcessParametrizationDataset().get_kiln_fuel_switch_capacity_limit(self, fuel)
 
     if with_diffusion_cap:
         def _set_max_diffusion_rate(self) -> Attribute:
