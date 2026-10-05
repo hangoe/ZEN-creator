@@ -5,10 +5,10 @@ in time. Every DSM technology is parametrized from one of three demand-shiftabil
 categories (Cat 1/2/3), assigned per carrier and per "optimistic"/"pessimistic"
 variant according to `input_data/DSM_parametrization/DSM_literature_review.md`:
 
-  - Cat 1 = fully flexible: low cost, long shifting horizon.
-  - Cat 2 = partially flexible / short timescales: moderate cost and horizon.
-  - Cat 3 = not flexible at all: very high cost (effectively priced out) and a
+  - Cat 1 = not flexible at all: very high cost (effectively priced out) and a
     short horizon.
+  - Cat 2 = partially flexible / short timescales: moderate cost and horizon.
+  - Cat 3 = fully flexible: low cost, long shifting horizon.
 
 Each carrier has two technology classes, e.g. `GlassDSMOptimistic` and
 `GlassDSMPessimistic`, so that a model can be built with either the optimistic or
@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from zen_creator.model import Model
 
 import numpy as np
+import pandas as pd
 
 from zen_creator.datasets.datasets.metadata import MetaData, SourceInformation
 from zen_creator.elements.storage_technologies.storage_technology import (
@@ -116,33 +117,33 @@ def _storage_cost_value(carrier_name: str, category_value: float) -> float:
 
 
 # Placeholder cost/duration shape per category: (capex, opex_var, energy_to_power_ratio_max).
-# Cat 1 cheap + long horizon, Cat 3 expensive + short horizon (effectively priced
-# out), Cat 2 in between. Units: EUR/(power_unit*h), EUR/(power_unit*h), hours.
+# Cat 1 expensive + short horizon (effectively priced out), Cat 3 cheap + long
+# horizon, Cat 2 in between. Units: EUR/(power_unit*h), EUR/(power_unit*h), hours.
 _CATEGORY_PARAMS: dict[int, tuple[float, float, float]] = {
-    1: (1.0, 1.0, 336.0),  # fully flexible: near-free, 2-week horizon
+    1: (1000.0, 1000.0, 2.0),  # not flexible: priced out, 2h horizon
     2: (20.0, 20.0, 48.0),  # partially flexible: moderate cost, 2-day horizon
-    3: (1000.0, 1000.0, 2.0),  # not flexible: priced out, 2h horizon
+    3: (1.0, 1.0, 336.0),  # fully flexible: near-free, 2-week horizon
 }
 
 # carrier_name -> {"pessimistic": category, "optimistic": category}, transcribed from
-# input_data/DSM_parametrization/DSM_literature_review.md. Clinker is assigned Cat 3 in
+# input_data/DSM_parametrization/DSM_literature_review.md. Clinker is assigned Cat 1 in
 # both variants, matching Golmohamadi2021's characterization of clinker production as an
 # uninterruptible process with only low/very-low/medium flexibility potential.
 #
-# primary_steel is Cat 3 in both variants, overriding what
+# primary_steel is Cat 1 in both variants, overriding what
 # DSM_literature_review.md's cited sources (Boldrini2024, Golmohamadi2021) suggest
 # for the optimistic (H2-DRI-EAF) case (Cat 2); see _CATEGORY_OVERRIDE_NOTES below.
 _SECTOR_CATEGORIES: dict[str, dict[str, int]] = {
-    "glass": {"pessimistic": 3, "optimistic": 3},
-    "ceramic": {"pessimistic": 3, "optimistic": 2},
-    "paper": {"pessimistic": 2, "optimistic": 1},
-    "food": {"pessimistic": 3, "optimistic": 2},
-    "methanol": {"pessimistic": 2, "optimistic": 1},
-    "primary_steel": {"pessimistic": 3, "optimistic": 3},
-    "secondary_steel": {"pessimistic": 2, "optimistic": 1},
-    "olefin": {"pessimistic": 3, "optimistic": 2},
-    "ammonia": {"pessimistic": 3, "optimistic": 2},
-    "clinker": {"pessimistic": 3, "optimistic": 3},
+    "glass": {"pessimistic": 1, "optimistic": 1},
+    "ceramic": {"pessimistic": 1, "optimistic": 2},
+    "paper": {"pessimistic": 2, "optimistic": 3},
+    "food": {"pessimistic": 1, "optimistic": 2},
+    "methanol": {"pessimistic": 2, "optimistic": 3},
+    "primary_steel": {"pessimistic": 1, "optimistic": 1},
+    "secondary_steel": {"pessimistic": 2, "optimistic": 3},
+    "olefin": {"pessimistic": 1, "optimistic": 2},
+    "ammonia": {"pessimistic": 1, "optimistic": 2},
+    "clinker": {"pessimistic": 1, "optimistic": 1},
 }
 
 # Per-carrier/variant notes appended to the source description where the assigned
@@ -150,7 +151,7 @@ _SECTOR_CATEGORIES: dict[str, dict[str, int]] = {
 # sources — e.g. a newer internal re-evaluation rather than a new citation.
 _CATEGORY_OVERRIDE_NOTES: dict[tuple[str, str], str] = {
     ("primary_steel", "optimistic"): (
-        " Re-evaluated to Cat 3 (from Cat 2) as a new evaluation; sources "
+        " Re-evaluated to Cat 1 (from Cat 2) as a new evaluation; sources "
         "(Boldrini2024, Golmohamadi2021) unchanged."
     ),
 }
@@ -166,8 +167,8 @@ def _category_source(carrier_name: str, variant: str) -> SourceInformation:
     return SourceInformation(
         description=(
             f"{carrier_name} DSM, {variant} variant: Cat {category} per "
-            "DSM_literature_review.md (Cat 1 = fully flexible, Cat 2 = partially "
-            f"flexible/short timescales, Cat 3 = not flexible at all).{note}"
+            "DSM_literature_review.md (Cat 3 = fully flexible, Cat 2 = partially "
+            f"flexible/short timescales, Cat 1 = not flexible at all).{note}"
         ),
         metadata=_CATEGORY_METADATA,
     )
@@ -213,7 +214,20 @@ def _dsm_capacity_limit(element, carrier_name: str) -> Attribute:
     raw = carrier.demand.df
     # df may be a Series (node index) or a DataFrame (node index, "demand" column)
     demand_series = raw if raw.ndim == 1 else raw.iloc[:, 0]
-    limit_df = (demand_series * 1.0).rename("capacity_limit").to_frame()
+    # Include EVERY model node, not just the ones the carrier has demand data for:
+    # a node missing from `limit_df` falls back to default_value=inf (unbounded), and
+    # since DSM power capacity has no cost, the optimizer would otherwise build
+    # arbitrarily large (useless) power capacity there. Nodes without demand for the
+    # carrier get a limit of 0 (1 x its zero demand).
+    nodes = list(element.model.config.system.set_nodes)
+    nodes += [n for n in demand_series.index if n not in nodes]
+    limit_df = (
+        (demand_series * 1.0)
+        .reindex(pd.Index(nodes, name=demand_series.index.name))
+        .fillna(0.0)
+        .rename("capacity_limit")
+        .to_frame()
+    )
     attr.set_data(
         default_value=np.inf,
         unit=element.power_unit,
@@ -221,7 +235,8 @@ def _dsm_capacity_limit(element, carrier_name: str) -> Attribute:
         source=SourceInformation(
             description=(
                 f"capacity_limit = 1 × per-node {carrier_name} carrier demand "
-                "(100% of demand — bounds DSM stock without blocking flexibility)."
+                "(100% of demand — bounds DSM stock without blocking flexibility); "
+                "nodes without demand for the carrier are included with a limit of 0."
             ),
             metadata=_DSM_METADATA,
         ),

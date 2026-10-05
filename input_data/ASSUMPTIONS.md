@@ -1004,19 +1004,19 @@ dataset — no new carrier classes are needed in zen_creator.
 
 ### Demand-shiftability categories
 
-- **Cat 1 = fully flexible**: low cost, long shifting horizon.
-- **Cat 2 = partially flexible / short timescales**: moderate cost and horizon.
-- **Cat 3 = not flexible at all**: very high cost (effectively priced out of the
+- **Cat 1 = not flexible at all**: very high cost (effectively priced out of the
   optimum) and a short horizon.
+- **Cat 2 = partially flexible / short timescales**: moderate cost and horizon.
+- **Cat 3 = fully flexible**: low cost, long shifting horizon.
 
 | Category | `capex_specific_storage_energy` / `opex_specific_variable` (EUR/tonproduct) | `energy_to_power_ratio_max` (h) |
 |---|---|---|
-| Cat 1 | 1 | 336 (2 weeks) |
+| Cat 1 | 1,000 | 2 |
 | Cat 2 | 20 | 48 (2 days) |
-| Cat 3 | 1,000 | 2 |
+| Cat 3 | 1 | 336 (2 weeks) |
 
 These are internal placeholder assumptions (no literature-derived cost source per
-category yet) chosen to give Cat 1 a near-free, long-horizon shape, Cat 3 a
+category yet) chosen to give Cat 3 a near-free, long-horizon shape, Cat 1 a
 priced-out, short-horizon shape, and Cat 2 something in between.
 
 **Ammonia/methanol LHV conversion**: `ammonia_DSM` and `methanol_DSM` have
@@ -1039,27 +1039,27 @@ Resulting Euro/GWh values (Cat value ÷ LHV in GWh/t):
 
 | Category | Ammonia (Euro/GWh) | Methanol (Euro/GWh) |
 |---|---|---|
-| Cat 1 | ≈ 194 | ≈ 181 |
+| Cat 1 | ≈ 193,548 | ≈ 180,905 |
 | Cat 2 | ≈ 3,871 | ≈ 3,618 |
-| Cat 3 | ≈ 193,548 | ≈ 180,905 |
+| Cat 3 | ≈ 194 | ≈ 181 |
 
 | Carrier | Pessimistic | Optimistic | Key source(s) |
 |---|---|---|---|
-| Glass | Cat 3 | Cat 3 | Hubert2015 [1]; Hongtai2024 [2] |
-| Ceramic | Cat 3 (continuous kilns) | Cat 2 (batch kilns) | Tangram2026 [3] |
-| Paper | Cat 2 | Cat 1 | Helin2017 [4] |
-| Food | Cat 3 | Cat 2 | AnaInterview2026 [5] (primary source; placeholder citation, needs last name + date) |
-| Methanol | Cat 2 | Cat 1 | Schneider2023 [6]; ChenYang2021 [7] |
-| Primary steel | Cat 3 (BF-BOF, NG-DRI) | Cat 3 [†] | Boldrini2024 [8]; Golmohamadi2021 [9] |
-| Secondary steel | Cat 2 | Cat 1 | Boldrini2024 [8]; Golmohamadi2021 [9] |
-| Olefin | Cat 3 (conventional cracker) | Cat 2 (electrified cracker) | Tiggeloven2023 [10] |
-| Ammonia | Cat 3 | Cat 2 | Salmon2023 [11]; Fahr2025 [12] |
-| Clinker | Cat 3 | Cat 3 | Golmohamadi2021 [9] (Table 5: cement/clinker classified "Uninterruptible") |
+| Glass | Cat 1 | Cat 1 | Hubert2015 [1]; Hongtai2024 [2] |
+| Ceramic | Cat 1 (continuous kilns) | Cat 2 (batch kilns) | Tangram2026 [3] |
+| Paper | Cat 2 | Cat 3 | Helin2017 [4] |
+| Food | Cat 1 | Cat 2 | AnaInterview2026 [5] (primary source; placeholder citation, needs last name + date) |
+| Methanol | Cat 2 | Cat 3 | Schneider2023 [6]; ChenYang2021 [7] |
+| Primary steel | Cat 1 (BF-BOF, NG-DRI) | Cat 1 [†] | Boldrini2024 [8]; Golmohamadi2021 [9] |
+| Secondary steel | Cat 2 | Cat 3 | Boldrini2024 [8]; Golmohamadi2021 [9] |
+| Olefin | Cat 1 (conventional cracker) | Cat 2 (electrified cracker) | Tiggeloven2023 [10] |
+| Ammonia | Cat 1 | Cat 2 | Salmon2023 [11]; Fahr2025 [12] |
+| Clinker | Cat 1 | Cat 1 | Golmohamadi2021 [9] (Table 5: cement/clinker classified "Uninterruptible") |
 
 Numbered citations refer to `input_data/DSM_parametrization/DSM_literature_review.md`,
 which carries full source verification notes and BibTeX for each entry. [5] (food) is a
 placeholder citation pending Ana's last name and interview date. [†] Primary steel
-optimistic is Cat 3, overriding what [8]/[9]'s H2-DRI-EAF characterization would
+optimistic is Cat 1, overriding what [8]/[9]'s H2-DRI-EAF characterization would
 suggest (Cat 2) — an internal re-evaluation, not a reading of new literature; see
 `_CATEGORY_OVERRIDE_NOTES` in `zen_creator/elements/storage_technologies/industry_DSM.py`.
 
