@@ -14,7 +14,6 @@ from zen_creator.datasets.datasets._industry_heat_utils import (
     INPUT_DATA,
     BOILER_LIFETIMES,
     boiler_capacity_existing_df_for_fuel,
-    heat_pump_capacity_existing_df,
 )
 from zen_creator.datasets.datasets.dataset import Dataset
 from zen_creator.datasets.datasets.metadata import MetaData, SourceInformation
@@ -72,7 +71,9 @@ class EurostatBoilerDataset(Dataset[pd.DataFrame]):
         return attr
 
     def get_heat_pump_capacity(self, element: Element, year_construction: int) -> Attribute:
-        df = heat_pump_capacity_existing_df()
-        attr = Attribute("capacity_existing", default_value=0.0, unit="GW", element=element)
-        attr.set_data(df=df.set_index(["node", "year_construction"]), source=self._source_info("Industrial heat pump capacity (zero — no deployed industrial HP capacity)."))
+        attr = Attribute("capacity_existing", element=element)
+        attr.set_data(
+            default_value=0.0, unit="GW",
+            source=self._source_info("Industrial heat pump capacity (zero — no deployed industrial HP capacity)."),
+        )
         return attr

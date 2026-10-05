@@ -14,23 +14,20 @@ if TYPE_CHECKING:
     from zen_creator.elements.element import Element
 
 from zen_creator.datasets.datasets._industry_heat_utils import (
-    AIDRES2023_GLASS,
     AIDRES2023_GLASS_SHARES,
     GLASS_AIDRES_TO_JRC,
     INPUT_DATA,
     MODEL_NODES,
     PAPER_REHFELDT_TO_JRC,
     PARAM_BASE_YEAR,
-    REHFELDT2017_CERAMIC,
-    REHFELDT2017_FOOD,
-    REHFELDT2017_GLASS,
     REHFELDT2017_PAPER,
     HOURS_PER_YEAR,
+    HEAT_CARRIER_NAMES,
     _capacity_df_from_node_caps,
     activity_weights,
+    all_sector_params,
     build_conversion_tech,
     ceramic_demand_from_fec_df,
-    compute_sector_params,
     fec_shares,
     food_capacity_existing_df,
     gdp_deflator_ratio,
@@ -49,11 +46,6 @@ CAPACITY_YEAR = 2022
 JRC_COST_TARGET_YEAR = 2019
 
 HEAT_TEMP_LEVELS = ("0_100", "100_150", "150_200")
-HEAT_CARRIER_NAMES = {
-    "0_100": "heat_industry_0_100",
-    "100_150": "heat_industry_100_150",
-    "150_200": "heat_industry_150_200",
-}
 SECTOR_TO_WOLF = {"food": "Nahrung", "paper": "Papier", "glass": "Nichtmetall", "ceramic": "Nichtmetall"}
 
 # Process-emission carbon intensity (ton/tonproduct) for {sector}_production -- the one
@@ -119,6 +111,24 @@ def _ceramic_demand_series(year: int) -> pd.Series:
     return ceramic_demand_from_fec_df(year).set_index("node")["kt_yr"] * 1000.0 / HOURS_PER_YEAR
 
 
+def _sector_demand_series(sectors: tuple[str, ...], year: int = FEC_YEAR) -> dict[str, pd.Series]:
+    """Per-node demand (ton/hr) for each of `sectors`, keyed by sector name.
+
+    ceramic uses _ceramic_demand_series (FEC-derived); food uses FAOSTAT
+    production-based capacity_existing (matching the food carrier's own demand,
+    = capacity_existing since v4.2+); other sectors use industry_demand_df.
+    """
+    result: dict[str, pd.Series] = {}
+    for sector in sectors:
+        if sector == "ceramic":
+            result[sector] = _ceramic_demand_series(year)
+        elif sector == "food":
+            result[sector] = food_capacity_existing_df(year).set_index("node")["capacity_existing"]
+        else:
+            result[sector] = industry_demand_df(sector, year).set_index("node")["demand"]
+    return result
+
+
 def _kiln_fuel_shares(sector: str, shares: dict[str, float]) -> dict[str, float]:
     """Replace `shares["natural_gas"]` with a `fuel_to_kiln` entry (scaled by
     KILN_NG_SWITCHABLE_SHARE) plus, for ceramic only, a reduced natural_gas remainder.
@@ -172,14 +182,7 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
     # -- Cached computations (run once in __init__) --
 
     def _compute_sector_params(self):
-        glass = compute_sector_params(AIDRES2023_GLASS, REHFELDT2017_GLASS, AIDRES2023_GLASS_SHARES, fuel_key="ng_GJ_t")
-        ceramic_w = activity_weights(REHFELDT2017_CERAMIC)
-        ceramic = compute_sector_params(REHFELDT2017_CERAMIC, REHFELDT2017_CERAMIC, ceramic_w)
-        paper_w = activity_weights(REHFELDT2017_PAPER)
-        paper = compute_sector_params(REHFELDT2017_PAPER, REHFELDT2017_PAPER, paper_w)
-        food_w = activity_weights(REHFELDT2017_FOOD)
-        food = compute_sector_params(REHFELDT2017_FOOD, REHFELDT2017_FOOD, food_w)
-        return {"glass": glass, "ceramic": ceramic, "paper": paper, "food": food}
+        return all_sector_params()
 
     def _compute_wolf_split(self):
         with open(_WOLF_CSV) as f:
@@ -388,10 +391,7 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         if fuel != "natural_gas":
             return attr
 
-        demands = {
-            "glass": industry_demand_df("glass", FEC_YEAR).set_index("node")["demand"],
-            "ceramic": _ceramic_demand_series(FEC_YEAR),
-        }
+        demands = _sector_demand_series(("glass", "ceramic"))
         node_caps: dict[str, float] = {node: 0.0 for node in MODEL_NODES}
         for sector, demand in demands.items():
             data = self.get_production_tech_dict(sector)
@@ -416,12 +416,8 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
     def get_heat_capacity_split(self) -> dict[str, float]:
         cfs = self._heat_cfs
         demand_volumes = {
-            "glass": industry_demand_df("glass", FEC_YEAR)["demand"].sum(),
-            "ceramic": _ceramic_demand_series(FEC_YEAR).sum(),
-            "paper": industry_demand_df("paper", FEC_YEAR)["demand"].sum(),
-            # Production-based (FAOSTAT "Production"), matching the food carrier's own
-            # demand (= capacity_existing since v4.2+); see get_waste_heat_capacity_limit().
-            "food": food_capacity_existing_df(FEC_YEAR)["capacity_existing"].sum(),
+            sector: series.sum()
+            for sector, series in _sector_demand_series(("glass", "ceramic", "paper", "food")).items()
         }
         totals = {}
         for level in HEAT_TEMP_LEVELS:
@@ -448,14 +444,7 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         level). Cross-checked against Mathiesen2026 (Heat Roadmap Europe) as a sanity
         check — no correction applied; see ASSUMPTIONS.md.
         """
-        demands = {
-            "glass":   industry_demand_df("glass",   FEC_YEAR).set_index("node")["demand"],
-            "ceramic": _ceramic_demand_series(FEC_YEAR),
-            "paper":   industry_demand_df("paper",   FEC_YEAR).set_index("node")["demand"],
-            # Production-based (FAOSTAT "Production"), matching the food carrier's own
-            # demand; see ASSUMPTIONS.md.
-            "food":    food_capacity_existing_df(FEC_YEAR).set_index("node")["capacity_existing"],
-        }
+        demands = _sector_demand_series(("glass", "ceramic", "paper", "food"))
         cf_fuel = {s: self._sector_params[s].cf_fuel for s in demands}
         share_at_level = {}
         for s in demands:

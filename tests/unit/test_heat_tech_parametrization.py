@@ -1,7 +1,7 @@
 """Unit tests for HeatTechParametrizationDataset (heat_tech_parametrization.py).
 
 Covers the hand-computed Carnot-COP constants (HP_COP_WASTE_HEAT/HP_COP_WATER)
-and the heat-pump conversion_factor override, plus the simple attribute getters.
+and the heat-pump conversion_factor override.
 """
 
 from __future__ import annotations
@@ -68,18 +68,17 @@ def test_get_conversion_factor_uses_cop_override(dataset, model):
     assert entry["default_value"] == pytest.approx(1.0 / cop, rel=1e-9)
 
 
-def test_simple_getters_return_positive_values_with_units(dataset, model):
+def test_carbon_intensity_and_max_diffusion_rate(dataset, model):
     from zen_creator.elements.conversion_technologies.industry_heat_supply import (
         BiomassBoilerIndustry,
     )
 
     element = BiomassBoilerIndustry(model=model)
-    lifetime = dataset.get_lifetime(element, "biomass_boiler_industry")
-    max_load = dataset.get_max_load(element, "biomass_boiler_industry")
-    min_load = dataset.get_min_load(element, "biomass_boiler_industry")
+    carbon_intensity = dataset.get_carbon_intensity_technology(element, "biomass_boiler_industry")
+    max_diffusion_rate = dataset.get_max_diffusion_rate(element, "biomass_boiler_industry")
 
-    assert lifetime.default_value > 0
-    assert 0 <= min_load.default_value <= max_load.default_value
+    assert carbon_intensity.default_value == 0
+    assert max_diffusion_rate.default_value == pytest.approx(0.29)
 
 
 if __name__ == "__main__":

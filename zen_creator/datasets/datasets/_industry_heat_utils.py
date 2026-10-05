@@ -157,6 +157,27 @@ def compute_sector_params(
     )
 
 
+def all_sector_params() -> dict[str, SectorParams]:
+    """SectorParams for glass/ceramic/paper/food. Glass uses AIDRES2023 energy data with
+    Rehfeldt2017 temperature distribution; ceramic/paper/food use their own Rehfeldt2017
+    data throughout. Shared by process_parametrization.py and total_industry_heat_demand_gw().
+    """
+    return {
+        "glass": compute_sector_params(
+            AIDRES2023_GLASS, REHFELDT2017_GLASS, AIDRES2023_GLASS_SHARES, fuel_key="ng_GJ_t"
+        ),
+        "ceramic": compute_sector_params(
+            REHFELDT2017_CERAMIC, REHFELDT2017_CERAMIC, activity_weights(REHFELDT2017_CERAMIC)
+        ),
+        "paper": compute_sector_params(
+            REHFELDT2017_PAPER, REHFELDT2017_PAPER, activity_weights(REHFELDT2017_PAPER)
+        ),
+        "food": compute_sector_params(
+            REHFELDT2017_FOOD, REHFELDT2017_FOOD, activity_weights(REHFELDT2017_FOOD)
+        ),
+    }
+
+
 # ---------------------------------------------------------------------------
 # JRC-IDEES helpers
 # ---------------------------------------------------------------------------
@@ -488,10 +509,29 @@ OPERATING_HOURS = 8000
 HOURS_PER_YEAR = 8760
 KTOE_TO_GJ = 41868.0  # 1 ktoe = 1000 toe × 41.868 GJ/toe
 
+# Heat-carrier name per temperature level, shared by heat_tech_parametrization.py
+# (boiler/heat-pump techs) and process_parametrization.py (production techs).
+HEAT_CARRIER_NAMES = {
+    "0_100": "heat_industry_0_100",
+    "100_150": "heat_industry_100_150",
+    "150_200": "heat_industry_150_200",
+}
+
 # Population-proxy scaling for UK (not covered by JRC-IDEES): DE 2023 population
 # 83.5M, UK 2023 population 69.9M (Eurostat/ONS). Used to scale glass/ceramic
 # capacity_existing/demand from DE as a population proxy.
 UK_DE_POPULATION_RATIO = 69.9 / 83.5
+
+
+def _apply_population_proxy(values: dict[str, float]) -> dict[str, float]:
+    """Override CH/NO/UK (not covered by JRC-IDEES) with a population proxy:
+    CH<-AT (9.1M vs 9.2M — nearly identical), NO<-FI (5.6M vs 5.6M — same),
+    UK<-DE*UK_DE_POPULATION_RATIO (69.9M/83.5M). Returns a new dict."""
+    values = dict(values)
+    values["CH"] = values["AT"]
+    values["NO"] = values["FI"]
+    values["UK"] = values["DE"] * UK_DE_POPULATION_RATIO
+    return values
 
 # Lifetimes (years) used to spread existing capacity across vintage cohorts.
 # Production tech lifetimes from process_parametrization.xlsx / JRC-EU-TIMES (see ASSUMPTIONS.md).
@@ -615,11 +655,10 @@ def _capacity_existing_df_cached(sector, year, lifetime=None, year_construction=
     for node in MODEL_NODES:
         node_caps[node] = 0.0 if node in NODES_WITHOUT_IDEES else installed_capacity_kt(node, sector, year) * 1000 / OPERATING_HOURS
 
-    # Population-proxy overrides for glass/ceramic (CH/NO/UK not covered by IDEES)
-    if sector in ("glass", "ceramic"):
-        node_caps["CH"] = node_caps["AT"]
-        node_caps["NO"] = node_caps["FI"]
-        node_caps["UK"] = node_caps["DE"] * UK_DE_POPULATION_RATIO
+    # Population-proxy override for glass (CH/NO/UK not covered by IDEES); ceramic
+    # capacity comes from ceramic_demand_from_fec_df, never from this function.
+    if sector == "glass":
+        node_caps = _apply_population_proxy(node_caps)
 
     return _capacity_df_from_node_caps(node_caps, year, lifetime, year_construction)
 
@@ -636,25 +675,16 @@ def capacity_existing_df(sector, year, lifetime=None, year_construction=None):
 
 @functools.lru_cache(maxsize=None)
 def _industry_demand_df_cached(sector, year):
-    rows = []
-    for node in MODEL_NODES:
-        if node in NODES_WITHOUT_IDEES:
-            demand = 0.0
-        else:
-            demand = physical_output_kt(node, sector, year) * 1000 / HOURS_PER_YEAR
-        rows.append({"node": node, "demand": demand})
-    df = pd.DataFrame(rows)
-    if sector in ("glass", "ceramic"):
-        at_demand = float(df.loc[df["node"] == "AT", "demand"].values[0])
-        fi_demand = float(df.loc[df["node"] == "FI", "demand"].values[0])
-        de_demand = float(df.loc[df["node"] == "DE", "demand"].values[0])
-        # CH: use AT values (9.1M vs 9.2M — nearly identical population)
-        df.loc[df["node"] == "CH", "demand"] = at_demand
-        # NO: use FI values (5.6M vs 5.6M — same population)
-        df.loc[df["node"] == "NO", "demand"] = fi_demand
-        # UK: scale from DE by population ratio (69.9M / 83.5M)
-        df.loc[df["node"] == "UK", "demand"] = de_demand * UK_DE_POPULATION_RATIO
-    return df
+    demand = {
+        node: (
+            0.0 if node in NODES_WITHOUT_IDEES
+            else physical_output_kt(node, sector, year) * 1000 / HOURS_PER_YEAR
+        )
+        for node in MODEL_NODES
+    }
+    if sector == "glass":
+        demand = _apply_population_proxy(demand)
+    return pd.DataFrame([{"node": node, "demand": v} for node, v in demand.items()])
 
 
 def industry_demand_df(sector, year):
@@ -667,23 +697,16 @@ def industry_demand_df(sector, year):
 def _ceramic_demand_from_fec_df_cached(year: int) -> pd.DataFrame:
     ceramic_w = activity_weights(REHFELDT2017_CERAMIC)
     rehfeldt_fuel_GJ_t = weighted_average(REHFELDT2017_CERAMIC, ceramic_w, "fuels_GJ_t")
-    rows = []
+    kt_yr = {}
     for node in MODEL_NODES:
         if node in NODES_WITHOUT_IDEES:
-            kt_yr = 0.0
+            kt_yr[node] = 0.0
         else:
             fec = read_sector_thermal_fec(node, "ceramic", year)
-            kt_yr = sum(fec.values()) * KTOE_TO_GJ / (rehfeldt_fuel_GJ_t * 1000)
-        rows.append({"node": node, "kt_yr": kt_yr})
-    df = pd.DataFrame(rows)
-    # Population-based scaling for nodes without JRC-IDEES coverage
-    at_kt = float(df.loc[df["node"] == "AT", "kt_yr"].values[0])
-    fi_kt = float(df.loc[df["node"] == "FI", "kt_yr"].values[0])
-    de_kt = float(df.loc[df["node"] == "DE", "kt_yr"].values[0])
-    df.loc[df["node"] == "CH", "kt_yr"] = at_kt
-    df.loc[df["node"] == "NO", "kt_yr"] = fi_kt
-    df.loc[df["node"] == "UK", "kt_yr"] = de_kt * UK_DE_POPULATION_RATIO
-    return df
+            kt_yr[node] = sum(fec.values()) * KTOE_TO_GJ / (rehfeldt_fuel_GJ_t * 1000)
+    # Population-proxy scaling for nodes without JRC-IDEES coverage
+    kt_yr = _apply_population_proxy(kt_yr)
+    return pd.DataFrame([{"node": node, "kt_yr": v} for node, v in kt_yr.items()])
 
 
 def ceramic_demand_from_fec_df(year: int) -> pd.DataFrame:
@@ -720,13 +743,6 @@ def food_capacity_existing_df(year, lifetime=None, year_construction=None):
     return _food_capacity_existing_df_cached(year, lifetime, year_construction).copy()
 
 
-def heat_pump_capacity_existing_df():
-    return pd.DataFrame([
-        {"node": node, "year_construction": 2022, "capacity_existing": 0.0}
-        for node in MODEL_NODES
-    ])
-
-
 @functools.lru_cache(maxsize=None)
 def eurostat_gross_heat_gwh(sheet, year, xlsx=EUROSTAT_EB_XLSX):
     df = pd.read_excel(INPUT_DATA / "Eurostat" / xlsx, sheet_name=sheet, header=None)
@@ -759,17 +775,9 @@ def total_industry_heat_demand_gw(year: int) -> dict[str, float]:
     Glass uses AIDRES2023 energy data with Rehfeldt2017 temperature distribution,
     matching process_parametrization._compute_sector_params().
     """
-    glass_params = compute_sector_params(
-        AIDRES2023_GLASS, REHFELDT2017_GLASS, AIDRES2023_GLASS_SHARES, fuel_key="ng_GJ_t"
-    )
-    ceramic_params = compute_sector_params(
-        REHFELDT2017_CERAMIC, REHFELDT2017_CERAMIC, activity_weights(REHFELDT2017_CERAMIC)
-    )
-    paper_params = compute_sector_params(
-        REHFELDT2017_PAPER, REHFELDT2017_PAPER, activity_weights(REHFELDT2017_PAPER)
-    )
-    food_params = compute_sector_params(
-        REHFELDT2017_FOOD, REHFELDT2017_FOOD, activity_weights(REHFELDT2017_FOOD)
+    params = all_sector_params()
+    glass_params, ceramic_params, paper_params, food_params = (
+        params["glass"], params["ceramic"], params["paper"], params["food"]
     )
     glass_demand = industry_demand_df("glass", year).set_index("node")["demand"]   # ton/hr
     paper_demand = industry_demand_df("paper", year).set_index("node")["demand"]   # ton/hr
@@ -790,11 +798,26 @@ def total_industry_heat_demand_gw(year: int) -> dict[str, float]:
     }
 
 
+FUEL_KEYS = ("biomass", "natural_gas", "electrode", "oil", "coal", "waste")
+
+
+def _normalized_shares(values: dict[str, float]) -> dict[str, float]:
+    """Normalize `values` (keyed by fuel name) to shares summing to 1.
+
+    Falls back to 100% natural_gas if the total is zero (no fuel data for this
+    node/country) rather than dividing by zero.
+    """
+    total = sum(values.values())
+    if total > 0.0:
+        return {fuel: v / total for fuel, v in values.items()}
+    return {fuel: (1.0 if fuel == "natural_gas" else 0.0) for fuel in values}
+
+
 def _eurostat_fuel_shares(
     biomass_gwh: dict[str, float], ng_gwh: dict[str, float], elec_gwh: dict[str, float],
     oil_gwh: dict[str, float], coal_gwh: dict[str, float], waste_gwh: dict[str, float],
     country: str,
-) -> tuple[float, float, float, float, float, float]:
+) -> dict[str, float]:
     """Fuel-mix shares (biomass, natural_gas, electrode, oil, coal, waste), all
     from Eurostat "Gross heat production". `biomass_gwh` is expected to already
     include biogases (Sheet 63) alongside primary solid biofuels (Sheet 74) —
@@ -802,19 +825,14 @@ def _eurostat_fuel_shares(
     expected to already sum industrial + renewable/non-renewable municipal
     waste (Sheets 64-66).
     """
-    bio_gw = biomass_gwh.get(country, 0.0) / OPERATING_HOURS
-    ng_gw = ng_gwh.get(country, 0.0) / OPERATING_HOURS
-    elec_gw = elec_gwh.get(country, 0.0) / OPERATING_HOURS
-    oil_gw = oil_gwh.get(country, 0.0) / OPERATING_HOURS
-    coal_gw = coal_gwh.get(country, 0.0) / OPERATING_HOURS
-    waste_gw = waste_gwh.get(country, 0.0) / OPERATING_HOURS
-    total_euro = bio_gw + ng_gw + elec_gw + oil_gw + coal_gw + waste_gw
-    if total_euro > 0.0:
-        return (
-            bio_gw / total_euro, ng_gw / total_euro, elec_gw / total_euro,
-            oil_gw / total_euro, coal_gw / total_euro, waste_gw / total_euro,
-        )
-    return 0.0, 1.0, 0.0, 0.0, 0.0, 0.0
+    return _normalized_shares({
+        "biomass": biomass_gwh.get(country, 0.0) / OPERATING_HOURS,
+        "natural_gas": ng_gwh.get(country, 0.0) / OPERATING_HOURS,
+        "electrode": elec_gwh.get(country, 0.0) / OPERATING_HOURS,
+        "oil": oil_gwh.get(country, 0.0) / OPERATING_HOURS,
+        "coal": coal_gwh.get(country, 0.0) / OPERATING_HOURS,
+        "waste": waste_gwh.get(country, 0.0) / OPERATING_HOURS,
+    })
 
 
 # BFE (2025) "Energieverbrauch in der Industrie und im Dienstleistungssektor" —
@@ -853,7 +871,7 @@ def _bfe_ch_branch_total_tj(sheet: str, year: int) -> float:
 
 
 @functools.lru_cache(maxsize=4)
-def _bfe_ch_fuel_shares(year: int) -> tuple[float, float, float, float, float, float]:
+def _bfe_ch_fuel_shares(year: int) -> dict[str, float]:
     """Switzerland-specific boiler fuel-mix shares (biomass, natural_gas, electrode, oil, coal, waste).
 
     Derived from BFE2025, summing final energy consumption across the three branches
@@ -867,15 +885,14 @@ def _bfe_ch_fuel_shares(year: int) -> tuple[float, float, float, float, float, f
     coal_boiler_industry/waste_boiler_industry consume them — see
     ASSUMPTIONS.md, "Boiler (industry) capacity".
     """
-    ng = _bfe_ch_branch_total_tj(BFE_CH_GAS_SHEET, year)
-    oil = sum(_bfe_ch_branch_total_tj(sheet, year) for sheet in BFE_CH_OIL_SHEETS)
-    bio = _bfe_ch_branch_total_tj(BFE_CH_BIOMASS_SHEET, year)
-    coal = _bfe_ch_branch_total_tj(BFE_CH_COAL_SHEET, year)
-    waste = _bfe_ch_branch_total_tj(BFE_CH_WASTE_SHEET, year)
-    total = ng + oil + bio + coal + waste
-    if total > 0.0:
-        return bio / total, ng / total, 0.0, oil / total, coal / total, waste / total
-    return 0.0, 1.0, 0.0, 0.0, 0.0, 0.0
+    return _normalized_shares({
+        "biomass": _bfe_ch_branch_total_tj(BFE_CH_BIOMASS_SHEET, year),
+        "natural_gas": _bfe_ch_branch_total_tj(BFE_CH_GAS_SHEET, year),
+        "electrode": 0.0,
+        "oil": sum(_bfe_ch_branch_total_tj(sheet, year) for sheet in BFE_CH_OIL_SHEETS),
+        "coal": _bfe_ch_branch_total_tj(BFE_CH_COAL_SHEET, year),
+        "waste": _bfe_ch_branch_total_tj(BFE_CH_WASTE_SHEET, year),
+    })
 
 
 def _eurostat_waste_gwh(year: int) -> dict[str, float]:
@@ -903,30 +920,22 @@ def _demand_based_boiler_capacity_gw_cached(year: int) -> dict[str, dict[str, fl
     coal_gwh = eurostat_gross_heat_gwh(EUROSTAT_COAL_HEAT_SHEET, year, xlsx=EUROSTAT_NEW_EB_XLSX)
     waste_gwh = _eurostat_waste_gwh(year)
     ch_shares = _bfe_ch_fuel_shares(year)
+    default_shares = {fuel: (1.0 if fuel == "natural_gas" else 0.0) for fuel in FUEL_KEYS}
     result: dict[str, dict[str, float]] = {}
     for node in MODEL_NODES:
         country = NODE_TO_EUROSTAT_COUNTRY.get(node)
         if country is not None:
-            share_bio, share_ng, share_elec, share_oil, share_coal, share_waste = _eurostat_fuel_shares(
-                biomass_gwh, ng_gwh, elec_gwh, oil_gwh, coal_gwh, waste_gwh, country
-            )
+            shares = _eurostat_fuel_shares(biomass_gwh, ng_gwh, elec_gwh, oil_gwh, coal_gwh, waste_gwh, country)
         elif node == "CH":
-            share_bio, share_ng, share_elec, share_oil, share_coal, share_waste = ch_shares
+            shares = ch_shares
         else:
             logger.warning(
                 f"_demand_based_boiler_capacity_gw: node {node!r} has no Eurostat "
                 "country mapping and is not 'CH'; defaulting to 100% natural gas."
             )
-            share_bio, share_ng, share_elec, share_oil, share_coal, share_waste = 0.0, 1.0, 0.0, 0.0, 0.0, 0.0
+            shares = default_shares
         total = total_demand[node]
-        result[node] = {
-            "biomass": total * share_bio,
-            "natural_gas": total * share_ng,
-            "electrode": total * share_elec,
-            "oil": total * share_oil,
-            "coal": total * share_coal,
-            "waste": total * share_waste,
-        }
+        result[node] = {fuel: total * share for fuel, share in shares.items()}
     return result
 
 

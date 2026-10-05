@@ -309,140 +309,52 @@ class _IndustryDSMTechnology:
 
 
 # ---------------------------------------------------------------------------
-# industry_heat sector products
-# ---------------------------------------------------------------------------
-
-class GlassDSMOptimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "glass_DSM"
-    _carrier_name = "glass"
-    _variant = "optimistic"
-
-
-class GlassDSMPessimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "glass_DSM"
-    _carrier_name = "glass"
-    _variant = "pessimistic"
-
-
-class CeramicDSMOptimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "ceramic_DSM"
-    _carrier_name = "ceramic"
-    _variant = "optimistic"
-
-
-class CeramicDSMPessimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "ceramic_DSM"
-    _carrier_name = "ceramic"
-    _variant = "pessimistic"
+# One concrete class pair (Optimistic/Pessimistic) per carrier, generated from a
+# table instead of hand-written: every class only ever set `name`, `_carrier_name`,
+# `_variant`, and (ammonia/methanol only) a `power_unit="GW"` default -- all other
+# behaviour comes from `_IndustryDSMTechnology`. carrier_name -> (class-name prefix,
+# default power_unit). Prefixes are not a mechanical camel-case of carrier_name
+# (e.g. "primary_steel" -> "Primarysteel", matching the class names already in use
+# elsewhere in this codebase/tests).
+#
+#   glass, ceramic, paper, food: industry_heat sector products
+#   ammonia, clinker, methanol, primary_steel, secondary_steel, olefin: existing
+#     Crystal Ball carriers (no zen_creator carrier class needed)
+_DSM_CARRIERS: dict[str, tuple[str, str]] = {
+    "glass": ("Glass", "tonproduct/hour"),
+    "ceramic": ("Ceramic", "tonproduct/hour"),
+    "paper": ("Paper", "tonproduct/hour"),
+    "food": ("Food", "tonproduct/hour"),
+    "ammonia": ("Ammonia", "GW"),
+    "clinker": ("Clinker", "tonproduct/hour"),
+    "methanol": ("Methanol", "GW"),
+    "primary_steel": ("Primarysteel", "tonproduct/hour"),
+    "secondary_steel": ("Secondarysteel", "tonproduct/hour"),
+    "olefin": ("Olefin", "tonproduct/hour"),
+}
 
 
-class PaperDSMOptimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "paper_DSM"
-    _carrier_name = "paper"
-    _variant = "optimistic"
+def _make_dsm_technology_class(
+    carrier_name: str, variant: str, class_prefix: str, power_unit: str
+) -> type[_IndustryDSMTechnology]:
+    class_name = f"{class_prefix}DSM{variant.capitalize()}"
+
+    def __init__(self, model: Model, power_unit: str = power_unit) -> None:
+        _IndustryDSMTechnology.__init__(self, model=model, power_unit=power_unit)
+
+    namespace = {
+        "__module__": __name__,
+        "__qualname__": class_name,
+        "__init__": __init__,
+        "name": f"{carrier_name}_DSM",
+        "_carrier_name": carrier_name,
+        "_variant": variant,
+    }
+    return type(class_name, (_IndustryDSMTechnology, StorageTechnology), namespace)
 
 
-class PaperDSMPessimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "paper_DSM"
-    _carrier_name = "paper"
-    _variant = "pessimistic"
-
-
-class FoodDSMOptimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "food_DSM"
-    _carrier_name = "food"
-    _variant = "optimistic"
-
-
-class FoodDSMPessimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "food_DSM"
-    _carrier_name = "food"
-    _variant = "pessimistic"
-
-
-# ---------------------------------------------------------------------------
-# Existing Crystal Ball carriers (no zen_creator carrier class needed)
-# ---------------------------------------------------------------------------
-
-class AmmoniaDSMOptimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "ammonia_DSM"
-    _carrier_name = "ammonia"
-    _variant = "optimistic"
-
-    def __init__(self, model: Model, power_unit: str = "GW"):
-        super().__init__(model=model, power_unit=power_unit)
-
-
-class AmmoniaDSMPessimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "ammonia_DSM"
-    _carrier_name = "ammonia"
-    _variant = "pessimistic"
-
-    def __init__(self, model: Model, power_unit: str = "GW"):
-        super().__init__(model=model, power_unit=power_unit)
-
-
-class ClinkerDSMOptimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "clinker_DSM"
-    _carrier_name = "clinker"
-    _variant = "optimistic"
-
-
-class ClinkerDSMPessimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "clinker_DSM"
-    _carrier_name = "clinker"
-    _variant = "pessimistic"
-
-
-class MethanolDSMOptimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "methanol_DSM"
-    _carrier_name = "methanol"
-    _variant = "optimistic"
-
-    def __init__(self, model: Model, power_unit: str = "GW"):
-        super().__init__(model=model, power_unit=power_unit)
-
-
-class MethanolDSMPessimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "methanol_DSM"
-    _carrier_name = "methanol"
-    _variant = "pessimistic"
-
-    def __init__(self, model: Model, power_unit: str = "GW"):
-        super().__init__(model=model, power_unit=power_unit)
-
-
-class PrimarysteelDSMOptimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "primary_steel_DSM"
-    _carrier_name = "primary_steel"
-    _variant = "optimistic"
-
-
-class PrimarysteelDSMPessimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "primary_steel_DSM"
-    _carrier_name = "primary_steel"
-    _variant = "pessimistic"
-
-
-class SecondarysteelDSMOptimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "secondary_steel_DSM"
-    _carrier_name = "secondary_steel"
-    _variant = "optimistic"
-
-
-class SecondarysteelDSMPessimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "secondary_steel_DSM"
-    _carrier_name = "secondary_steel"
-    _variant = "pessimistic"
-
-
-class OlefinDSMOptimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "olefin_DSM"
-    _carrier_name = "olefin"
-    _variant = "optimistic"
-
-
-class OlefinDSMPessimistic(_IndustryDSMTechnology, StorageTechnology):
-    name: str = "olefin_DSM"
-    _carrier_name = "olefin"
-    _variant = "pessimistic"
+for _carrier_name, (_class_prefix, _power_unit) in _DSM_CARRIERS.items():
+    for _variant in ("optimistic", "pessimistic"):
+        _cls = _make_dsm_technology_class(_carrier_name, _variant, _class_prefix, _power_unit)
+        globals()[_cls.__name__] = _cls
+del _carrier_name, _class_prefix, _power_unit, _variant, _cls

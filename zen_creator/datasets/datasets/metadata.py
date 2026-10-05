@@ -33,17 +33,6 @@ class MetaData(Subscriptable):
     url: Optional[str] = None
     doi: Optional[str] = None
 
-    def to_dict(self) -> dict[str, object]:
-        """Serialize metadata to a dictionary.
-
-        Converts the MetaData instance to a dictionary representation, maintaining
-        compatibility with legacy code that expects dict-based metadata.
-
-        Returns:
-            dict[str, object]: Dictionary with all metadata fields and their values.
-        """
-        return self.model_dump()
-
     def to_str(self) -> str:
         """Generate a formatted citation string in APA-style format.
 
