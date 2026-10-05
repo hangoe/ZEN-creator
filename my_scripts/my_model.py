@@ -42,7 +42,7 @@ if not data_path.exists():
 output_path = Path(__file__).parent.parent / "outputs"
 # v10_0: temp-conversion/natural_gas_to_kilnfuel get capacity_existing + capacity_limit,
 # heat-tech max_diffusion_rate 0.13 (see ASSUMPTIONS.md, "Technology diffusion"); run
-# with interval_between_years = 1 (ZEN-models parameters.csv).
+# with interval_between_years = 2 (ZEN-models parameters.csv); industry HPs seeded via capacity_addition_unbounded.
 VERSION = "Crystal_Ball_ind_heat_v10_0"
 
 # Case-study scenarios: which sectors are active for each run.

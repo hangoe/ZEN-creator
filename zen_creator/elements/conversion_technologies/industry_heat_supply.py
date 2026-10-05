@@ -100,6 +100,9 @@ def _hp_methods(base_tech: str, dea_tech: str, temp_level: str, cop: float):
         def _set_capacity_existing(self) -> Attribute:
             return _hp_capacity(self, temp_level)
 
+        def _set_capacity_addition_unbounded(self) -> Attribute:
+            return ProcessParametrizationDataset().get_industry_hp_capacity_addition_unbounded(self, temp_level)
+
     return _Mixin
 
 

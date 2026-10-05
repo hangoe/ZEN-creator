@@ -101,6 +101,16 @@ TEMP_CONVERSION_LIFETIME = 30
 # capacity_addition at nodes where capacity_existing >= capacity_limit.
 ZERO_COST_CAPACITY_LIMIT_MARGIN = 2.0
 
+# Seed (capacity_addition_unbounded, GW per year, EU total) for the industry heat pumps,
+# which start with no installed base. Frozen snapshot of the Crystal Ball base model's
+# heat_pump_DH capacity_existing summed over nodes (1.8745 GW; present in only 8 nodes,
+# hence redistributed by industrial heat demand below). DH and industry HPs are the same
+# technology with a different heat sink; the DH fleet is the market's observed build-out
+# so far. Shared equally across the INDUSTRY_HP_SEED_N_TECHS industry HP variants
+# (3 bands x water/waste heat). See ASSUMPTIONS.md, "Technology diffusion".
+DH_HEAT_PUMP_EXISTING_EU_GW = 1.8745402241776512
+INDUSTRY_HP_SEED_N_TECHS = 6
+
 # natural_gas_to_kilnfuel/hydrogen_to_kilnfuel/electricity_to_kilnfuel conversion_factor
 # (GW input per GW fuel_to_kiln output). AIDRES2023-derived from glass's own container/
 # flat/fibre production-route energy tables (Tables 19/21/23), weighted by the same
@@ -490,6 +500,28 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         demands = _carrier_demand_series()
         total = sum(demands[s] * sum(self._heat_cfs[s][lvl] for lvl in temp_levels) for s in demands)
         return {node: float(total.get(node, 0.0)) for node in MODEL_NODES}
+
+    def get_industry_hp_capacity_addition_unbounded(self, element: Element, temp_level: str) -> Attribute:
+        """Per-node capacity_addition_unbounded (GW/yr, the diffusion 'seed') for an
+        industry heat pump: DH_HEAT_PUMP_EXISTING_EU_GW / INDUSTRY_HP_SEED_N_TECHS,
+        spread over nodes in proportion to the flat heat demand of the HP's own
+        temperature band (same `_heat_demand_gw` basis as the temp-conversion capacity)."""
+        node_demand = self._heat_demand_gw((temp_level,))
+        total = sum(node_demand.values())
+        tech_total = DH_HEAT_PUMP_EXISTING_EU_GW / INDUSTRY_HP_SEED_N_TECHS
+        df = pd.Series(
+            {node: tech_total * d / total for node, d in node_demand.items()},
+            name="capacity_addition_unbounded",
+        ).to_frame()
+        df.index.name = "node"
+        attr = Attribute("capacity_addition_unbounded", default_value=0.0, unit="GW", element=element)
+        attr.set_data(df=df, source=self._source_info(
+            f"{element.name} capacity_addition_unbounded: Crystal Ball heat_pump_DH installed capacity "
+            f"({DH_HEAT_PUMP_EXISTING_EU_GW:.3f} GW EU) / {INDUSTRY_HP_SEED_N_TECHS} industry HP variants, "
+            f"distributed by {temp_level} band heat demand, applied per year. See ASSUMPTIONS.md, "
+            "'Technology diffusion'."
+        ))
+        return attr
 
     def get_temp_conversion_capacity_existing(self, element: Element, temp_levels: tuple[str, ...]) -> Attribute:
         """Per-node capacity_existing (GW) for a temperature-conversion tech: the flat

@@ -879,6 +879,19 @@ carrier, the technology itself included) and `capacity_addition_unbounded`.
     forbids any capacity addition at nodes where `capacity_existing >= capacity_limit`.
     The solver may still size these techs up to the limit, so the market-share base is at
     most 2× the real market (vs. ~5,000× before).
+- **Seed for the industry heat pumps (`capacity_addition_unbounded`, v10.0).** The six
+  industry HPs have no `capacity_existing` (no deployed industrial HP capacity), so their
+  growth term is 0 and their only allowance was the 2% market-share term of their peers.
+  v10 with this realistic base did not solve (barrier stalled, primal residual
+  stagnating; the same model without diffusion limits solved). Each HP therefore gets a
+  `capacity_addition_unbounded` seed: the Crystal Ball `heat_pump_DH` installed capacity
+  (`DH_HEAT_PUMP_EXISTING_EU_GW` = 1.8745 GW, a frozen snapshot; DH and industry HPs are
+  the same technology with a different heat sink, and the DH fleet is the market's observed
+  build-out so far), divided equally over the 6 variants (3 bands × water/waste heat) and
+  spread over nodes in proportion to the HP's own band heat demand (the DH capacity sits in
+  only 8 nodes, mostly Nordic, so it is not used per node). Applied once per year (see
+  next point: in ZEN-garden it is applied per period). It is an assumption, not a
+  measured value: report it as such / as a sensitivity.
 - **Known ZEN-garden inconsistency, per year vs. per period (not fixed).** ZEN-garden's
   docs (`additional_features.rst`, "Technology diffusion") and the constraint's docstring
   formula define the market-share term and `capacity_addition_unbounded` per **year**
