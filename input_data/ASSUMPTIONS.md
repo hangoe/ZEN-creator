@@ -58,12 +58,27 @@ and `electrode_boiler_industry` are sourced from
 
   | model tech | DEA sheet | capex (2025) | fixed O&M (2025) | variable O&M | lifetime | efficiency/COP |
   |---|---|---|---|---|---|---|
-  | `heat_pump_industry_0_100` (both waste-heat/water variants) | 2.a, up to 125°C | 1,200 €/kW | 2.49 €/kW/yr | 3.6 €/MWh | 20 yr | Carnot formula (unchanged) |
-  | `heat_pump_industry_100_150`, `heat_pump_industry_150_200` (4 remaining variants) | 2.b, up to 150°C | 1,550 €/kW | 2.49 €/kW/yr | 3.6 €/MWh | 20 yr | Carnot formula (unchanged) |
+  | `heat_pump_industry_0_100` (both waste-heat/water variants; waste-heat +1,500 €/kW, see below) | 2.a, up to 125°C | 1,200 €/kW | 2.49 €/kW/yr | 3.6 €/MWh | 20 yr | Carnot formula (unchanged) |
+  | `heat_pump_industry_100_150`, `heat_pump_industry_150_200` (4 remaining variants; waste-heat +1,500 €/kW, see below) | 2.b, up to 150°C | 1,550 €/kW | 2.49 €/kW/yr | 3.6 €/MWh | 20 yr | Carnot formula (unchanged) |
   | `electrode_boiler_industry` | 5.1a, electric boiler, steam, 2 MW | 250 €/kW | 1.44 €/kW/yr | 0.674 €/MWh | 25 yr | 99% |
   | `natural_gas_boiler_industry`, `oil_boiler_industry` | 6.1, boiler, gas and oil, 5 MW | 90 €/kW | 2.0 €/kW/yr | 1.23 €/MWh | 25 yr | 94% |
   | `biomass_boiler_industry` | 6.2, boiler, biomass, 6.5 MW | 878 €/kW | 39.5 €/kW/yr | 1.45 €/MWh | 25 yr | 89% |
 
+- **Waste-heat heat pump capex add-on (Stark2025)**: DEA's capex covers only the heat
+  pump unit, so the three `_waste_heat` variants (`heat_pump_industry_{0_100,100_150,150_200}_waste_heat`)
+  add a flat **1,500 €/kW** of heat output on top of the DEA capex series (2025: 2,700 €/kW for
+  0–100°C, 3,050 €/kW for 100–150 and 150–200°C; declining with DEA's series to 2,500/2,850 by
+  2050). The `_water` variants are unchanged. Source: Stark et al. 2025, "Waste heat is mostly a
+  waste of time", *Joule* 9, 102157 (`input_data/Waste-heat/Stark2025.pdf`), Table 2: heat-recovery
+  integration costs $1,788/kWth for T > 30°C (532 recovery equipment + 614 labor/materials + 369
+  project/construction + 274 engineering/fees) and $1,341/kWth for T < 60°C (25% lower, team
+  experience), i.e. ~1,645 / ~1,234 €/kW at 0.92 €/$ (flat rate, no inflation adjustment). The
+  model's 50°C source falls in both ranges, so **1,500 €/kW is an approximation between the two**
+  (`WASTE_HEAT_RECOVERY_CAPEX_EUR_PER_KW` in `dea_industrial_heat.py`). Applied per kW of HP heat
+  output (not per kW recovered), identical in all three bands, constant over time (no learning
+  curve given). Stark's electrical interconnect line (192 $/kWe) is not added, assumed covered by
+  DEA's installation share. Caveat: DEA's 230 €/kW "indirect investment cost" overlaps Stark's
+  project/engineering lines, so the sum is slightly conservative.
 - **Heat pump temperature tiering**: DEA has no tier above 150°C, so the 150°C
   sheet (2.b) is reused as the cost proxy for the 150–200°C band too (not just
   100–150°C). This only borrows *cost* — heat pump COP is untouched, still computed

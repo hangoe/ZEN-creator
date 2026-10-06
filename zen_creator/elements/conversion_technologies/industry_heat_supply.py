@@ -52,7 +52,7 @@ def _hp_waste_heat_limit(element, temp_level: str) -> Attribute:
 #   _waste_heat: source = waste heat at 50°C (Bever2024, Agora_IGE2023); capacity limited
 #   _water:      source = water at 15°C (Agora_IGE2023); unconstrained
 
-def _hp_methods(base_tech: str, dea_tech: str, temp_level: str, cop: float):
+def _hp_methods(base_tech: str, dea_tech: str, temp_level: str, cop: float, waste_heat: bool = False):
     """Return a dict of _set_* methods shared across all HP variants.
 
     `base_tech` (always "heat_pump_industry") still parametrizes conversion_factor
@@ -62,7 +62,9 @@ def _hp_methods(base_tech: str, dea_tech: str, temp_level: str, cop: float):
     band, "heat_pump_industry_100_200" (DEA "up to 150°C") for both 100-150°C and
     150-200°C — DEA has no tier above 150°C, so its highest tier is reused as the
     cost proxy for the top band too (see ASSUMPTIONS.md, "Heat pump & boiler
-    cost/efficiency parametrization (DEA)").
+    cost/efficiency parametrization (DEA)"). With `waste_heat=True`, capex also gets
+    the flat heat-recovery add-on from Stark et al. 2025 (see
+    WASTE_HEAT_RECOVERY_CAPEX_EUR_PER_KW in dea_industrial_heat.py).
     """
     carrier = f"heat_industry_{temp_level}"
 
@@ -83,7 +85,7 @@ def _hp_methods(base_tech: str, dea_tech: str, temp_level: str, cop: float):
             return DeaIndustrialHeatDataset().get_lifetime(self, dea_tech)
 
         def _set_capex_specific_conversion(self) -> Attribute:
-            return DeaIndustrialHeatDataset().get_capex_specific_conversion(self, dea_tech)
+            return DeaIndustrialHeatDataset().get_capex_specific_conversion(self, dea_tech, waste_heat=waste_heat)
 
         def _set_opex_specific_fixed(self) -> Attribute:
             return DeaIndustrialHeatDataset().get_opex_specific_fixed(self, dea_tech)
@@ -108,7 +110,7 @@ def _hp_methods(base_tech: str, dea_tech: str, temp_level: str, cop: float):
 
 # --- 0–100°C ---
 
-class HeatPumpIndustry0100WasteHeat(_hp_methods("heat_pump_industry", "heat_pump_industry_0_100", "0_100", HP_COP_WASTE_HEAT["0_100"]), ConversionTechnology):
+class HeatPumpIndustry0100WasteHeat(_hp_methods("heat_pump_industry", "heat_pump_industry_0_100", "0_100", HP_COP_WASTE_HEAT["0_100"], waste_heat=True), ConversionTechnology):
     name = "heat_pump_industry_0_100_waste_heat"
 
     def __init__(self, model: Model):
@@ -127,7 +129,7 @@ class HeatPumpIndustry0100Water(_hp_methods("heat_pump_industry", "heat_pump_ind
 
 # --- 100–150°C ---
 
-class HeatPumpIndustry100150WasteHeat(_hp_methods("heat_pump_industry", "heat_pump_industry_100_200", "100_150", HP_COP_WASTE_HEAT["100_150"]), ConversionTechnology):
+class HeatPumpIndustry100150WasteHeat(_hp_methods("heat_pump_industry", "heat_pump_industry_100_200", "100_150", HP_COP_WASTE_HEAT["100_150"], waste_heat=True), ConversionTechnology):
     name = "heat_pump_industry_100_150_waste_heat"
 
     def __init__(self, model: Model):
@@ -146,7 +148,7 @@ class HeatPumpIndustry100150Water(_hp_methods("heat_pump_industry", "heat_pump_i
 
 # --- 150–200°C ---
 
-class HeatPumpIndustry150200WasteHeat(_hp_methods("heat_pump_industry", "heat_pump_industry_100_200", "150_200", HP_COP_WASTE_HEAT["150_200"]), ConversionTechnology):
+class HeatPumpIndustry150200WasteHeat(_hp_methods("heat_pump_industry", "heat_pump_industry_100_200", "150_200", HP_COP_WASTE_HEAT["150_200"], waste_heat=True), ConversionTechnology):
     name = "heat_pump_industry_150_200_waste_heat"
 
     def __init__(self, model: Model):

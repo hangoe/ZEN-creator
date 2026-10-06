@@ -76,6 +76,14 @@ _EFFICIENCY_LABEL = "Total efficiency, net [%], nominel load"
 _CAPEX_MEUR_PER_MW_TO_EUR_PER_KW = 1000.0
 _OPEX_FIXED_EUR_PER_MW_Y_TO_EUR_PER_KW_Y = 1 / 1000.0
 
+# Extra capex (per kW heat output) for capturing and integrating waste heat on top
+# of the heat pump unit itself (heat exchangers, fluid lines, labor, engineering).
+# Stark et al. 2025 (Joule 9, 102157), Table 2: $1,788/kWth for T > 30°C and
+# $1,341/kWth for T < 60°C, i.e. ~1,645 / ~1,234 Euro/kW at 0.92 Euro/$. The model's
+# 50°C source falls in both ranges, so 1,500 Euro/kW is used as an approximation
+# between the two. Flat over time (no learning curve given).
+WASTE_HEAT_RECOVERY_CAPEX_EUR_PER_KW = 1500.0
+
 MODEL_FIRST_YEAR = 2022
 MODEL_LAST_YEAR = 2050
 
@@ -151,23 +159,31 @@ class DeaIndustrialHeatDataset(Dataset[pd.DataFrame]):
 
     def _get_interpolated_attr(
         self, element: Element, tech: str, attr_name: str, label_map: dict[str, str],
-        unit_conversion: float, description_verb: str,
+        unit_conversion: float, description_verb: str, addon: float = 0.0, addon_note: str = "",
     ) -> Attribute:
         sheet = DEA_SHEET_FOR_TECH[tech]
         year_values = {y: v * unit_conversion for y, v in _year_values(sheet, label_map[sheet]).items()}
-        series = _interpolate_to_model_years(year_values)
+        series = _interpolate_to_model_years(year_values) + addon
         attr = Attribute(attr_name, element=element)
         attr.set_data(
             default_value=float(series.loc[MODEL_FIRST_YEAR]), unit="Euro/kW",
             df=None if _is_constant(series) else series.to_frame(attr_name),
-            source=self._source_info(f"{description_verb} for {tech} from DEA sheet {sheet!r}, interpolated over {MODEL_FIRST_YEAR}-{MODEL_LAST_YEAR}."),
+            source=self._source_info(f"{description_verb} for {tech} from DEA sheet {sheet!r}, interpolated over {MODEL_FIRST_YEAR}-{MODEL_LAST_YEAR}.{addon_note}"),
         )
         return attr
 
-    def get_capex_specific_conversion(self, element: Element, tech: str) -> Attribute:
+    def get_capex_specific_conversion(self, element: Element, tech: str, waste_heat: bool = False) -> Attribute:
+        """DEA nominal investment; with `waste_heat=True`, plus the flat
+        WASTE_HEAT_RECOVERY_CAPEX_EUR_PER_KW heat-recovery add-on (Stark2025)."""
+        addon = WASTE_HEAT_RECOVERY_CAPEX_EUR_PER_KW if waste_heat else 0.0
+        note = (
+            f" Plus a flat {addon:g} Euro/kW waste-heat recovery add-on (approximation within "
+            "Stark et al. 2025, Joule 9, 102157, Table 2: ~1,234-1,645 Euro/kW)."
+            if waste_heat else ""
+        )
         return self._get_interpolated_attr(
             element, tech, "capex_specific_conversion", _CAPEX_LABEL,
-            _CAPEX_MEUR_PER_MW_TO_EUR_PER_KW, "Nominal investment",
+            _CAPEX_MEUR_PER_MW_TO_EUR_PER_KW, "Nominal investment", addon=addon, addon_note=note,
         )
 
     def get_opex_specific_fixed(self, element: Element, tech: str) -> Attribute:

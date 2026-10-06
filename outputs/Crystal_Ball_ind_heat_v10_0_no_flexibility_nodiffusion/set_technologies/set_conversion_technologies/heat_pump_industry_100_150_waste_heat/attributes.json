@@ -61,7 +61,7 @@
         ]
     },
     "capex_specific_conversion": {
-        "default_value": 1550.0,
+        "default_value": 3050.0,
         "unit": "Euro/kW"
     },
     "input_carrier": {

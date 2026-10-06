@@ -121,3 +121,34 @@ def test_all_boiler_techs_are_covered_by_dea_sheet_map(dataset):
 
 if __name__ == "__main__":
     pytest.main([__file__])
+
+
+@pytest.mark.parametrize("tech", ["heat_pump_industry_0_100", "heat_pump_industry_100_200"])
+def test_waste_heat_capex_adds_flat_recovery_addon_every_year(dataset, model, tech):
+    from zen_creator.datasets.datasets.dea_industrial_heat import (
+        WASTE_HEAT_RECOVERY_CAPEX_EUR_PER_KW,
+    )
+    from zen_creator.elements.conversion_technologies.industry_heat_supply import (
+        HeatPumpIndustry0100WasteHeat,
+    )
+
+    element = HeatPumpIndustry0100WasteHeat(model=model)
+    base = dataset.get_capex_specific_conversion(element, tech)
+    waste = dataset.get_capex_specific_conversion(element, tech, waste_heat=True)
+
+    assert WASTE_HEAT_RECOVERY_CAPEX_EUR_PER_KW == 1500.0
+    assert waste.default_value == pytest.approx(base.default_value + 1500.0)
+    assert waste.df["capex_specific_conversion"].to_numpy() == pytest.approx(
+        base.df["capex_specific_conversion"].to_numpy() + 1500.0
+    )
+
+
+def test_waste_heat_hp_capex_exceeds_water_hp_by_addon(model):
+    from zen_creator.elements.conversion_technologies.industry_heat_supply import (
+        HeatPumpIndustry100150Water,
+        HeatPumpIndustry100150WasteHeat,
+    )
+
+    waste = HeatPumpIndustry100150WasteHeat(model=model)._set_capex_specific_conversion()
+    water = HeatPumpIndustry100150Water(model=model)._set_capex_specific_conversion()
+    assert waste.default_value == pytest.approx(water.default_value + 1500.0)
