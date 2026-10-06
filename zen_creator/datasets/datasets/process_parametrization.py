@@ -502,24 +502,20 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         return {node: float(total.get(node, 0.0)) for node in MODEL_NODES}
 
     def get_industry_hp_capacity_addition_unbounded(self, element: Element, temp_level: str) -> Attribute:
-        """Per-node capacity_addition_unbounded (GW/yr, the diffusion 'seed') for an
+        """Scalar capacity_addition_unbounded (GW/yr, the diffusion 'seed') for an
         industry heat pump: DH_HEAT_PUMP_EXISTING_EU_GW / INDUSTRY_HP_SEED_N_TECHS,
-        spread over nodes in proportion to the flat heat demand of the HP's own
-        temperature band (same `_heat_demand_gw` basis as the temp-conversion capacity)."""
-        node_demand = self._heat_demand_gw((temp_level,))
-        total = sum(node_demand.values())
+        divided by the number of nodes (the per-node mean). ZEN-garden reads this
+        parameter as one value per technology (index_sets=[]) and applies it at every
+        node, so the EU total is recovered when summed over nodes. `temp_level` is kept
+        for the call signature only: the seed is not spread by band heat demand."""
         tech_total = DH_HEAT_PUMP_EXISTING_EU_GW / INDUSTRY_HP_SEED_N_TECHS
-        df = pd.Series(
-            {node: tech_total * d / total for node, d in node_demand.items()},
-            name="capacity_addition_unbounded",
-        ).to_frame()
-        df.index.name = "node"
-        attr = Attribute("capacity_addition_unbounded", default_value=0.0, unit="GW", element=element)
-        attr.set_data(df=df, source=self._source_info(
+        per_node = tech_total / len(MODEL_NODES)
+        attr = Attribute("capacity_addition_unbounded", element=element)
+        attr.set_data(default_value=per_node, unit="GW", source=self._source_info(
             f"{element.name} capacity_addition_unbounded: Crystal Ball heat_pump_DH installed capacity "
-            f"({DH_HEAT_PUMP_EXISTING_EU_GW:.3f} GW EU) / {INDUSTRY_HP_SEED_N_TECHS} industry HP variants, "
-            f"distributed by {temp_level} band heat demand, applied per year. See ASSUMPTIONS.md, "
-            "'Technology diffusion'."
+            f"({DH_HEAT_PUMP_EXISTING_EU_GW:.3f} GW EU) / {INDUSTRY_HP_SEED_N_TECHS} industry HP variants "
+            f"/ {len(MODEL_NODES)} nodes = {per_node:.5f} GW per node, same value at every node, applied "
+            "per year. See ASSUMPTIONS.md, 'Technology diffusion'."
         ))
         return attr
 

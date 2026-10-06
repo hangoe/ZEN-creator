@@ -888,8 +888,10 @@ carrier, the technology itself included) and `capacity_addition_unbounded`.
   (`DH_HEAT_PUMP_EXISTING_EU_GW` = 1.8745 GW, a frozen snapshot; DH and industry HPs are
   the same technology with a different heat sink, and the DH fleet is the market's observed
   build-out so far), divided equally over the 6 variants (3 bands × water/waste heat) and
-  spread over nodes in proportion to the HP's own band heat demand (the DH capacity sits in
-  only 8 nodes, mostly Nordic, so it is not used per node). Applied once per year (see
+  given as a single scalar equal to the per-node mean (÷ number of nodes), because
+  ZEN-garden reads `capacity_addition_unbounded` as one value per technology and applies it at
+  every node (summed over nodes it recovers the EU total). It is not spread by heat demand
+  (the DH capacity sits in only 8 nodes, mostly Nordic, so it is not used per node). Applied once per year (see
   next point: in ZEN-garden it is applied per period). It is an assumption, not a
   measured value: report it as such / as a sensitivity.
 - **Known ZEN-garden inconsistency, per year vs. per period (not fixed).** ZEN-garden's
