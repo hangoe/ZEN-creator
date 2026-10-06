@@ -11,6 +11,13 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from zen_creator.model import Model
 
+from zen_creator.datasets.datasets._industry_heat_utils import (
+    HEAT_CARRIER_NAMES,
+    INDUSTRY_HEAT_SECTORS,
+    KILN_FUEL_SECTORS,
+    heat_carrier_name,
+    kiln_fuel_carrier_name,
+)
 from zen_creator.datasets.datasets.faostat_food import FaostatFoodDataset
 from zen_creator.datasets.datasets.industry_carrier_data import IndustryCarrierDataset
 from zen_creator.datasets.datasets.jrc_idees_industry import JrcIdeesIndustryDataset
@@ -150,3 +157,46 @@ class FuelToKiln(Carrier):
 
 
 _add_carrier_setters(FuelToKiln, "fuel_to_kiln")
+
+
+# -- Per-sector heat carriers (V11) --------------------------------------------
+# One copy of every heat carrier (and the kiln-fuel carrier) per sector, named
+# `<base name>_<sector>`; used by the per-sector industry heat structure so heat can
+# never flow between sectors (added by the *_per_sector sectors, e.g. industry_heat_per_sector).
+
+def _make_energy_carrier_class(carrier_name: str, class_name: str, doc: str) -> type[Carrier]:
+    def __init__(self, model: Model) -> None:
+        Carrier.__init__(self, model=model, power_unit="GW")
+
+    cls = type(
+        class_name,
+        (Carrier,),
+        {"__module__": __name__, "__qualname__": class_name, "__doc__": doc, "__init__": __init__, "name": carrier_name},
+    )
+    return _add_carrier_setters(cls, carrier_name)
+
+
+HEAT_CARRIER_CLASSES_BY_SECTOR: dict[str, dict[str, type[Carrier]]] = {}
+FUEL_TO_KILN_CARRIER_CLASSES_BY_SECTOR: dict[str, type[Carrier]] = {}
+
+for _sector in INDUSTRY_HEAT_SECTORS:
+    HEAT_CARRIER_CLASSES_BY_SECTOR[_sector] = {}
+    for _level in HEAT_CARRIER_NAMES:
+        _cls = _make_energy_carrier_class(
+            heat_carrier_name(_level, _sector),
+            f"HeatIndustry{_level.replace('_', '')}{_sector.capitalize()}",
+            f"Energy carrier for {_sector} process heat in the {_level.replace('_', '-')}C band "
+            "(per-sector copy of the pooled industry heat carrier).",
+        )
+        HEAT_CARRIER_CLASSES_BY_SECTOR[_sector][_level] = _cls
+        globals()[_cls.__name__] = _cls
+
+for _sector in KILN_FUEL_SECTORS:
+    _cls = _make_energy_carrier_class(
+        kiln_fuel_carrier_name(_sector),
+        f"FuelToKiln{_sector.capitalize()}",
+        f"Kiln-fuel carrier of the {_sector} sector (per-sector copy of fuel_to_kiln).",
+    )
+    FUEL_TO_KILN_CARRIER_CLASSES_BY_SECTOR[_sector] = _cls
+    globals()[_cls.__name__] = _cls
+del _sector, _level, _cls

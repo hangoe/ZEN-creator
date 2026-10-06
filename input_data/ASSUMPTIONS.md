@@ -906,19 +906,144 @@ carrier, the technology itself included) and `capacity_addition_unbounded`.
   given as a single scalar equal to the per-node mean (÷ number of nodes), because
   ZEN-garden reads `capacity_addition_unbounded` as one value per technology and applies it at
   every node (summed over nodes it recovers the EU total). It is not spread by heat demand
-  (the DH capacity sits in only 8 nodes, mostly Nordic, so it is not used per node). Applied once per year (see
-  next point: in ZEN-garden it is applied per period). It is an assumption, not a
-  measured value: report it as such / as a sensitivity.
+  (the DH capacity sits in only 8 nodes, mostly Nordic, so it is not used per node). It is
+  applied once per investment period, not per year (see the next point). It is an
+  assumption, not a measured value: report it as such / as a sensitivity.
+- **Seed with per-sector heat (V11).** With the per-sector heat structure (see "Per-sector
+  industry heat (V11)") each of the 6 HP variants exists once per sector (24 techs). The
+  seed of a (band, variant) is **divided between the four sectors** by each sector's share of
+  that band's EU heat demand (`_sector_band_share` in `process_parametrization.py`:
+  Σ_node carrier_demand × heat_cf of the band, from the same demand basis as the cascade
+  capacities), so the shares sum to 1 per (band, variant) and the total over all 24 techs
+  and all nodes is still `DH_HEAT_PUMP_EXISTING_EU_GW` — the seed is not multiplied by
+  four. Like in V10 it is one EU-wide scalar per tech (not spread by node demand), so a
+  sector with little or no demand at a node (e.g. paper/food in CH, NO, UK) still gets its
+  per-node share there.
+  **The usable seed per node is smaller than in V10.** The parameter total is conserved,
+  but at a node only the seeds of sectors that actually need heat there can be used: in V10
+  the one pooled heat pump of a (band, variant) could use the full per-node seed at every
+  node with any demand, whereas in V11 a node dominated by one sector can effectively use
+  only that sector's EU share of it (e.g. a node with only paper demand in a band uses only
+  paper's share), and the shares of the other sectors are left unused there. The V11
+  heat-pump diffusion headroom is therefore tighter than V10's, most strongly at nodes with
+  a one-sided sector mix, and part of any slower V11 heat-pump uptake comes from this, not
+  from the loss of heat sharing. ZEN-garden only takes one scalar per technology, so a
+  per-node split is not possible. Kept deliberately (conservative, same EU total as V10);
+  giving each sector the full pooled seed (4× the total) would be the upper-bound
+  sensitivity.
 - **Known ZEN-garden inconsistency, per year vs. per period (not fixed).** ZEN-garden's
   docs (`additional_features.rst`, "Technology diffusion") and the constraint's docstring
   formula define the market-share term and `capacity_addition_unbounded` per **year**
   (`dy × (ξ Σ S + ζ)`), but the code applies them once per **investment period** (no `× dy`
-  factor), while the knowledge term is correctly compounded per period. With
-  `interval_between_years = 2` (all v9.0 runs) the code therefore allows only half the
-  documented market-share/unbounded headroom (e.g. 0.65 GW = 0.02 × 32.7 GW boilers for the
-  150–200 °C HPs in 2020, not 1.3 GW). v10.0 runs use `interval_between_years = 1`
-  (ZEN-models `parameters.csv`), where both readings coincide. Revisit (or fix in
-  ZEN-garden) before running any multi-year interval again.
+  factor), while the knowledge term is correctly compounded per period. The runs use
+  `interval_between_years = 2` (all v9.0 and v10.0 runs, ZEN-models `parameters.csv`; V11 is
+  run with the same 2-year interval), so the code allows only half of the documented
+  market-share/unbounded headroom (e.g. 0.65 GW = 0.02 × 32.7 GW boilers for the
+  150–200 °C HPs in 2020, not 1.3 GW; the seed likewise acts as a 2-year step of
+  `capacity_addition_unbounded`, i.e. half of the documented 2 × seed). The two readings only
+  coincide for a 1-year interval. This is **not** compensated in the seed (it is neither
+  doubled nor otherwise rescaled in V10 or V11): treat the diffusion headroom as the
+  per-period reading and report it as such, or fix it in ZEN-garden / rescale the seed before
+  comparing against runs with another interval. A longer interval (e.g. 5 years) shrinks the
+  per-year headroom further.
+
+## Per-sector industry heat (V11)
+
+V10 pools the industry heat chain of the four low-temperature sectors (glass, ceramic,
+paper, food): one set of heat carriers (`heat_industry_0_100/_100_150/_150_200`), heat
+pumps, boilers, cascade, TES and `fuel_to_kiln`, shared by all sectors. That allowed two
+unphysical behaviours: (1) waste heat from one sector could be used by another sector's
+heat pumps at the same node and temperature level, and (2) with flexibility (DSM/TES) the
+solver could build one heat pump serving two sectors and shift their demands in time so the
+same capacity supplied both at different times. V11 removes both by building the whole
+chain once per sector, named `<pooled name>_<sector>`:
+
+- **Carriers**: `heat_industry_{0_100,100_150,150_200}_<sector>`, and
+  `fuel_to_kiln_{glass,ceramic}` (only glass and ceramic use kiln fuel).
+- **Technologies**: the heat pumps (waste heat and water, three bands), the six boilers,
+  `heat_industry_temp_conversion_{150,100}`, the three kiln-fuel switching techs (glass,
+  ceramic), and the three TES technologies, each as `<name>_<sector>`.
+- **Unchanged and shared**: the product carriers and `<sector>_production` techs (which now
+  consume their own sector's heat carriers and kiln fuel), post-combustion CC, DSM (already
+  per product carrier), and every upstream carrier (electricity, natural gas, biomass,
+  hydrogen, ...). Competition for these upstream carriers is the intended coupling.
+- **Cement** is not part of `industry_heat` (it has its own kiln in the base model and no
+  `heat_industry_*` carriers) and is unchanged.
+- **Selecting the structure**: by sector name. `industry_heat`, `industry_low_temp_heat`
+  and `industry_tes` build the pooled V10 structure (unchanged, V10 outputs are reproduced
+  byte-identically); `industry_heat_per_sector`, `industry_low_temp_heat_per_sector` and
+  `industry_tes_per_sector` build V11 (e.g. in `my_scripts/my_model.py`'s `SCENARIOS`).
+  The DSM sectors are the same for both. The production techs, which both structures share,
+  read the structure off their own model (`model_uses_per_sector_heat`: are the per-sector
+  heat carriers in the model?), so there is no global switch that could differ between
+  adding the sectors and building the model. Mixing pooled and per-sector sectors in one
+  model fails (missing carriers when the model is written, or an explicit error if both
+  pooled and per-sector heat carriers are present).
+
+Capacities and limits are split per sector so that the sums over the four sectors equal
+the pooled V10 values (checked by `tests/unit/test_industry_per_sector_heat.py`):
+
+- **HP seed**: divided over the sectors by the sector's share of the band heat demand (see
+  "Seed with per-sector heat (V11)" above); the seed total is not multiplied by four.
+- **Waste heat `capacity_limit`**: each sector gets only its own term of the pooled sum
+  `Σ_s demand[s,n] × cf_fuel[s] × share_at_level[s, level]` (see the waste heat paragraph
+  above), so a sector's >200 °C waste heat can only feed that sector's own waste-heat HPs.
+  EU sums of the per-sector limits (GW, glass / ceramic / paper / food): 0–100 °C
+  0.48 / 6.57 / 0.02 / 0.67; 100–150 °C 1.56 / 1.92 / 0.43 / 0.22; 150–200 °C
+  3.12 / 3.84 / 0.27 / 0.24. Ceramic and glass provide most of the waste heat, which V10
+  pooled across all sectors; paper has no waste heat limit in CH, NO and UK (no JRC-IDEES
+  data there).
+- **Boiler `capacity_existing`**: the pooled capacity of each node
+  (`total_industry_heat_demand_gw` × Eurostat/BFE fuel shares, unchanged) is split between
+  the sectors by fuel. In V10 one country-wide fuel mix applied to all four sectors, which
+  did not matter as long as they shared the boilers; with separate boilers it would give,
+  for example, Swedish glass a share of the biomass boilers that actually belong to paper
+  (pulp mills: JRC-IDEES puts 94 % of SE paper's thermal energy on biomass). Per node, a
+  sector × fuel matrix is fitted by iterative proportional fitting
+  (`_per_sector_boiler_capacity_gw_cached` in `_industry_heat_utils.py`) such that
+  - each sector's boilers sum to its own heat demand (`total_industry_heat_demand_gw(year, sector)`),
+  - each fuel sums over the sectors to the pooled Eurostat/BFE capacity of that fuel,
+  - starting from the sector's own fuel mix in that country, from the JRC-IDEES thermal
+    final energy rows (`read_sector_thermal_fec`; EU27 for CH, NO, UK). JRC carrier rows map
+    to boiler fuels as Natural gas and biogas → natural_gas; Solids, Derived gases → coal;
+    LPG, Diesel oil and liquid biofuels, Fuel oil, Other liquids, Refinery gas → oil;
+    Biomass and waste → biomass/waste in the node's own Eurostat/BFE biomass:waste ratio
+    (JRC does not separate them). Distributed steam (bought-in heat) is left out. A sector
+    without JRC data at a node starts from a uniform mix.
+  - Electrode boilers have no JRC thermal row; their pooled capacity is split by heat
+    demand before the fit.
+  - Every seed share gets a floor of `BOILER_FIT_SEED_FLOOR` = 0.001, so the fit always has
+    a solution: a sector that reports no use of a fuel can still receive a little of it if
+    the node's fuel total cannot be placed otherwise.
+
+  Both totals are met exactly (checked per node by the unit tests), so V10 and V11 have the
+  same existing capacity per fuel and node and per sector and node. Only the split changes.
+  Examples: SE/FI biomass sits mainly with paper; IT glass is 96 % natural gas. Where the
+  Eurostat fuel totals and the JRC sector mixes disagree, the Eurostat totals win and the
+  fit raises that fuel's share in every sector, most in the sectors whose JRC mix has most of
+  it (e.g. DE's large Eurostat coal total gives glass a 67 % and ceramic a 42 % coal share,
+  as they report the most solids in JRC, but paper and food still hold most of the coal GW).
+- **Cascade `capacity_existing`/`capacity_limit`**: each sector's own flat band heat demand
+  (`_heat_demand_gw(levels, sector)`), × `ZERO_COST_CAPACITY_LIMIT_MARGIN` for the limit.
+- **Kiln-fuel `capacity_existing`/`capacity_limit`** (`natural_gas_to_kilnfuel_<sector>`):
+  the sector's own `fuel_to_kiln` flow.
+- **Demand bases are unchanged**: each function keeps the demand basis it already used
+  (boilers: physical output ÷ 8760; carriers/cascade/waste heat: carrier capacity ÷ 8000).
+
+Consequences to keep in mind when comparing V10 and V11:
+
+- The usable heat-pump seed per node is smaller in V11 (see "Seed with per-sector heat (V11)"),
+  so part of a slower heat-pump uptake comes from this.
+
+- ZEN-garden's diffusion constraint groups technologies by class and reference carrier, so
+  the market-share peer group of each heat pump shrinks from all industry boilers/cascade
+  techs to those of the same sector. The relative market-share allowance therefore differs
+  from V10 (this is intended, but it is the main difference to check in the results).
+- Sectors cannot share heat pumps, boilers, waste heat or storage any more, so V11 loses
+  the cross-sector economies of scale and waste heat pooling of V10; differences in the
+  results come from that and from the changed diffusion peer groups (above).
+- The model has about 4× as many heat carriers/technologies, but the sectors are only coupled
+  through the shared upstream carriers.
 
 ## Case study scenarios
 

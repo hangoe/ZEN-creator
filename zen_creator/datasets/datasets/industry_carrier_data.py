@@ -24,7 +24,6 @@ from zen_creator.datasets.datasets.metadata import MetaData, SourceInformation
 from zen_creator.utils.attribute import Attribute
 
 _PRODUCT_CARRIERS = {"glass", "ceramic", "paper", "food"}
-_ENERGY_CARRIERS = {"heat_industry_0_100", "heat_industry_100_150", "heat_industry_150_200"}
 
 
 class IndustryCarrierDataset(Dataset[pd.DataFrame]):

@@ -17,6 +17,12 @@ TECH_NAME_MAP = {
 }
 
 
+def _csv_name(element: Element) -> str:
+    """Mayer2024 row of `element`. Per-sector TES copies (e.g. industry_TES_water_0_100_paper)
+    carry the pooled technology's name in `base_tech_name`, which TECH_NAME_MAP is keyed by."""
+    return TECH_NAME_MAP[getattr(element, "base_tech_name", element.name)]
+
+
 class Mayer2024Dataset(Dataset[pd.DataFrame]):
 
     name = "mayer2024"
@@ -56,7 +62,7 @@ class Mayer2024Dataset(Dataset[pd.DataFrame]):
     }
 
     def _get_cost_attr(self, element: Element, attr_name: str) -> Attribute:
-        csv_name = TECH_NAME_MAP[element.name]
+        csv_name = _csv_name(element)
         column, noun = self._COST_ATTRS[attr_name]
         cost_eur_mwh = float(self.data.at[csv_name, column]) * 1000.0
         attr = Attribute(attr_name, element=element)
@@ -74,7 +80,7 @@ class Mayer2024Dataset(Dataset[pd.DataFrame]):
         return self._get_cost_attr(element, "opex_specific_fixed_energy")
 
     def get_lifetime(self, element: Element) -> Attribute:
-        csv_name = TECH_NAME_MAP[element.name]
+        csv_name = _csv_name(element)
         lifetime = float(self.data.at[csv_name, "lifetime_years"])
         attr = Attribute("lifetime", element=element)
         attr.set_data(

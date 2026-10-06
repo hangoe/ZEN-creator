@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 
 import zen_creator.elements.energy_systems.crystal_ball_industry as crystal_ball_industry
+from zen_creator.datasets.datasets._industry_heat_utils import INDUSTRY_HEAT_SECTORS
 from zen_creator.model import Model
 from zen_creator.utils.default_config import Config
 
@@ -24,14 +25,18 @@ from zen_creator.utils.default_config import Config
 # Sector._sector_registry, which -- unlike Element._registry -- is NOT reset
 # by this directory's autouse reset_element_registry fixture)
 from zen_creator.sectors.industry_dsm import IndustryDSMOptimistic  # noqa: F401
-from zen_creator.sectors.industry_heat import IndustryHeat  # noqa: F401
-from zen_creator.sectors.industry_low_temp_heat import IndustryLowTempHeat  # noqa: F401
-from zen_creator.sectors.industry_tes import IndustryTES  # noqa: F401
+from zen_creator.sectors.industry_heat import IndustryHeat, IndustryHeatPerSector  # noqa: F401
+from zen_creator.sectors.industry_low_temp_heat import IndustryLowTempHeat, IndustryLowTempHeatPerSector  # noqa: F401
+from zen_creator.sectors.industry_tes import IndustryTES, IndustryTESPerSector  # noqa: F401
 
 MAIN_SECTORS = ["industry_heat", "industry_low_temp_heat", "industry_tes", "industry_dsm_optimistic"]
+PER_SECTOR_MAIN_SECTORS = [
+    "industry_heat_per_sector", "industry_low_temp_heat_per_sector", "industry_tes_per_sector",
+    "industry_dsm_optimistic",
+]
 
 
-def _build_industry_model(tmp_path: Path) -> Model:
+def _build_industry_model(tmp_path: Path, sectors: list[str] = MAIN_SECTORS) -> Model:
     # reset_element_registry (conftest.py) clears Registry._registry before this
     # test runs, which also wipes CrystalBallIndustryEnergySystem's registration
     # under "crystal_ball_industry_energy_system" -- reload to re-trigger
@@ -44,7 +49,7 @@ def _build_industry_model(tmp_path: Path) -> Model:
     config.elements.insert.energy_system = "crystal_ball_industry_energy_system"
 
     model = Model.from_existing(existing_model_path=existing_model_path, config=config)
-    for sector_name in MAIN_SECTORS:
+    for sector_name in sectors:
         model.add_sector_by_name(sector_name)
 
     model.build()
@@ -97,6 +102,53 @@ def test_single_temp_scenario_omits_low_temp_heat_pumps(tmp_path: Path):
 
     assert "heat_pump_industry_0_100_water" not in model.elements
     assert "heat_pump_industry_150_200_water" in model.elements
+
+
+def test_full_industry_model_per_sector_heat_builds_and_writes(tmp_path: Path):
+    """Per-sector heat (V11, the *_per_sector sectors): every heat carrier / heat
+    technology / TES exists once per sector, nothing pooled is left, and each sector's
+    production technology draws only on its own heat carriers."""
+    model = _build_industry_model(tmp_path, PER_SECTOR_MAIN_SECTORS)
+
+    for sector in INDUSTRY_HEAT_SECTORS:
+        for expected in (
+            sector, f"{sector}_production", f"{sector}_DSM",
+            f"heat_industry_0_100_{sector}", f"heat_industry_150_200_{sector}",
+            f"biomass_boiler_industry_{sector}", f"heat_pump_industry_0_100_water_{sector}",
+            f"heat_industry_temp_conversion_150_{sector}", f"industry_TES_water_0_100_{sector}",
+        ):
+            assert expected in model.elements, expected
+    for sector in ("glass", "ceramic"):
+        assert f"fuel_to_kiln_{sector}" in model.elements
+        assert f"natural_gas_to_kilnfuel_{sector}" in model.elements
+    for pooled in (
+        "heat_industry_0_100", "heat_industry_100_150", "heat_industry_150_200", "fuel_to_kiln",
+        "biomass_boiler_industry", "natural_gas_to_kilnfuel", "industry_TES_water_0_100",
+        "heat_industry_temp_conversion_100", "heat_pump_industry_150_200_water",
+    ):
+        assert pooled not in model.elements, pooled
+
+    for sector in INDUSTRY_HEAT_SECTORS:
+        production = model.elements[f"{sector}_production"]
+        heat_inputs = [
+            c for c in production.input_carrier.default_value if c.startswith(("heat_industry_", "fuel_to_kiln"))
+        ]
+        assert heat_inputs and all(c.endswith(f"_{sector}") for c in heat_inputs), (sector, heat_inputs)
+
+    model.write()
+    written = model.output_folder / model.name
+    techs = written / "set_technologies" / "set_conversion_technologies"
+    assert (techs / "natural_gas_boiler_industry_paper" / "attributes.json").exists()
+    assert (written / "set_carriers" / "heat_industry_150_200_food" / "attributes.json").exists()
+    assert not (written / "set_carriers" / "heat_industry_150_200").exists()
+
+
+def test_mixing_pooled_and_per_sector_heat_sectors_fails(tmp_path: Path):
+    """Pooled low-temp heat pumps on top of the per-sector heat chain reference the
+    pooled heat_industry_* carriers, which that model does not have."""
+    model = _build_industry_model(tmp_path, ["industry_heat_per_sector", "industry_low_temp_heat"])
+    with pytest.raises(ValueError, match="heat_industry_0_100"):
+        model.write()
 
 
 if __name__ == "__main__":

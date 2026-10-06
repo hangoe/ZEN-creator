@@ -58,15 +58,28 @@ class EurostatBoilerDataset(Dataset[pd.DataFrame]):
     def _source_info(self, description: str) -> SourceInformation:
         return SourceInformation(description=description, metadata=self.metadata)
 
-    def get_boiler_capacity(self, element: Element, tech_name: str, year: int, year_construction: int) -> Attribute:
+    def get_boiler_capacity(
+        self, element: Element, tech_name: str, year: int, year_construction: int, sector: str | None = None
+    ) -> Attribute:
+        """`sector` (per-sector heat structure): that sector's part of the pooled capacity,
+        sized on its heat demand and split by fuel with its own JRC-IDEES fuel mix; the
+        per-sector capacities of each fuel sum to the pooled capacity."""
         fuel_key, label = _BOILER_FUEL_CONFIG[tech_name]
         df = boiler_capacity_existing_df_for_fuel(
-            fuel_key, year, lifetime=BOILER_LIFETIMES[tech_name], year_construction=year_construction
+            fuel_key, year, lifetime=BOILER_LIFETIMES[tech_name], year_construction=year_construction,
+            sector=sector,
         )
         attr = Attribute("capacity_existing", default_value=0.0, unit="GW", element=element)
         attr.set_data(
             df=df.set_index(["node", "year_construction"]),
-            source=self._source_info(f"{label} boiler capacity from Eurostat gross heat production."),
+            source=self._source_info(
+                f"{label} boiler capacity from Eurostat gross heat production"
+                + (
+                    f", {sector} sector's part: its heat demand, fuel split fitted to its "
+                    "JRC-IDEES fuel mix and the pooled per-fuel capacity."
+                    if sector else "."
+                )
+            ),
         )
         return attr
 

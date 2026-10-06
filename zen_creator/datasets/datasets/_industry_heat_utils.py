@@ -517,6 +517,51 @@ HEAT_CARRIER_NAMES = {
     "150_200": "heat_industry_150_200",
 }
 
+# --- Per-sector industry heat (V11) -----------------------------------------
+# In the per-sector structure the whole industry heat chain (heat carriers, heat
+# pumps, boilers, temperature cascade, TES, kiln-fuel switching) exists once per
+# sector, named `<base name>_<sector>`, so heat carriers, waste heat and heat
+# technologies can no longer be shared between sectors. It is selected by adding the
+# `*_per_sector` sectors (industry_heat_per_sector & co.) instead of the pooled V10
+# ones; the production technologies (shared by both structures) read the structure
+# off their model via model_uses_per_sector_heat().
+INDUSTRY_HEAT_SECTORS = ("glass", "ceramic", "paper", "food")
+KILN_FUEL_SECTORS = ("glass", "ceramic")  # sectors with a fuel_to_kiln carrier
+
+
+def model_uses_per_sector_heat(model) -> bool:
+    """True if `model` holds the per-sector heat carriers (V11), False for the pooled
+    ones (V10) or none. Raises if it holds both, i.e. pooled and per-sector industry
+    heat sectors were mixed in one model."""
+    names = model.elements
+    pooled = [n for n in (*HEAT_CARRIER_NAMES.values(), "fuel_to_kiln") if n in names]
+    per_sector = [
+        n for s in INDUSTRY_HEAT_SECTORS
+        for n in (*(heat_carrier_name(l, s) for l in HEAT_CARRIER_NAMES), kiln_fuel_carrier_name(s))
+        if n in names
+    ]
+    if pooled and per_sector:
+        raise ValueError(
+            "Model mixes pooled (V10) and per-sector (V11) industry heat carriers "
+            f"({pooled[0]!r} and {per_sector[0]!r}): add either industry_heat/"
+            "industry_low_temp_heat/industry_tes or their *_per_sector variants, not both."
+        )
+    return bool(per_sector)
+
+
+def sector_suffixed(name: str, sector: str | None) -> str:
+    """`name` unchanged for sector=None (V10), else `<name>_<sector>`."""
+    return name if sector is None else f"{name}_{sector}"
+
+
+def heat_carrier_name(temp_level: str, sector: str | None = None) -> str:
+    return sector_suffixed(HEAT_CARRIER_NAMES[temp_level], sector)
+
+
+def kiln_fuel_carrier_name(sector: str | None = None) -> str:
+    return sector_suffixed("fuel_to_kiln", sector)
+
+
 # Population-proxy scaling for UK (not covered by JRC-IDEES): DE 2023 population
 # 83.5M, UK 2023 population 69.9M (Eurostat/ONS). Used to scale glass/ceramic
 # capacity_existing/demand from DE as a population proxy.
@@ -767,14 +812,17 @@ def eurostat_gross_heat_gwh(sheet, year, xlsx=EUROSTAT_EB_XLSX):
     return values
 
 
-def total_industry_heat_demand_gw(year: int) -> dict[str, float]:
-    """Total heat carrier demand (GW) per node, summed over glass/paper/food/ceramic.
+def total_industry_heat_demand_gw(year: int, sector: str | None = None) -> dict[str, float]:
+    """Total heat carrier demand (GW) per node, summed over glass/paper/food/ceramic
+    (or only over `sector`, for the per-sector heat structure).
 
     Covers heat_industry_0_100 + heat_industry_100_150 + heat_industry_150_200
     via SectorParams.cf_lt = (lt_GJ_t_0_100 + lt_GJ_t_100_200) / 3600 per sector.
     Glass uses AIDRES2023 energy data with Rehfeldt2017 temperature distribution,
     matching process_parametrization._compute_sector_params().
     """
+    if sector is not None and sector not in INDUSTRY_HEAT_SECTORS:
+        raise ValueError(f"total_industry_heat_demand_gw: unknown sector {sector!r}.")
     params = all_sector_params()
     glass_params, ceramic_params, paper_params, food_params = (
         params["glass"], params["ceramic"], params["paper"], params["food"]
@@ -787,12 +835,13 @@ def total_industry_heat_demand_gw(year: int) -> dict[str, float]:
     ceramic_demand = (
         ceramic_demand_from_fec_df(year).set_index("node")["kt_yr"] * 1000.0 / HOURS_PER_YEAR
     )  # ton/hr
+    include = INDUSTRY_HEAT_SECTORS if sector is None else (sector,)
     return {
         node: (
-            glass_demand[node] * glass_params.cf_lt
-            + paper_demand[node] * paper_params.cf_lt
-            + food_demand_s[node] * food_params.cf_lt
-            + ceramic_demand[node] * ceramic_params.cf_lt
+            (glass_demand[node] * glass_params.cf_lt if "glass" in include else 0.0)
+            + (paper_demand[node] * paper_params.cf_lt if "paper" in include else 0.0)
+            + (food_demand_s[node] * food_params.cf_lt if "food" in include else 0.0)
+            + (ceramic_demand[node] * ceramic_params.cf_lt if "ceramic" in include else 0.0)
         )
         for node in MODEL_NODES
     }
@@ -939,7 +988,101 @@ def _demand_based_boiler_capacity_gw_cached(year: int) -> dict[str, dict[str, fl
     return result
 
 
-def _demand_based_boiler_capacity_gw(year: int) -> dict[str, dict[str, float]]:
+# --- Per-sector boiler fuel mix (V11) ----------------------------------------
+# JRC-IDEES thermal carrier row -> boiler fuel key. "Biomass and waste" is split into
+# biomass/waste by the node's own Eurostat/BFE biomass:waste ratio (JRC does not separate
+# them). Electricity (electrode boilers) is not among the JRC thermal rows, and
+# "Distributed steam" is bought-in heat, not a boiler fuel.
+JRC_THERMAL_TO_BOILER_FUEL = {
+    "Natural gas and biogas": "natural_gas",
+    "Solids": "coal",
+    "Derived gases": "coal",
+    "LPG": "oil",
+    "Diesel oil and liquid biofuels": "oil",
+    "Fuel oil": "oil",
+    "Other liquids": "oil",
+    "Refinery gas": "oil",
+}
+IDEES_FALLBACK_COUNTRY = "EU27"  # sector fuel mix for the nodes without JRC-IDEES (CH, NO, UK)
+# Added to every (normalized) seed share so the fit always has a solution: a sector with
+# no reported use of a fuel can still get a little of it if the node's fuel total needs it.
+BOILER_FIT_SEED_FLOOR = 1e-3
+BOILER_FIT_MAX_ITER = 1000
+BOILER_FIT_TOL = 1e-10
+
+
+def _sector_boiler_fuel_seed(node: str, sector: str, year: int, pooled: dict[str, float]) -> dict[str, float]:
+    """Normalized fuel mix (combustion fuels only, no electrode) of `sector`'s thermal
+    final energy at `node` from JRC-IDEES; uniform when the sector reports none there."""
+    fuels = [f for f in FUEL_KEYS if f != "electrode"]
+    country = IDEES_FALLBACK_COUNTRY if node in NODES_WITHOUT_IDEES else node
+    breakdown = read_sector_thermal_fec(country, sector, year)
+    seed = {f: 0.0 for f in fuels}
+    for label, value in breakdown.items():
+        if label in JRC_THERMAL_TO_BOILER_FUEL:
+            seed[JRC_THERMAL_TO_BOILER_FUEL[label]] += value
+    bio_waste = breakdown.get("Biomass and waste", 0.0)
+    node_bio_waste = pooled["biomass"] + pooled["waste"]
+    waste_frac = pooled["waste"] / node_bio_waste if node_bio_waste > 0 else 0.0
+    seed["biomass"] += bio_waste * (1.0 - waste_frac)
+    seed["waste"] += bio_waste * waste_frac
+    total = sum(seed.values())
+    if total <= 0.0:
+        return {f: 1.0 / len(fuels) for f in fuels}
+    return {f: v / total for f, v in seed.items()}
+
+
+def _fit_sector_fuel_matrix(
+    seed: dict[str, dict[str, float]], row_totals: dict[str, float], col_totals: dict[str, float]
+) -> dict[str, dict[str, float]]:
+    """Iterative proportional fitting: scale `seed` (sector x fuel) so its rows sum to
+    `row_totals` and its columns to `col_totals` (both must have the same grand total)."""
+    m = {s: {f: seed[s][f] + BOILER_FIT_SEED_FLOOR for f in col_totals} for s in row_totals}
+    for _ in range(BOILER_FIT_MAX_ITER):
+        for s, target in row_totals.items():
+            row = sum(m[s].values())
+            m[s] = {f: (v * target / row if row > 0 else 0.0) for f, v in m[s].items()}
+        max_err = 0.0
+        for f, target in col_totals.items():
+            col = sum(m[s][f] for s in row_totals)
+            for s in row_totals:
+                m[s][f] = m[s][f] * target / col if col > 0 else 0.0
+            max_err = max(max_err, abs(col - target))
+        row_err = max(abs(sum(m[s].values()) - t) for s, t in row_totals.items())
+        if max(max_err, row_err) <= BOILER_FIT_TOL * max(1.0, sum(row_totals.values())):
+            break
+    else:
+        logger.warning("_fit_sector_fuel_matrix: no convergence after %d iterations.", BOILER_FIT_MAX_ITER)
+    return m
+
+
+@functools.lru_cache(maxsize=4)
+def _per_sector_boiler_capacity_gw_cached(year: int) -> dict[str, dict[str, dict[str, float]]]:
+    """{sector: {node: {fuel: GW}}}: the pooled boiler capacity of every node split
+    between the four sectors such that (a) each sector's boilers sum to its own heat
+    demand (total_industry_heat_demand_gw(year, sector)) and (b) each fuel sums over
+    the sectors to the pooled Eurostat/BFE value, with the sectors' own JRC-IDEES fuel
+    mix deciding who gets which fuel (iterative proportional fitting). Electrode
+    capacity has no JRC counterpart and is split by heat demand directly."""
+    pooled_caps = _demand_based_boiler_capacity_gw_cached(year)
+    demand = {s: total_industry_heat_demand_gw(year, s) for s in INDUSTRY_HEAT_SECTORS}
+    result: dict[str, dict[str, dict[str, float]]] = {s: {} for s in INDUSTRY_HEAT_SECTORS}
+    for node in MODEL_NODES:
+        pooled = pooled_caps[node]
+        node_demand = {s: demand[s][node] for s in INDUSTRY_HEAT_SECTORS}
+        total = sum(node_demand.values())
+        demand_share = {s: (d / total if total > 0 else 0.0) for s, d in node_demand.items()}
+        electrode = {s: pooled["electrode"] * demand_share[s] for s in INDUSTRY_HEAT_SECTORS}
+        rows = {s: node_demand[s] - electrode[s] for s in INDUSTRY_HEAT_SECTORS}
+        cols = {f: v for f, v in pooled.items() if f != "electrode"}
+        seed = {s: _sector_boiler_fuel_seed(node, s, year, pooled) for s in INDUSTRY_HEAT_SECTORS}
+        fitted = _fit_sector_fuel_matrix(seed, rows, cols)
+        for s in INDUSTRY_HEAT_SECTORS:
+            result[s][node] = {**fitted[s], "electrode": electrode[s]}
+    return result
+
+
+def _demand_based_boiler_capacity_gw(year: int, sector: str | None = None) -> dict[str, dict[str, float]]:
     """Per-node boiler capacity (GW) scaled to total heat demand with Eurostat fuel shares.
 
     Returns {node: {"biomass": GW, "natural_gas": GW, "electrode": GW, "oil": GW,
@@ -948,18 +1091,27 @@ def _demand_based_boiler_capacity_gw(year: int) -> dict[str, dict[str, float]]:
     _bfe_ch_fuel_shares(). "biomass" includes biogases (Sheet 63) alongside primary
     solid biofuels (Sheet 74) — see ASSUMPTIONS.md, "Boiler (industry) capacity".
 
+    `sector` (per-sector heat structure): that sector's part of it, sized on the
+    sector's heat demand and with its own fuel mix — see _per_sector_boiler_capacity_gw_cached().
+
     Returns a fresh copy on every call: the inner cache holds one shared dict, and
     a caller mutating an uncopied result would silently corrupt every later call.
     """
-    return {node: dict(v) for node, v in _demand_based_boiler_capacity_gw_cached(year).items()}
+    if sector is None:
+        caps = _demand_based_boiler_capacity_gw_cached(year)
+    else:
+        if sector not in INDUSTRY_HEAT_SECTORS:
+            raise ValueError(f"_demand_based_boiler_capacity_gw: unknown sector {sector!r}.")
+        caps = _per_sector_boiler_capacity_gw_cached(year)[sector]
+    return {node: dict(v) for node, v in caps.items()}
 
 
-def boiler_capacity_existing_df_for_fuel(fuel_key: str, year, lifetime=None, year_construction=None):
+def boiler_capacity_existing_df_for_fuel(fuel_key: str, year, lifetime=None, year_construction=None, sector=None):
     """Per-node boiler capacity_existing (GW) for one fuel ("biomass",
     "natural_gas", "electrode", "oil", "coal", or "waste"), scaled from
-    total industry heat demand via Eurostat/BFE fuel-mix shares -- see
-    _demand_based_boiler_capacity_gw()."""
-    caps = _demand_based_boiler_capacity_gw(year)
+    total industry heat demand via Eurostat/BFE fuel-mix shares (or `sector`'s
+    part of it) -- see _demand_based_boiler_capacity_gw()."""
+    caps = _demand_based_boiler_capacity_gw(year, sector)
     return _capacity_df_from_node_caps(
         {node: caps[node][fuel_key] for node in MODEL_NODES}, year, lifetime, year_construction
     )

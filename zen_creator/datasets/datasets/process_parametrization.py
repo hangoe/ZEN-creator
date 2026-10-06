@@ -22,7 +22,7 @@ from zen_creator.datasets.datasets._industry_heat_utils import (
     PARAM_BASE_YEAR,
     REHFELDT2017_PAPER,
     HOURS_PER_YEAR,
-    HEAT_CARRIER_NAMES,
+    INDUSTRY_HEAT_SECTORS,
     OPERATING_HOURS,
     _capacity_df_from_node_caps,
     activity_weights,
@@ -33,7 +33,10 @@ from zen_creator.datasets.datasets._industry_heat_utils import (
     fec_shares,
     food_capacity_existing_df,
     gdp_deflator_ratio,
+    heat_carrier_name,
     industry_demand_df,
+    kiln_fuel_carrier_name,
+    model_uses_per_sector_heat,
     renormalized_fuel_shares,
     read_sector_thermal_fec,
     sector_weighted_params,
@@ -107,7 +110,9 @@ ZERO_COST_CAPACITY_LIMIT_MARGIN = 2.0
 # hence redistributed by industrial heat demand below). DH and industry HPs are the same
 # technology with a different heat sink; the DH fleet is the market's observed build-out
 # so far. Shared equally across the INDUSTRY_HP_SEED_N_TECHS industry HP variants
-# (3 bands x water/waste heat). See ASSUMPTIONS.md, "Technology diffusion".
+# (3 bands x water/waste heat). With per-sector heat (V11) each variant exists once per
+# sector and its seed is further split by the sector's share of the band's heat demand,
+# so the total over all sectors x variants is unchanged. See ASSUMPTIONS.md, "Technology diffusion".
 DH_HEAT_PUMP_EXISTING_EU_GW = 1.8745402241776512
 INDUSTRY_HP_SEED_N_TECHS = 6
 
@@ -207,7 +212,7 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         self._heat_cfs = self._compute_heat_cfs()
         self._fuel_shares = self._compute_fuel_shares()
         self._cost_params = {s: self._compute_jrc_cost_params(s) for s in ("glass", "ceramic", "paper", "food")}
-        self._production_tech_dicts: dict[str, dict] = {}
+        self._production_tech_dicts: dict[tuple[str, bool], dict] = {}
 
     def _set_metadata(self) -> MetaData:
         return MetaData(
@@ -331,16 +336,27 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
 
     # -- Production tech dict builder (replicates _build_production_tech_dict) --
 
-    def get_production_tech_dict(self, sector: str) -> dict:
-        if sector in self._production_tech_dicts:
-            return self._production_tech_dicts[sector]
-        data = self._build_production_tech_dict(sector)
-        self._production_tech_dicts[sector] = data
+    def get_production_tech_dict(self, sector: str, per_sector_heat: bool = False) -> dict:
+        """`per_sector_heat`: draw on the sector's own heat_industry_*_<sector> and
+        fuel_to_kiln_<sector> carriers (V11) instead of the pooled ones (V10)."""
+        key = (sector, per_sector_heat)
+        if key in self._production_tech_dicts:
+            return self._production_tech_dicts[key]
+        data = self._build_production_tech_dict(sector, per_sector_heat)
+        self._production_tech_dicts[key] = data
         return data
 
-    def _build_production_tech_dict(self, sector: str) -> dict:
+    def _element_production_tech_dict(self, element: Element, sector: str) -> dict:
+        """Production tech dict for the heat structure (pooled/per-sector) of `element`'s model."""
+        return self.get_production_tech_dict(sector, model_uses_per_sector_heat(element.model))
+
+    def _build_production_tech_dict(self, sector: str, per_sector_heat: bool) -> dict:
+        per_sector = sector if per_sector_heat else None
         params = self._sector_params[sector]
         shares = _kiln_fuel_shares(sector, self._fuel_shares[sector])
+        if per_sector is not None and "fuel_to_kiln" in shares:
+            # each sector draws on its own fuel_to_kiln_<sector> carrier
+            shares = {(kiln_fuel_carrier_name(per_sector) if k == "fuel_to_kiln" else k): v for k, v in shares.items()}
         cfs = self._heat_cfs[sector]
         cost = self._cost_params[sector]
         data = build_conversion_tech(
@@ -348,11 +364,11 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
             opex_specific_variable=cost["opex_specific_variable"],
         )
         active_levels = [l for l in HEAT_TEMP_LEVELS if cfs[l] > 0]
-        active_carriers = [HEAT_CARRIER_NAMES[l] for l in active_levels]
+        active_carriers = [heat_carrier_name(l, per_sector) for l in active_levels]
         data["input_carrier"]["default_value"] = [*shares.keys(), *active_carriers, "electricity"]
         new_cf = [e for e in data["conversion_factor"] if not any(k.startswith("heat_industry") for k in e)]
         for level in active_levels:
-            carrier = HEAT_CARRIER_NAMES[level]
+            carrier = heat_carrier_name(level, per_sector)
             new_cf.append({carrier: {"default_value": round(cfs[level], 12), "unit": "GW/(tonproduct/hour)"}})
         data["conversion_factor"] = new_cf
         for field in ("lifetime", "capex_specific_conversion", "opex_specific_fixed"):
@@ -365,7 +381,7 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
     # -- get_* methods for Element classes --
 
     def get_conversion_factor(self, element: Element, sector: str) -> Attribute:
-        data = self.get_production_tech_dict(sector)
+        data = self._element_production_tech_dict(element, sector)
         attr = Attribute("conversion_factor", element=element)
         attr.set_data(
             default_value=data["conversion_factor"],
@@ -374,7 +390,7 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         return attr
 
     def get_input_carrier(self, element: Element, sector: str) -> Attribute:
-        data = self.get_production_tech_dict(sector)
+        data = self._element_production_tech_dict(element, sector)
         attr = Attribute("input_carrier", element=element)
         attr.set_data(
             default_value=data["input_carrier"]["default_value"],
@@ -393,7 +409,7 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
     }
 
     def _get_attr_from_tech_dict(self, element: Element, sector: str, attr_name: str) -> Attribute:
-        data = self.get_production_tech_dict(sector)
+        data = self._element_production_tech_dict(element, sector)
         val = data[attr_name]["default_value"]
         if val == "inf":
             val = np.inf
@@ -423,7 +439,9 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
     def get_max_diffusion_rate(self, element: Element, sector: str) -> Attribute:
         return self._get_attr_from_tech_dict(element, sector, "max_diffusion_rate")
 
-    def get_kiln_fuel_switch_capacity_existing(self, element: Element, fuel: str) -> Attribute:
+    def get_kiln_fuel_switch_capacity_existing(
+        self, element: Element, fuel: str, sector: str | None = None
+    ) -> Attribute:
         """Per-node capacity_existing (GW) for natural_gas_to_kilnfuel/hydrogen_to_kilnfuel/
         electricity_to_kilnfuel.
 
@@ -434,25 +452,28 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         own lifetime ending at CAPACITY_YEAR, same vintage-spreading convention as the
         boiler/production-tech capacities (`_capacity_df_from_node_caps`).
         hydrogen_to_kilnfuel/electricity_to_kilnfuel start at 0 (built from scratch).
+
+        `sector` (per-sector heat structure, "glass" or "ceramic"): size it on that
+        sector's fuel_to_kiln flow only, for the sector's own natural_gas_to_kilnfuel_<sector>.
         """
         attr = Attribute("capacity_existing", default_value=0.0, unit="GW", element=element)
         if fuel != "natural_gas":
             return attr
 
-        node_caps = self._kiln_fuel_demand_gw()
+        node_caps = self._kiln_fuel_demand_gw(sector=sector)
         df = _capacity_df_from_node_caps(node_caps, FEC_YEAR, KILN_FUEL_TECH_LIFETIME, CAPACITY_YEAR)
         attr.set_data(
             df=df.set_index(["node", "year_construction"]),
             source=self._source_info(
                 "natural_gas_to_kilnfuel capacity_existing: sized to reproduce today's "
-                "fuel_to_kiln-eligible natural_gas flow from glass+ceramic combined. See "
+                f"fuel_to_kiln-eligible natural_gas flow from {sector or 'glass+ceramic combined'}. See "
                 "ASSUMPTIONS.md, 'Ceramic and glass kiln fuel switching'."
             ),
         )
         return attr
 
-    def _kiln_fuel_demand_gw(self, use_carrier_demand: bool = False) -> dict[str, float]:
-        """Per-node flat fuel_to_kiln demand (GW) of glass+ceramic:
+    def _kiln_fuel_demand_gw(self, use_carrier_demand: bool = False, sector: str | None = None) -> dict[str, float]:
+        """Per-node flat fuel_to_kiln demand (GW) of glass+ceramic (or of `sector` only):
         Σ_sector demand[sector, node] × fuel_to_kiln_conversion_factor[sector].
         `use_carrier_demand` switches from _sector_demand_series (the v9.0 sizing of
         natural_gas_to_kilnfuel's capacity_existing, kept unchanged) to
@@ -462,18 +483,28 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
             demands = {s: d for s, d in _carrier_demand_series().items() if s in ("glass", "ceramic")}
         else:
             demands = _sector_demand_series(("glass", "ceramic"))
+        if sector is not None:
+            if sector not in demands:
+                raise ValueError(f"_kiln_fuel_demand_gw: sector {sector!r} has no fuel_to_kiln carrier.")
+            demands = {sector: demands[sector]}
         node_caps: dict[str, float] = {node: 0.0 for node in MODEL_NODES}
-        for sector, demand in demands.items():
-            data = self.get_production_tech_dict(sector)
+        for s, demand in demands.items():
+            # a per-sector kiln tech (sector given) sizes on the per-sector production
+            # tech, which draws on fuel_to_kiln_<sector>; the pooled one on fuel_to_kiln
+            per_sector_heat = sector is not None
+            data = self.get_production_tech_dict(s, per_sector_heat)
+            carrier = kiln_fuel_carrier_name(s if per_sector_heat else None)
             cf = next(
-                (e["fuel_to_kiln"]["default_value"] for e in data["conversion_factor"] if "fuel_to_kiln" in e),
+                (e[carrier]["default_value"] for e in data["conversion_factor"] if carrier in e),
                 0.0,
             )
             for node in MODEL_NODES:
                 node_caps[node] += demand.get(node, 0.0) * cf
         return node_caps
 
-    def get_kiln_fuel_switch_capacity_limit(self, element: Element, fuel: str) -> Attribute:
+    def get_kiln_fuel_switch_capacity_limit(
+        self, element: Element, fuel: str, sector: str | None = None
+    ) -> Attribute:
         """Per-node capacity_limit (GW) for natural_gas_to_kilnfuel only (inf for the
         hydrogen/electricity alternatives): flat fuel_to_kiln demand ×
         ZERO_COST_CAPACITY_LIMIT_MARGIN. Bounds the otherwise degenerate (zero-capex,
@@ -482,44 +513,68 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         attr = Attribute("capacity_limit", default_value=np.inf, unit="GW", element=element)
         if fuel != "natural_gas":
             return attr
-        node_caps = self._kiln_fuel_demand_gw(use_carrier_demand=True)
+        node_caps = self._kiln_fuel_demand_gw(use_carrier_demand=True, sector=sector)
         df = pd.Series(node_caps, name="capacity_limit").mul(ZERO_COST_CAPACITY_LIMIT_MARGIN).to_frame()
         df.index.name = "node"
         attr.set_data(df=df, source=self._source_info(
-            f"natural_gas_to_kilnfuel capacity_limit: flat fuel_to_kiln demand (glass+ceramic) "
+            f"natural_gas_to_kilnfuel capacity_limit: flat fuel_to_kiln demand ({sector or 'glass+ceramic'}) "
             f"× {ZERO_COST_CAPACITY_LIMIT_MARGIN}. Bounds the market-share diffusion term of "
             "hydrogen/electricity_to_kilnfuel. See ASSUMPTIONS.md, 'Technology diffusion'."
         ))
         return attr
 
-    def _heat_demand_gw(self, temp_levels: tuple[str, ...]) -> dict[str, float]:
-        """Per-node flat heat demand (GW) of glass/ceramic/paper/food, summed over
-        `temp_levels`: Σ_sector Σ_level carrier_demand[sector, node] × heat_cf[sector][level].
+    def _heat_demand_gw(self, temp_levels: tuple[str, ...], sector: str | None = None) -> dict[str, float]:
+        """Per-node flat heat demand (GW) of glass/ceramic/paper/food (or of `sector`
+        only), summed over `temp_levels`:
+        Σ_sector Σ_level carrier_demand[sector, node] × heat_cf[sector][level].
         Uses _carrier_demand_series (what the model actually has to produce), not
         _sector_demand_series, which differs for glass/paper/ceramic."""
         demands = _carrier_demand_series()
+        if sector is not None:
+            demands = {sector: demands[sector]}
         total = sum(demands[s] * sum(self._heat_cfs[s][lvl] for lvl in temp_levels) for s in demands)
         return {node: float(total.get(node, 0.0)) for node in MODEL_NODES}
 
-    def get_industry_hp_capacity_addition_unbounded(self, element: Element, temp_level: str) -> Attribute:
+    def _sector_band_share(self, sector: str, temp_level: str) -> float:
+        """EU-wide share of `sector` in the heat demand of band `temp_level`
+        (Σ_node carrier_demand × heat_cf, over all four sectors). Sums to 1 over sectors."""
+        demands = _carrier_demand_series()
+        band = {s: float((demands[s] * self._heat_cfs[s][temp_level]).sum()) for s in INDUSTRY_HEAT_SECTORS}
+        total = sum(band.values())
+        if total <= 0.0:
+            return 1.0 / len(INDUSTRY_HEAT_SECTORS)
+        return band[sector] / total
+
+    def get_industry_hp_capacity_addition_unbounded(
+        self, element: Element, temp_level: str, sector: str | None = None
+    ) -> Attribute:
         """Scalar capacity_addition_unbounded (GW/yr, the diffusion 'seed') for an
         industry heat pump: DH_HEAT_PUMP_EXISTING_EU_GW / INDUSTRY_HP_SEED_N_TECHS,
         divided by the number of nodes (the per-node mean). ZEN-garden reads this
         parameter as one value per technology (index_sets=[]) and applies it at every
-        node, so the EU total is recovered when summed over nodes. `temp_level` is kept
-        for the call signature only: the seed is not spread by band heat demand."""
+        node, so the EU total is recovered when summed over nodes.
+
+        `sector` (per-sector heat): the heat pump exists once per sector, so the seed of
+        the (band, variant) is divided between the four sectors by each sector's share of
+        the band's heat demand (_sector_band_share); summed over sectors it equals the
+        pooled seed, i.e. the total is not multiplied by four. Without `sector`,
+        `temp_level` is kept for the call signature only."""
         tech_total = DH_HEAT_PUMP_EXISTING_EU_GW / INDUSTRY_HP_SEED_N_TECHS
-        per_node = tech_total / len(MODEL_NODES)
+        share = 1.0 if sector is None else self._sector_band_share(sector, temp_level)
+        per_node = tech_total * share / len(MODEL_NODES)
+        share_txt = "" if sector is None else f" × {sector} share of band {temp_level} heat demand ({share:.4f})"
         attr = Attribute("capacity_addition_unbounded", element=element)
         attr.set_data(default_value=per_node, unit="GW", source=self._source_info(
             f"{element.name} capacity_addition_unbounded: Crystal Ball heat_pump_DH installed capacity "
-            f"({DH_HEAT_PUMP_EXISTING_EU_GW:.3f} GW EU) / {INDUSTRY_HP_SEED_N_TECHS} industry HP variants "
-            f"/ {len(MODEL_NODES)} nodes = {per_node:.5f} GW per node, same value at every node, applied "
-            "per year. See ASSUMPTIONS.md, 'Technology diffusion'."
+            f"({DH_HEAT_PUMP_EXISTING_EU_GW:.3f} GW EU) / {INDUSTRY_HP_SEED_N_TECHS} industry HP variants"
+            f"{share_txt} / {len(MODEL_NODES)} nodes = {per_node:.5f} GW per node, same value at every node, "
+            "applied once per investment period. See ASSUMPTIONS.md, 'Technology diffusion'."
         ))
         return attr
 
-    def get_temp_conversion_capacity_existing(self, element: Element, temp_levels: tuple[str, ...]) -> Attribute:
+    def get_temp_conversion_capacity_existing(
+        self, element: Element, temp_levels: tuple[str, ...], sector: str | None = None
+    ) -> Attribute:
         """Per-node capacity_existing (GW) for a temperature-conversion tech: the flat
         heat demand of every band it passes heat down to (`temp_levels`; e.g. both
         0_100 and 100_150 for heat_industry_temp_conversion_150), i.e. the reference-year
@@ -527,25 +582,27 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         today. Spread over TEMP_CONVERSION_LIFETIME vintages ending at CAPACITY_YEAR
         (same convention as natural_gas_to_kilnfuel/boilers). Without it the
         heat pumps' market-share diffusion term is exactly 0 in the first year."""
-        node_caps = self._heat_demand_gw(temp_levels)
+        node_caps = self._heat_demand_gw(temp_levels, sector)
         df = _capacity_df_from_node_caps(node_caps, FEC_YEAR, TEMP_CONVERSION_LIFETIME, CAPACITY_YEAR)
         attr = Attribute("capacity_existing", default_value=0.0, unit="GW", element=element)
         attr.set_data(
             df=df.set_index(["node", "year_construction"]),
             source=self._source_info(
                 f"{element.name} capacity_existing: flat heat demand of bands {', '.join(temp_levels)} "
-                "(glass/ceramic/paper/food), today supplied via boilers. See ASSUMPTIONS.md, "
+                f"({sector or 'glass/ceramic/paper/food'}), today supplied via boilers. See ASSUMPTIONS.md, "
                 "'Technology diffusion'."
             ),
         )
         return attr
 
-    def get_temp_conversion_capacity_limit(self, element: Element, temp_levels: tuple[str, ...]) -> Attribute:
+    def get_temp_conversion_capacity_limit(
+        self, element: Element, temp_levels: tuple[str, ...], sector: str | None = None
+    ) -> Attribute:
         """Per-node capacity_limit (GW) for a temperature-conversion tech: the same flat
         heat demand as get_temp_conversion_capacity_existing × ZERO_COST_CAPACITY_LIMIT_MARGIN.
         Bounds the otherwise degenerate (zero-capex, max_diffusion_rate=inf) capacity that
         enters the heat pumps' market-share diffusion term."""
-        node_caps = self._heat_demand_gw(temp_levels)
+        node_caps = self._heat_demand_gw(temp_levels, sector)
         df = pd.Series(node_caps, name="capacity_limit").mul(ZERO_COST_CAPACITY_LIMIT_MARGIN).to_frame()
         df.index.name = "node"
         attr = Attribute("capacity_limit", default_value=np.inf, unit="GW", element=element)
@@ -572,7 +629,9 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
             )
         return {level: totals[level] / grand_total for level in HEAT_TEMP_LEVELS}
 
-    def get_waste_heat_capacity_limit(self, element: "Element", temp_level: str) -> Attribute:
+    def get_waste_heat_capacity_limit(
+        self, element: "Element", temp_level: str, sector: str | None = None
+    ) -> Attribute:
         """Per-node capacity_limit for waste-heat HPs at a given temperature level.
 
         Waste heat available from sector s at node n = demand[s,n] × cf_fuel[s],
@@ -585,8 +644,13 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         waste_heat × COP/(COP-1), i.e. 1.17–2.26× larger depending on temperature
         level). Cross-checked against Mathiesen2026 (Heat Roadmap Europe) as a sanity
         check — no correction applied; see ASSUMPTIONS.md.
+
+        `sector` (per-sector heat): only that sector's term of the sum, i.e. the waste
+        heat of a sector can only be used by that sector's own heat pumps. Summed over
+        the four sectors this reproduces the pooled limit.
         """
-        demands = _sector_demand_series(("glass", "ceramic", "paper", "food"))
+        sectors = INDUSTRY_HEAT_SECTORS if sector is None else (sector,)
+        demands = _sector_demand_series(sectors)
         cf_fuel = {s: self._sector_params[s].cf_fuel for s in demands}
         share_at_level = {}
         for s in demands:
@@ -599,7 +663,7 @@ class ProcessParametrizationDataset(Dataset[pd.DataFrame]):
         attr = Attribute("capacity_limit", default_value=np.inf, unit="GW", element=element)
         attr.set_data(df=df, source=self._source_info(
             f"Waste-heat HP capacity limit for {temp_level}: sector high-temp fuel demand "
-            "(glass/ceramic/paper/food) × sector-specific low-temp heat share at this level. "
+            f"({sector or 'glass/ceramic/paper/food'}) × sector-specific low-temp heat share at this level. "
             "Source: Rehfeldt2017 temperature distributions, AIDRES2023 (glass), FAOSTAT "
             "production data (food); cross-checked against Mathiesen2026 (Heat Roadmap "
             "Europe) as a sanity check (see ASSUMPTIONS.md)."

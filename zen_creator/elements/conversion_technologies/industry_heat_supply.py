@@ -1,6 +1,11 @@
 """Industry heat supply technology Element subclasses.
 
 3 heat pump variants, 3 boilers, 2 temperature conversion techs.
+
+Every class below exists twice: once pooled (V10, e.g. `biomass_boiler_industry`, shared by
+all sectors) and once per sector (V11, e.g. `biomass_boiler_industry_paper`, wired to that
+sector's own heat carriers and capacity splits). The per-sector classes are generated at the
+bottom of this module from the same factories with `sector=<sector>`.
 """
 
 from __future__ import annotations
@@ -10,6 +15,13 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from zen_creator.model import Model
 
+from zen_creator.datasets.datasets._industry_heat_utils import (
+    INDUSTRY_HEAT_SECTORS,
+    KILN_FUEL_SECTORS,
+    heat_carrier_name,
+    kiln_fuel_carrier_name,
+    sector_suffixed,
+)
 from zen_creator.datasets.datasets.dea_industrial_heat import DeaIndustrialHeatDataset
 from zen_creator.datasets.datasets.eurostat_boiler import EurostatBoilerDataset
 from zen_creator.datasets.datasets.heat_tech_parametrization import (
@@ -43,8 +55,8 @@ def _hp_capacity(element, temp_level: str) -> Attribute:
     return base_attr
 
 
-def _hp_waste_heat_limit(element, temp_level: str) -> Attribute:
-    return ProcessParametrizationDataset().get_waste_heat_capacity_limit(element, temp_level)
+def _hp_waste_heat_limit(element, temp_level: str, sector: str | None = None) -> Attribute:
+    return ProcessParametrizationDataset().get_waste_heat_capacity_limit(element, temp_level, sector)
 
 
 # -- Heat pumps ---------------------------------------------------------------
@@ -52,7 +64,8 @@ def _hp_waste_heat_limit(element, temp_level: str) -> Attribute:
 #   _waste_heat: source = waste heat at 50°C (Bever2024, Agora_IGE2023); capacity limited
 #   _water:      source = water at 15°C (Agora_IGE2023); unconstrained
 
-def _hp_methods(base_tech: str, dea_tech: str, temp_level: str, cop: float, waste_heat: bool = False):
+def _hp_methods(base_tech: str, dea_tech: str, temp_level: str, cop: float, waste_heat: bool = False,
+                sector: str | None = None):
     """Return a dict of _set_* methods shared across all HP variants.
 
     `base_tech` (always "heat_pump_industry") still parametrizes conversion_factor
@@ -64,9 +77,10 @@ def _hp_methods(base_tech: str, dea_tech: str, temp_level: str, cop: float, wast
     cost proxy for the top band too (see ASSUMPTIONS.md, "Heat pump & boiler
     cost/efficiency parametrization (DEA)"). With `waste_heat=True`, capex also gets
     the flat heat-recovery add-on from Stark et al. 2025 (see
-    WASTE_HEAT_RECOVERY_CAPEX_EUR_PER_KW in dea_industrial_heat.py).
+    WASTE_HEAT_RECOVERY_CAPEX_EUR_PER_KW in dea_industrial_heat.py). With `sector`, the
+    heat pump serves that sector's own heat carrier and its seed is that sector's share.
     """
-    carrier = f"heat_industry_{temp_level}"
+    carrier = heat_carrier_name(temp_level, sector)
 
     class _Mixin:
         def _set_reference_carrier(self) -> Attribute:
@@ -103,7 +117,9 @@ def _hp_methods(base_tech: str, dea_tech: str, temp_level: str, cop: float, wast
             return _hp_capacity(self, temp_level)
 
         def _set_capacity_addition_unbounded(self) -> Attribute:
-            return ProcessParametrizationDataset().get_industry_hp_capacity_addition_unbounded(self, temp_level)
+            return ProcessParametrizationDataset().get_industry_hp_capacity_addition_unbounded(
+                self, temp_level, sector
+            )
 
     return _Mixin
 
@@ -175,19 +191,21 @@ class HeatPumpIndustry150200Water(_hp_methods("heat_pump_industry", "heat_pump_i
 # supplies its own conversion_factor/lifetime/capex/opex from
 # WasteBoilerDhProxyDataset instead, reusing only _boiler_carrier_methods().
 
-def _boiler_carrier_methods(tech_name: str, carrier: str):
+def _boiler_carrier_methods(tech_name: str, carrier: str, sector: str | None = None):
     """Return a dict of _set_* methods shared by every boiler regardless of
-    its cost/efficiency data source."""
+    its cost/efficiency data source. With `sector`, the boiler supplies that
+    sector's heat_industry_150_200_<sector> carrier and is sized on its heat demand."""
+    heat_carrier = heat_carrier_name("150_200", sector)
 
     class _Mixin:
         def _set_reference_carrier(self) -> Attribute:
-            return Attribute("reference_carrier", default_value=["heat_industry_150_200"], element=self)
+            return Attribute("reference_carrier", default_value=[heat_carrier], element=self)
 
         def _set_input_carrier(self) -> Attribute:
             return Attribute("input_carrier", default_value=[carrier], element=self)
 
         def _set_output_carrier(self) -> Attribute:
-            return Attribute("output_carrier", default_value=["heat_industry_150_200"], element=self)
+            return Attribute("output_carrier", default_value=[heat_carrier], element=self)
 
         def _set_carbon_intensity_technology(self) -> Attribute:
             return HeatTechParametrizationDataset().get_carbon_intensity_technology(self, tech_name)
@@ -196,7 +214,7 @@ def _boiler_carrier_methods(tech_name: str, carrier: str):
             return HeatTechParametrizationDataset().get_max_diffusion_rate(self, tech_name)
 
         def _set_capacity_existing(self) -> Attribute:
-            return EurostatBoilerDataset().get_boiler_capacity(self, tech_name, FEC_YEAR, CAPACITY_YEAR)
+            return EurostatBoilerDataset().get_boiler_capacity(self, tech_name, FEC_YEAR, CAPACITY_YEAR, sector=sector)
 
     return _Mixin
 
@@ -325,7 +343,8 @@ class WasteBoilerIndustry(
 
 # -- Temperature conversion cascade ------------------------------------------
 
-def _temp_conversion_methods(output_carrier: str, input_carrier: str, served_levels: tuple[str, ...]):
+def _temp_conversion_methods(output_carrier: str, input_carrier: str, served_levels: tuple[str, ...],
+                             sector: str | None = None):
     """Return a dict of _set_* methods shared by the two temperature-downgrade
     conversion techs (150-200 -> 100-150 band, 100-150 -> 0-100 band): lossless
     (conversion_factor = 1.0), zero variable OPEX, TEMP_CONVERSION_LIFETIME.
@@ -334,7 +353,8 @@ def _temp_conversion_methods(output_carrier: str, input_carrier: str, served_lev
     output band plus every band further down the cascade). They size its
     capacity_existing (today's boiler-supplied cascade flow) and capacity_limit -
     both needed so its zero-cost capacity can't inflate the heat pumps'
-    market-share diffusion term (see ZERO_COST_CAPACITY_LIMIT_MARGIN).
+    market-share diffusion term (see ZERO_COST_CAPACITY_LIMIT_MARGIN). With `sector`, both
+    are sized on that sector's heat demand only (carriers are passed already suffixed).
     """
 
     class _Mixin:
@@ -361,10 +381,10 @@ def _temp_conversion_methods(output_carrier: str, input_carrier: str, served_lev
             return Attribute("opex_specific_variable", default_value=0.0, unit="Euro/GWh", element=self)
 
         def _set_capacity_existing(self) -> Attribute:
-            return ProcessParametrizationDataset().get_temp_conversion_capacity_existing(self, served_levels)
+            return ProcessParametrizationDataset().get_temp_conversion_capacity_existing(self, served_levels, sector)
 
         def _set_capacity_limit(self) -> Attribute:
-            return ProcessParametrizationDataset().get_temp_conversion_capacity_limit(self, served_levels)
+            return ProcessParametrizationDataset().get_temp_conversion_capacity_limit(self, served_levels, sector)
 
     return _Mixin
 
@@ -399,21 +419,23 @@ class HeatIndustryTempConversion100(
 # defaults) — this models only the fuel-choice decision, not burner-conversion capex;
 # conversion_factor carries the real, AIDRES-derived route efficiency instead.
 
-def _kiln_fuel_methods(fuel: str, with_diffusion_cap: bool):
+def _kiln_fuel_methods(fuel: str, with_diffusion_cap: bool, sector: str | None = None):
     """Return a dict of _set_* methods shared by every kiln-fuel-switching
     technology. `max_diffusion_rate` is only defined when `with_diffusion_cap`
     is true -- natural_gas_to_kilnfuel (the incumbent) has no diffusion cap;
-    hydrogen/electricity_to_kilnfuel (the switching alternatives) do."""
+    hydrogen/electricity_to_kilnfuel (the switching alternatives) do. With `sector`
+    ("glass"/"ceramic"), the tech feeds that sector's own fuel_to_kiln_<sector> carrier."""
+    kiln_carrier = kiln_fuel_carrier_name(sector)
 
     class _Mixin:
         def _set_reference_carrier(self) -> Attribute:
-            return Attribute("reference_carrier", default_value=["fuel_to_kiln"], element=self)
+            return Attribute("reference_carrier", default_value=[kiln_carrier], element=self)
 
         def _set_input_carrier(self) -> Attribute:
             return Attribute("input_carrier", default_value=[fuel], element=self)
 
         def _set_output_carrier(self) -> Attribute:
-            return Attribute("output_carrier", default_value=["fuel_to_kiln"], element=self)
+            return Attribute("output_carrier", default_value=[kiln_carrier], element=self)
 
         def _set_conversion_factor(self) -> Attribute:
             cf = KILN_FUEL_SWITCH_CF[fuel]
@@ -427,10 +449,10 @@ def _kiln_fuel_methods(fuel: str, with_diffusion_cap: bool):
             return Attribute("lifetime", default_value=float(KILN_FUEL_TECH_LIFETIME), unit="1", element=self)
 
         def _set_capacity_existing(self) -> Attribute:
-            return ProcessParametrizationDataset().get_kiln_fuel_switch_capacity_existing(self, fuel)
+            return ProcessParametrizationDataset().get_kiln_fuel_switch_capacity_existing(self, fuel, sector)
 
         def _set_capacity_limit(self) -> Attribute:
-            return ProcessParametrizationDataset().get_kiln_fuel_switch_capacity_limit(self, fuel)
+            return ProcessParametrizationDataset().get_kiln_fuel_switch_capacity_limit(self, fuel, sector)
 
     if with_diffusion_cap:
         def _set_max_diffusion_rate(self) -> Attribute:
@@ -469,3 +491,132 @@ class ElectricityToKilnfuel(_kiln_fuel_methods("electricity", with_diffusion_cap
 
     def __init__(self, model: Model):
         super().__init__(model=model, power_unit="GW")
+
+
+# -- Per-sector copies (V11) ----------------------------------------------------
+# Same technologies, wired to <carrier>_<sector> and named <name>_<sector>. Generated
+# with the same factories as the pooled classes above (sector=<sector>) and
+# type(), the same pattern as the DSM classes in storage_technologies/industry_DSM.py.
+# Registered at import like any Element subclass; only instantiated when the
+# *_per_sector sectors (industry_heat_per_sector & co.) are added.
+
+def _make_tech_class(class_name: str, tech_name: str, bases: tuple[type, ...]) -> type[ConversionTechnology]:
+    def __init__(self, model: Model) -> None:
+        ConversionTechnology.__init__(self, model=model, power_unit="GW")
+
+    return type(
+        class_name,
+        (*bases, ConversionTechnology),
+        {"__module__": __name__, "__qualname__": class_name, "__init__": __init__, "name": tech_name},
+    )
+
+
+def _waste_boiler_cost_methods():
+    """Cost/efficiency of waste_boiler_industry (proxy of waste_boiler_DH), as a mixin
+    so the per-sector waste boilers can reuse it (WasteBoilerIndustry defines the same
+    five methods directly on the class)."""
+
+    class _Mixin:
+        def _set_conversion_factor(self) -> Attribute:
+            return WasteBoilerDhProxyDataset().get_conversion_factor(self)
+
+        def _set_lifetime(self) -> Attribute:
+            return WasteBoilerDhProxyDataset().get_lifetime(self)
+
+        def _set_capex_specific_conversion(self) -> Attribute:
+            return WasteBoilerDhProxyDataset().get_capex_specific_conversion(self)
+
+        def _set_opex_specific_fixed(self) -> Attribute:
+            return WasteBoilerDhProxyDataset().get_opex_specific_fixed(self)
+
+        def _set_opex_specific_variable(self) -> Attribute:
+            return WasteBoilerDhProxyDataset().get_opex_specific_variable(self)
+
+    return _Mixin
+
+
+# (class-name prefix, tech_name, input carrier, DEA-backed?) for every pooled boiler
+_BOILER_SPECS = (
+    ("BiomassBoilerIndustry", "biomass_boiler_industry", "biomass", True),
+    ("ElectrodeBoilerIndustry", "electrode_boiler_industry", "electricity", True),
+    ("NaturalGasBoilerIndustry", "natural_gas_boiler_industry", "natural_gas", True),
+    ("OilBoilerIndustry", "oil_boiler_industry", "oil", True),
+    ("CoalBoilerIndustry", "coal_boiler_industry", "hard_coal", True),
+    ("WasteBoilerIndustry", "waste_boiler_industry", "waste", False),
+)
+
+# (class-name prefix, tech_name, DEA tier, temp level, waste-heat variant?)
+_HP_SPECS = tuple(
+    (
+        f"HeatPumpIndustry{level.replace('_', '')}{'WasteHeat' if waste else 'Water'}",
+        f"heat_pump_industry_{level}_{'waste_heat' if waste else 'water'}",
+        "heat_pump_industry_0_100" if level == "0_100" else "heat_pump_industry_100_200",
+        level,
+        waste,
+    )
+    for level in ("0_100", "100_150", "150_200")
+    for waste in (True, False)
+)
+
+# (class-name prefix, tech_name, output band, input band, served bands)
+_CASCADE_SPECS = (
+    ("HeatIndustryTempConversion150", "heat_industry_temp_conversion_150", "100_150", "150_200", ("0_100", "100_150")),
+    ("HeatIndustryTempConversion100", "heat_industry_temp_conversion_100", "0_100", "100_150", ("0_100",)),
+)
+
+# (class-name prefix, tech_name, fuel, has diffusion cap?)
+_KILN_SPECS = (
+    ("NaturalGasToKilnfuel", "natural_gas_to_kilnfuel", "natural_gas", False),
+    ("HydrogenToKilnfuel", "hydrogen_to_kilnfuel", "hydrogen", True),
+    ("ElectricityToKilnfuel", "electricity_to_kilnfuel", "electricity", True),
+)
+
+HEAT_PUMP_CLASSES_BY_SECTOR: dict[str, dict[str, type[ConversionTechnology]]] = {}
+BOILER_CLASSES_BY_SECTOR: dict[str, list[type[ConversionTechnology]]] = {}
+CASCADE_CLASSES_BY_SECTOR: dict[str, list[type[ConversionTechnology]]] = {}
+KILN_FUEL_CLASSES_BY_SECTOR: dict[str, list[type[ConversionTechnology]]] = {}
+
+for _sector in INDUSTRY_HEAT_SECTORS:
+    _suffix = _sector.capitalize()
+
+    HEAT_PUMP_CLASSES_BY_SECTOR[_sector] = {}
+    for _prefix, _name, _dea_tech, _level, _waste in _HP_SPECS:
+        _cop = (HP_COP_WASTE_HEAT if _waste else HP_COP_WATER)[_level]
+        _mixin = _hp_methods("heat_pump_industry", _dea_tech, _level, _cop, waste_heat=_waste, sector=_sector)
+        if _waste:
+            # bind the loop variables: the setter runs later, at build time
+            def _set_capacity_limit(self, _level=_level, _sector=_sector) -> Attribute:
+                return _hp_waste_heat_limit(self, _level, _sector)
+
+            _mixin._set_capacity_limit = _set_capacity_limit
+        _cls = _make_tech_class(f"{_prefix}{_suffix}", sector_suffixed(_name, _sector), (_mixin,))
+        HEAT_PUMP_CLASSES_BY_SECTOR[_sector][f"{_level}_{'waste_heat' if _waste else 'water'}"] = _cls
+        globals()[_cls.__name__] = _cls
+
+    BOILER_CLASSES_BY_SECTOR[_sector] = []
+    for _prefix, _name, _fuel, _dea in _BOILER_SPECS:
+        _carrier_mixin = _boiler_carrier_methods(_name, _fuel, sector=_sector)
+        _cost_mixin = _dea_boiler_cost_methods(_name, _fuel) if _dea else _waste_boiler_cost_methods()
+        _cls = _make_tech_class(f"{_prefix}{_suffix}", sector_suffixed(_name, _sector), (_cost_mixin, _carrier_mixin))
+        BOILER_CLASSES_BY_SECTOR[_sector].append(_cls)
+        globals()[_cls.__name__] = _cls
+
+    CASCADE_CLASSES_BY_SECTOR[_sector] = []
+    for _prefix, _name, _out_level, _in_level, _served in _CASCADE_SPECS:
+        _mixin = _temp_conversion_methods(
+            heat_carrier_name(_out_level, _sector), heat_carrier_name(_in_level, _sector), _served, sector=_sector
+        )
+        _cls = _make_tech_class(f"{_prefix}{_suffix}", sector_suffixed(_name, _sector), (_mixin,))
+        CASCADE_CLASSES_BY_SECTOR[_sector].append(_cls)
+        globals()[_cls.__name__] = _cls
+
+    if _sector in KILN_FUEL_SECTORS:
+        KILN_FUEL_CLASSES_BY_SECTOR[_sector] = []
+        for _prefix, _name, _fuel, _cap in _KILN_SPECS:
+            _mixin = _kiln_fuel_methods(_fuel, with_diffusion_cap=_cap, sector=_sector)
+            _cls = _make_tech_class(f"{_prefix}{_suffix}", sector_suffixed(_name, _sector), (_mixin,))
+            KILN_FUEL_CLASSES_BY_SECTOR[_sector].append(_cls)
+            globals()[_cls.__name__] = _cls
+
+del _sector, _suffix, _prefix, _name, _dea_tech, _level, _waste, _cop, _mixin, _cls
+del _fuel, _dea, _carrier_mixin, _cost_mixin, _out_level, _in_level, _served, _cap

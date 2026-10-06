@@ -9,9 +9,12 @@ from zen_creator.utils.attribute import Attribute
 from zen_creator.utils.default_config import Config
 
 # import sectors (triggers auto-registration via __init_subclass__)
-from zen_creator.sectors.industry_heat import IndustryHeat  # noqa: F401
-from zen_creator.sectors.industry_low_temp_heat import IndustryLowTempHeat  # noqa: F401
-from zen_creator.sectors.industry_tes import IndustryTES  # noqa: F401
+from zen_creator.sectors.industry_heat import IndustryHeat, IndustryHeatPerSector  # noqa: F401
+from zen_creator.sectors.industry_low_temp_heat import (  # noqa: F401
+    IndustryLowTempHeat,
+    IndustryLowTempHeatPerSector,
+)
+from zen_creator.sectors.industry_tes import IndustryTES, IndustryTESPerSector  # noqa: F401
 from zen_creator.sectors.industry_dsm import (  # noqa: F401
     IndustryDSMOptimistic,
     IndustryDSMPessimistic,
@@ -43,7 +46,13 @@ output_path = Path(__file__).parent.parent / "outputs"
 # v10_0: temp-conversion/natural_gas_to_kilnfuel get capacity_existing + capacity_limit,
 # heat-tech max_diffusion_rate 0.13 (see ASSUMPTIONS.md, "Technology diffusion"); run
 # with interval_between_years = 2 (ZEN-models parameters.csv); industry HPs seeded via capacity_addition_unbounded.
-VERSION = "Crystal_Ball_ind_heat_v10_0"
+# v11_0: per-sector industry heat - every heat carrier/heat tech/TES exists once per sector,
+# boiler capacity_existing split by the sectors' own JRC-IDEES fuel mix (see ASSUMPTIONS.md,
+# "Per-sector industry heat (V11)"). Set PER_SECTOR_HEAT = False and VERSION = v10_0 for V10.
+PER_SECTOR_HEAT = True
+VERSION = "Crystal_Ball_ind_heat_v11_0" if PER_SECTOR_HEAT else "Crystal_Ball_ind_heat_v10_0"
+# Only these scenario suffixes are written (None = all of ALL_SCENARIOS).
+RUN_SUFFIXES: set[str] | None = {"_no_flexibility"}
 
 # Case-study scenarios: which sectors are active for each run.
 # industry_heat must come first in every combination: glass/ceramic/paper/food
@@ -53,7 +62,7 @@ VERSION = "Crystal_Ball_ind_heat_v10_0"
 # reruns the full-flexibility case with the pessimistic assumptions instead.
 MAIN_SECTORS = ["industry_heat", "industry_low_temp_heat", "industry_tes", "industry_dsm_optimistic"]
 
-SCENARIOS = [
+ALL_SCENARIOS = [
     ("", MAIN_SECTORS),  # full flexibility (main version)
     ("_no_flexibility", ["industry_heat", "industry_low_temp_heat"]),
     ("_DSM_only", ["industry_heat", "industry_low_temp_heat", "industry_dsm_optimistic"]),
@@ -76,6 +85,19 @@ SCENARIOS = [
 ]
 
 DIFFUSION_DISABLED_SUFFIXES = {"_nodiffusion", "_no_flexibility_nodiffusion"}
+
+# pooled industry heat sector -> its per-sector (V11) variant; DSM sectors are shared
+PER_SECTOR_HEAT_SECTORS = {
+    "industry_heat": "industry_heat_per_sector",
+    "industry_low_temp_heat": "industry_low_temp_heat_per_sector",
+    "industry_tes": "industry_tes_per_sector",
+}
+
+SCENARIOS = [
+    (suffix, [PER_SECTOR_HEAT_SECTORS.get(s, s) for s in sectors] if PER_SECTOR_HEAT else sectors)
+    for suffix, sectors in ALL_SCENARIOS
+    if RUN_SUFFIXES is None or suffix in RUN_SUFFIXES
+]
 
 
 def disable_diffusion_limits(model: Model) -> None:

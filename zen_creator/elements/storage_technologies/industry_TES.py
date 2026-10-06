@@ -5,6 +5,11 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from zen_creator.model import Model
 
+from zen_creator.datasets.datasets._industry_heat_utils import (
+    INDUSTRY_HEAT_SECTORS,
+    heat_carrier_name,
+    sector_suffixed,
+)
 from zen_creator.datasets.datasets.mayer2024 import Mayer2024Dataset
 from zen_creator.datasets.datasets.metadata import MetaData, SourceInformation
 from zen_creator.elements.storage_technologies.storage_technology import (
@@ -150,3 +155,41 @@ class IndustryTESSteam150200(_IndustryTESTechnology, StorageTechnology):
     _carrier_name = "heat_industry_150_200"
     _e2p_min = 0.25
     _e2p_max = 4.0
+
+
+# -- Per-sector TES (V11) --------------------------------------------------------
+# One copy of each TES technology per sector, on that sector's own heat carrier, so a
+# sector's storage can only buffer that sector's heat. Same parameters as the pooled
+# classes (the Mayer2024 lookup uses `base_tech_name`, the pooled technology's name).
+
+# (class-name prefix, pooled tech name, heat band)
+_TES_SPECS = (
+    ("IndustryTESWater0100", IndustryTESWater0100, "0_100"),
+    ("IndustryTESWater100150", IndustryTESWater100150, "100_150"),
+    ("IndustryTESSteam150200", IndustryTESSteam150200, "150_200"),
+)
+
+TES_CLASSES_BY_SECTOR: dict[str, list[type[StorageTechnology]]] = {}
+
+for _sector in INDUSTRY_HEAT_SECTORS:
+    TES_CLASSES_BY_SECTOR[_sector] = []
+    for _prefix, _base_cls, _band in _TES_SPECS:
+        _class_name = f"{_prefix}{_sector.capitalize()}"
+        _cls = type(
+            _class_name,
+            (_IndustryTESTechnology, StorageTechnology),
+            {
+                "__module__": __name__,
+                "__qualname__": _class_name,
+                "__doc__": f"{_base_cls.__doc__} Per-sector copy for {_sector}.",
+                "name": sector_suffixed(_base_cls.name, _sector),
+                "base_tech_name": _base_cls.name,
+                "_carrier_name": heat_carrier_name(_band, _sector),
+                "_e2p_min": _base_cls._e2p_min,
+                "_e2p_max": _base_cls._e2p_max,
+            },
+        )
+        TES_CLASSES_BY_SECTOR[_sector].append(_cls)
+        globals()[_class_name] = _cls
+
+del _sector, _prefix, _base_cls, _band, _class_name, _cls
