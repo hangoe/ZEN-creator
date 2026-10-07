@@ -52,7 +52,11 @@ output_path = Path(__file__).parent.parent / "outputs"
 PER_SECTOR_HEAT = True
 VERSION = "Crystal_Ball_ind_heat_v11_0" if PER_SECTOR_HEAT else "Crystal_Ball_ind_heat_v10_0"
 # Only these scenario suffixes are written (None = all of ALL_SCENARIOS).
-RUN_SUFFIXES: set[str] | None = {"_no_flexibility"}
+RUN_SUFFIXES: set[str] | None = {
+    "_no_flexibility",
+    "_no_flexibility_nodiffusion",
+    "_no_flexibility_diff_debug",
+}
 
 # Case-study scenarios: which sectors are active for each run.
 # industry_heat must come first in every combination: glass/ceramic/paper/food
@@ -79,12 +83,18 @@ ALL_SCENARIOS = [
     # combines _no_flexibility and _nodiffusion: no_flexibility sectors, with
     # every technology's max_diffusion_rate also overridden to inf
     ("_no_flexibility_nodiffusion", ["industry_heat", "industry_low_temp_heat"]),
+    # v11 debug (run 45): _no_flexibility with capacity_addition_unbounded scaled up
+    # for the industry heat pumps/boilers (scale_heat_capacity_addition_unbounded
+    # below), to test whether more diffusion headroom fixes the 2a-interval infeasibility
+    ("_no_flexibility_diff_debug", ["industry_heat", "industry_low_temp_heat"]),
     # combines _no_flexibility and _single_temp: no TES/DSM flexibility, and
     # only the highest (150-200) temperature band (no industry_low_temp_heat)
     ("_no_flex_single_temp", ["industry_heat"]),
 ]
 
 DIFFUSION_DISABLED_SUFFIXES = {"_nodiffusion", "_no_flexibility_nodiffusion"}
+DIFFUSION_DEBUG_SUFFIXES = {"_no_flexibility_diff_debug"}
+DIFFUSION_DEBUG_UNBOUNDED_FACTOR = 5.0
 
 # pooled industry heat sector -> its per-sector (V11) variant; DSM sectors are shared
 PER_SECTOR_HEAT_SECTORS = {
@@ -110,6 +120,26 @@ def disable_diffusion_limits(model: Model) -> None:
         technology.max_diffusion_rate = Attribute(
             "max_diffusion_rate", default_value=math.inf, unit="1", element=technology
         )
+
+
+def scale_heat_capacity_addition_unbounded(model: Model, factor: float) -> None:
+    """Multiply capacity_addition_unbounded by `factor`, in place, for the
+    per-sector industry heat pumps (heat_pump_industry_*_{sector}) and boilers
+    (*_boiler_industry_{sector}).
+
+    market_share_unbounded is one system-wide scalar (energy_system attribute),
+    so this per-technology attribute is the only heating-only lever. Boilers are
+    seeded with 0, so scaling leaves them at 0; only the heat pumps change.
+    Must run after model.build() and before model.write().
+    """
+    sectors = ("paper", "glass", "ceramic", "food")
+    for name, technology in model.technologies.items():
+        if not name.endswith(tuple(f"_{sector}" for sector in sectors)):
+            continue
+        if not (name.startswith("heat_pump_industry_") or "_boiler_industry_" in name):
+            continue
+        attribute = technology.capacity_addition_unbounded
+        attribute.default_value = attribute.default_value * factor
 
 
 def delete_old_outputs(path: Path, keep_names: set[str], prefix: str) -> None:
@@ -160,6 +190,8 @@ for suffix, sectors in SCENARIOS:
     model.build()
     if suffix in DIFFUSION_DISABLED_SUFFIXES:
         disable_diffusion_limits(model)
+    if suffix in DIFFUSION_DEBUG_SUFFIXES:
+        scale_heat_capacity_addition_unbounded(model, DIFFUSION_DEBUG_UNBOUNDED_FACTOR)
     model.name = f"{VERSION}{suffix}"
     model.output_folder = output_path
     model.write()
