@@ -7,7 +7,7 @@ from pathlib import Path
 from zen_creator.datasets.datasets._industry_heat_utils import MODEL_NODES
 from zen_creator.model import Model
 from zen_creator.utils.attribute import Attribute
-from zen_creator.utils.default_config import Config
+from zen_creator.utils.config import Config
 
 # import sectors (triggers auto-registration via __init_subclass__)
 from zen_creator.sectors.industry_heat import IndustryHeat, IndustryHeatPerSector  # noqa: F401

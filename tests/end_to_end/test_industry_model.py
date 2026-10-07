@@ -19,7 +19,7 @@ import pytest
 import zen_creator.elements.energy_systems.crystal_ball_industry as crystal_ball_industry
 from zen_creator.datasets.datasets._industry_heat_utils import INDUSTRY_HEAT_SECTORS
 from zen_creator.model import Model
-from zen_creator.utils.default_config import Config
+from zen_creator.utils.config import Config
 
 # import sectors (triggers auto-registration via __init_subclass__ into
 # Sector._sector_registry, which -- unlike Element._registry -- is NOT reset
