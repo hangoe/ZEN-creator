@@ -59,7 +59,7 @@ def dataset() -> DeaIndustrialHeatDataset:
     ("biomass_boiler_industry", "biomass"),
     ("coal_boiler_industry", "hard_coal"),
 ])
-def test_boiler_conversion_factor_is_inverse_efficiency(dataset, model, tech, carrier):
+def test_boiler_conversion_factor_is_inverse_efficiency(dataset, model, register_attribute, tech, carrier):
     """conversion_factor (GW input per GW output) must be >= 1 (efficiency <= 100%),
     and its reciprocal must be a plausible net efficiency (0, 1]."""
     from zen_creator.elements.conversion_technologies.industry_heat_supply import (
@@ -67,7 +67,7 @@ def test_boiler_conversion_factor_is_inverse_efficiency(dataset, model, tech, ca
     )
 
     element = NaturalGasBoilerIndustry(model=model)
-    attr = dataset.get_conversion_factor(element, tech, carrier)
+    attr = register_attribute(dataset.get_conversion_factor(element, tech, carrier))
     cf = attr.default_value[0][carrier]["default_value"]
     assert cf >= 1.0
     efficiency = 1.0 / cf
@@ -124,7 +124,7 @@ if __name__ == "__main__":
 
 
 @pytest.mark.parametrize("tech", ["heat_pump_industry_0_100", "heat_pump_industry_100_200"])
-def test_waste_heat_capex_adds_flat_recovery_addon_every_year(dataset, model, tech):
+def test_waste_heat_capex_adds_flat_recovery_addon_every_year(dataset, model, register_attribute, tech):
     from zen_creator.datasets.datasets.dea_industrial_heat import (
         WASTE_HEAT_RECOVERY_CAPEX_EUR_PER_KW,
     )
@@ -133,13 +133,14 @@ def test_waste_heat_capex_adds_flat_recovery_addon_every_year(dataset, model, te
     )
 
     element = HeatPumpIndustry0100WasteHeat(model=model)
-    base = dataset.get_capex_specific_conversion(element, tech)
-    waste = dataset.get_capex_specific_conversion(element, tech, waste_heat=True)
+    base = register_attribute(dataset.get_capex_specific_conversion(element, tech))
+    base_default, base_df = base.default_value, base.df["capex_specific_conversion"].to_numpy().copy()
+    waste = register_attribute(dataset.get_capex_specific_conversion(element, tech, waste_heat=True))
 
     assert WASTE_HEAT_RECOVERY_CAPEX_EUR_PER_KW == 1500.0
-    assert waste.default_value == pytest.approx(base.default_value + 1500.0)
+    assert waste.default_value == pytest.approx(base_default + 1500.0)
     assert waste.df["capex_specific_conversion"].to_numpy() == pytest.approx(
-        base.df["capex_specific_conversion"].to_numpy() + 1500.0
+        base_df + 1500.0
     )
 
 

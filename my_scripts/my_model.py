@@ -5,6 +5,7 @@ import shutil
 from pathlib import Path
 
 from zen_creator.datasets.datasets._industry_heat_utils import MODEL_NODES
+from zen_creator.datasets.datasets.process_parametrization import DH_HEAT_PUMP_EXISTING_EU_GW
 from zen_creator.model import Model
 from zen_creator.utils.attribute import Attribute
 from zen_creator.utils.config import Config
@@ -24,18 +25,19 @@ from zen_creator.sectors.industry_dsm import (  # noqa: F401
 # import energy system (triggers auto-registration via __init_subclass__);
 # extends carbon_emissions_budget to credit the industry sectors, see
 # carbon_budget_allocation.py and ASSUMPTIONS.md ("Carbon emissions budget")
-from zen_creator.elements.energy_systems.crystal_ball_industry import (  # noqa: F401
-    CrystalBallIndustryEnergySystem,
+from zen_creator.elements.energy_systems.zen_europe_industry import (  # noqa: F401
+    ZenEuropeIndustryEnergySystem,
 )
 
 logger = logging.getLogger(__name__)
 
-# Override with the ZEN_CRYSTAL_BALL_DATA_PATH env var to run this on another
-# machine/checkout without editing the script.
+# Base dataset: the zen-europe dataset (built by the ZEN-europe repo). Override with
+# the ZEN_EUROPE_DATA_PATH env var to run this on another machine/checkout without
+# editing the script.
 data_path = Path(
     os.environ.get(
-        "ZEN_CRYSTAL_BALL_DATA_PATH",
-        "/Users/hannegoericke/ZEN-models/data/Crystal_Ball",
+        "ZEN_EUROPE_DATA_PATH",
+        "/Users/hannegoericke/ZEN-europe/data/created_models/zen-europe",
     )
 )
 if not data_path.exists():
@@ -44,20 +46,18 @@ if not data_path.exists():
         "env var to point at a valid ZEN-garden input folder."
     )
 output_path = Path(__file__).parent.parent / "outputs"
-# v10_0: temp-conversion/natural_gas_to_kilnfuel get capacity_existing + capacity_limit,
-# heat-tech max_diffusion_rate 0.13 (see ASSUMPTIONS.md, "Technology diffusion"); run
-# with interval_between_years = 2 (ZEN-models parameters.csv); industry HPs seeded via capacity_addition_unbounded.
-# v11_0: per-sector industry heat - every heat carrier/heat tech/TES exists once per sector,
-# boiler capacity_existing split by the sectors' own JRC-IDEES fuel mix (see ASSUMPTIONS.md,
-# "Per-sector industry heat (V11)"). Set PER_SECTOR_HEAT = False and VERSION = v10_0 for V10.
+# zen_europe_ind_heat_v1: the V11 per-sector industry heat setup (every heat carrier/heat
+# tech/TES exists once per sector, boiler capacity_existing split by the sectors' own
+# JRC-IDEES fuel mix, see ASSUMPTIONS.md "Per-sector industry heat (V11)") rebuilt on the
+# zen-europe base dataset instead of Crystal Ball. zen-europe's own time setup is kept
+# (reference year 2022, interval_between_years = 4); diffusion limits are adapted to it.
+# Set PER_SECTOR_HEAT = False for the pooled (V10) heat setup.
 PER_SECTOR_HEAT = True
-VERSION = "Crystal_Ball_ind_heat_v11_0" if PER_SECTOR_HEAT else "Crystal_Ball_ind_heat_v10_0"
+VERSION = "zen_europe_ind_heat_v1" if PER_SECTOR_HEAT else "zen_europe_ind_heat_pooled_v1"
 # Only these scenario suffixes are written (None = all of ALL_SCENARIOS).
 RUN_SUFFIXES: set[str] | None = {
     "_no_flexibility",
     "_no_flexibility_nodiffusion",
-    "_no_flexibility_diff_debug",
-    "_no_flexibility_diff_debug2",
 }
 
 # Case-study scenarios: which sectors are active for each run.
@@ -103,6 +103,18 @@ BOILER_SEED_SUFFIXES = {"_no_flexibility_diff_debug2"}
 BOILER_SEED_REFERENCE_YEAR = 2020
 DIFFUSION_DEBUG_UNBOUNDED_FACTOR = 5.0
 
+# zen-europe base (interval_between_years = 4, heat_pump_DH fleet 2.426 GW) vs. the Crystal Ball
+# setup the heat-pump seed was tuned for (interval 2, 1.875 GW): ZEN-garden applies
+# capacity_addition_unbounded once per period, so the seed is scaled to keep the per-year
+# headroom. Applied here (not in zen_creator) after model.build().
+ZEN_EUROPE_DH_HEAT_PUMP_EXISTING_EU_GW = 2.4257409412123128
+INTERVAL_BETWEEN_YEARS = 4
+SEED_TUNED_INTERVAL = 2
+DIFFUSION_SEED_SCALE = INTERVAL_BETWEEN_YEARS / SEED_TUNED_INTERVAL
+HEAT_PUMP_SEED_FACTOR = (
+    ZEN_EUROPE_DH_HEAT_PUMP_EXISTING_EU_GW / DH_HEAT_PUMP_EXISTING_EU_GW * DIFFUSION_SEED_SCALE
+)
+
 # pooled industry heat sector -> its per-sector (V11) variant; DSM sectors are shared
 PER_SECTOR_HEAT_SECTORS = {
     "industry_heat": "industry_heat_per_sector",
@@ -129,6 +141,15 @@ def disable_diffusion_limits(model: Model) -> None:
         )
 
 
+def scale_heat_pump_seed(model: Model, factor: float) -> None:
+    """Multiply capacity_addition_unbounded of every industry heat pump by `factor`, in place.
+    Must run after model.build() and before model.write()."""
+    for name, technology in model.technologies.items():
+        if name.startswith("heat_pump_industry_"):
+            attribute = technology.capacity_addition_unbounded
+            attribute.default_value = attribute.default_value * factor
+
+
 def scale_heat_capacity_addition_unbounded(model: Model, factor: float) -> None:
     """Multiply capacity_addition_unbounded by `factor`, in place, for the
     per-sector industry heat pumps (heat_pump_industry_*_{sector}) and boilers
@@ -153,7 +174,7 @@ def seed_industry_boiler_capacity_addition_unbounded(model: Model) -> None:
     """Seed capacity_addition_unbounded for the per-sector industry boilers, in place,
     in the same pattern as the industry heat pumps (GW per node, same value at every
     node): capacity_existing still alive in BOILER_SEED_REFERENCE_YEAR (EU total) /
-    lifetime / number of nodes, i.e. the fleet's natural replacement rate. Boilers
+    lifetime / number of nodes, i.e. the fleet's natural replacement rate (scaled by DIFFUSION_SEED_SCALE for the 4-year interval). Boilers
     with no existing capacity stay at 0. Must run after model.build() and before
     model.write().
     """
@@ -168,7 +189,9 @@ def seed_industry_boiler_capacity_addition_unbounded(model: Model) -> None:
         lifetime = technology.lifetime.default_value
         vintages = existing.index.get_level_values("year_construction")
         alive_gw = float(existing[vintages + lifetime > BOILER_SEED_REFERENCE_YEAR].sum())
-        technology.capacity_addition_unbounded.default_value = alive_gw / lifetime / len(MODEL_NODES)
+        technology.capacity_addition_unbounded.default_value = (
+            alive_gw / lifetime / len(MODEL_NODES) * DIFFUSION_SEED_SCALE
+        )
 
 
 def delete_old_outputs(path: Path, keep_names: set[str], prefix: str) -> None:
@@ -200,7 +223,7 @@ delete_old_outputs(
 # system.json and inferring carriers per technology is real disk I/O, and
 # every scenario needs it with only `elements.insert.energy_system` differing.
 base_config = Config.load_from_existing_model(data_path)
-base_config.elements.insert.energy_system = "crystal_ball_industry_energy_system"
+base_config.elements.insert.energy_system = "zen_europe_industry_energy_system"
 
 for suffix, sectors in SCENARIOS:
     config = base_config.model_copy(deep=True)
@@ -223,6 +246,7 @@ for suffix, sectors in SCENARIOS:
         scale_heat_capacity_addition_unbounded(model, DIFFUSION_DEBUG_UNBOUNDED_FACTOR)
     if suffix in BOILER_SEED_SUFFIXES:
         seed_industry_boiler_capacity_addition_unbounded(model)
+    scale_heat_pump_seed(model, HEAT_PUMP_SEED_FACTOR)
     model.name = f"{VERSION}{suffix}"
     model.output_folder = output_path
     model.write()

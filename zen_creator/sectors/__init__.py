@@ -13,6 +13,11 @@ from zen_creator.elements import Element
 class Sector(ABC):
     name: str
     required_sectors: list[str] = []
+    # Sectors sharing a variant_group are mutually exclusive alternatives of one another
+    # (e.g. pooled vs. per-sector industry heat). An element declared by several sectors
+    # is added once every *distinct* sector/group is active; any single member satisfies
+    # its group. Activating two members of one group raises (Model.add_sector).
+    variant_group: str | None = None
     _sector_registry: dict[str, Type[Sector]] = {}
 
     def __init__(self) -> None:

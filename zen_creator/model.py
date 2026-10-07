@@ -747,6 +747,14 @@ class Model:
                 f"got '{type(sector_cls).__name__}' instead."
             )
 
+        clashing = self._active_variants_of(sector_cls)
+        if clashing:
+            raise ValueError(
+                f"Sector '{sector_cls.name}' is an alternative to the active sector(s) "
+                f"{sorted(clashing)} (variant group '{sector_cls.variant_group}'); "
+                "only one variant of a group can be active."
+            )
+
         logger.info(f"Add sector: {sector_cls.name} --------")
 
         self.sectors.add(sector_cls.name)
@@ -824,16 +832,40 @@ class Model:
                 owning.setdefault(element, set()).add(sector_cls.name)
         return owning
 
+    @staticmethod
+    def _sector_slot(sector_name: str) -> str:
+        """The membership slot of a sector: its variant group if it has one (all
+        variants of a group share a slot), otherwise its own name."""
+        group = Sector._sector_registry[sector_name].variant_group
+        return f"variant:{group}" if group else sector_name
+
+    def _active_variants_of(self, sector_cls: Type[Sector]) -> set[str]:
+        """Active sectors, other than `sector_cls` itself, in its variant group."""
+        if not sector_cls.variant_group:
+            return set()
+        return {
+            name
+            for name in self.sectors
+            if name != sector_cls.name
+            and Sector._sector_registry[name].variant_group == sector_cls.variant_group
+        }
+
     def _reconcile_sector_elements(self) -> None:
         """Add every sector-declared element whose declaring sectors are all
         active.
 
         An element declared by a single sector is added as soon as that
         sector is active. An element declared by several sectors (AND-membership)
-        is only added once every one of those sectors is active.
+        is only added once every one of those sectors is active, except that
+        sectors in the same ``variant_group`` are alternatives: one active variant
+        that declares the element satisfies the whole group.
         """
         for element_cls, owning_sectors in self._element_owning_sectors().items():
-            if owning_sectors <= self.sectors:
+            owners_by_slot: dict[str, set[str]] = {}
+            for name in owning_sectors:
+                owners_by_slot.setdefault(self._sector_slot(name), set()).add(name)
+            # every slot needs an active sector that itself declares the element
+            if all(owners & self.sectors for owners in owners_by_slot.values()):
                 if element_cls.name not in self.elements:
                     self.add_element(element_cls)
 

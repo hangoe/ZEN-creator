@@ -21,6 +21,7 @@ from zen_creator.elements.storage_technologies.industry_TES import (
 
 class IndustryTES(Sector):
     name = "industry_tes"
+    variant_group = "industry_tes"
 
     def __init__(self):
         super().__init__()
@@ -36,6 +37,7 @@ class IndustryTESPerSector(Sector):
     on that sector's heat carrier. Requires industry_heat_per_sector."""
 
     name = "industry_tes_per_sector"
+    variant_group = "industry_tes"
 
     def __init__(self):
         super().__init__()

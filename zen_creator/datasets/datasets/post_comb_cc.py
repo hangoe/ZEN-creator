@@ -202,7 +202,12 @@ class PostCombCCDataset(Dataset[pd.DataFrame]):
         CO2 tracked separately via the fuel carriers it consumes. See
         ASSUMPTIONS.md for the caveat this implies.
         """
-        base_intensity = ProcessParametrizationDataset().get_carbon_intensity_technology(element, sector).default_value
+        # Read the raw value (`_default_value`), not `.default_value`: the attribute belongs to
+        # this retrofit element, so `.default_value` would be redirected to the retrofit's own
+        # carbon_intensity_technology (0 by design) instead of the base production tech's.
+        base_intensity = ProcessParametrizationDataset().get_carbon_intensity_technology(
+            element, sector
+        )._default_value
         capture_rate = _value_2020(_CAPTURE_RATE_LABEL) / 100.0
         factor = round(base_intensity * capture_rate / 1000.0, 12)  # ton/tonproduct -> kiloton/tonproduct
         attr = Attribute("retrofit_flow_coupling_factor", element=element)

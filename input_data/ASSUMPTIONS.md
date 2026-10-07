@@ -947,6 +947,13 @@ carrier, the technology itself included) and `capacity_addition_unbounded`.
   comparing against runs with another interval. A longer interval (e.g. 5 years) shrinks the
   per-year headroom further.
 
+- **zen-europe base, 4-year interval (zen_europe_ind_heat_v1).** The extended dataset is
+  built on zen-europe (reference year 2022, `interval_between_years = 4`) instead of
+  Crystal Ball (2020, interval 2). `max_diffusion_rate` stays 0.13 per year (the knowledge
+  term compounds with `dy`). The per-period terms are not compounded, so `my_scripts/my_model.py`
+  scales the heat-pump seed after `build()` by 4 / 2 and by zen-europe's `heat_pump_DH` fleet
+  (2.426 GW vs. 1.875 GW); the market-share term (2% of peers) cannot be rescaled per technology.
+
 ## Per-sector industry heat (V11)
 
 V10 pools the industry heat chain of the four low-temperature sectors (glass, ceramic,
@@ -1335,8 +1342,8 @@ chemicals, steel, cement). That figure does not credit the glass/ceramic/paper/f
 sectors added in this model (via `industry_heat`), since they were not part of her
 case study.
 
-`CrystalBallIndustryEnergySystem` (`zen_creator/elements/energy_systems/
-crystal_ball_industry.py`, wired in via `my_scripts/my_model.py`) extends the budget:
+`ZenEuropeIndustryEnergySystem` (`zen_creator/elements/energy_systems/
+zen_europe_industry.py`, wired in via `my_scripts/my_model.py`) extends the budget:
 
 ```
 new_budget = old_budget × (1 + E_new_sectors / E_old_sectors)

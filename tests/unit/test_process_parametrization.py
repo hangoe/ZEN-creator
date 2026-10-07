@@ -107,7 +107,7 @@ def test_get_heat_capacity_split_sums_to_one(dataset):
     assert all(v >= 0 for v in split.values())
 
 
-def test_get_waste_heat_capacity_limit_sums_to_level_independent_total(dataset, model):
+def test_get_waste_heat_capacity_limit_sums_to_level_independent_total(dataset, model, register_attribute):
     """capacity_limit at each level = total high-temp waste heat x share_at_level,
     where the three levels' shares (per sector) sum to 1 -- so summed *across* the
     three levels, the per-node total must equal sum_s demand[s] x cf_fuel[s],
@@ -125,8 +125,8 @@ def test_get_waste_heat_capacity_limit_sums_to_level_independent_total(dataset, 
     element = HeatPumpIndustry0100WasteHeat(model=model)
     dfs = {}
     for level in ("0_100", "100_150", "150_200"):
-        attr = dataset.get_waste_heat_capacity_limit(element, level)
-        dfs[level] = attr.df["capacity_limit"]
+        attr = register_attribute(dataset.get_waste_heat_capacity_limit(element, level))
+        dfs[level] = attr.df["capacity_limit"].copy()
         assert (dfs[level] >= 0).all()
 
     summed = dfs["0_100"] + dfs["100_150"] + dfs["150_200"]

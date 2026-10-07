@@ -54,8 +54,8 @@ Elements
 - ``zen_creator/elements/storage_technologies/industry_TES.py`` and
   ``industry_DSM.py`` -- thermal storage and demand-side-management
   technologies.
-- ``zen_creator/elements/energy_systems/crystal_ball_industry.py`` --
-  ``CrystalBallIndustryEnergySystem``, which extends the Crystal Ball base
+- ``zen_creator/elements/energy_systems/zen_europe_industry.py`` --
+  ``ZenEuropeIndustryEnergySystem``, which extends the Crystal Ball base
   model's carbon emissions budget to credit the new sectors.
 
 Datasets
@@ -70,7 +70,7 @@ boiler cost data), ``eurostat_boiler.py`` (Eurostat gross heat production),
 ``waste_boiler_dh_proxy.py`` (carbon capture and waste-boiler proxies),
 ``mayer2024.py`` and ``liu2025.py`` (thermal/ammonia storage literature
 data), and ``carbon_budget_allocation.py`` (the carbon budget extension used
-by ``CrystalBallIndustryEnergySystem``). ``_industry_heat_utils.py``
+by ``ZenEuropeIndustryEnergySystem``). ``_industry_heat_utils.py``
 consolidates the shared unit-conversion, weighted-average, and per-node
 capacity/demand helpers these datasets build on.
 

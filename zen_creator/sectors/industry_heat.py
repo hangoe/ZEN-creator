@@ -48,6 +48,7 @@ from zen_creator.elements.conversion_technologies.industry_heat_supply import (
 
 class IndustryHeat(Sector):
     name = "industry_heat"
+    variant_group = "industry_heat"
 
     def __init__(self):
         super().__init__()
@@ -86,6 +87,7 @@ class IndustryHeatPerSector(Sector):
     pooled sectors (see ASSUMPTIONS.md, "Per-sector industry heat (V11)")."""
 
     name = "industry_heat_per_sector"
+    variant_group = "industry_heat"
 
     def __init__(self):
         super().__init__()

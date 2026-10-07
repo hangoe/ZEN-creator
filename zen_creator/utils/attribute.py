@@ -247,6 +247,9 @@ class Attribute:
         Raises:
             ValueError: If the value type is not valid for this attribute.
         """
+        if value is None:
+            # attributes are created empty and filled later (e.g. via set_data)
+            return
         if isinstance(value, list):
             self._validate_list_default_value(value)
         elif self.name in _ATTRIBUTES_REQUIRING_INT:

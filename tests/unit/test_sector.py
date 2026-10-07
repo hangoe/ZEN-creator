@@ -1,4 +1,4 @@
-"""Unit tests for the Sector mechanism: required_sectors and AND-membership."""
+"""Unit tests for the Sector mechanism: required_sectors, AND-membership and variant groups."""
 
 from __future__ import annotations
 
@@ -10,6 +10,9 @@ from zen_creator.elements.conversion_technologies.aa_template import (
 )
 from zen_creator.elements.storage_technologies.aa_template import (
     TemplateStorageTechnology,
+)
+from zen_creator.elements.transport_technologies.aa_template import (
+    TemplateTransportTechnology,
 )
 from zen_creator.model import Model
 from zen_creator.sectors import Sector
@@ -60,6 +63,38 @@ class _SharedSectorB(Sector):
         self.elements = [TemplateConversionTechnology]
 
 
+# The sector registry is global, so the variant-group tests use an element
+# (TemplateTransportTechnology) no other test sector declares.
+class _VariantSectorPooled(Sector):
+    """Pooled variant; shares its element with the per-sector variant and a third sector."""
+
+    name = "test_variant_pooled"
+    variant_group = "test_variant"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.elements = [TemplateTransportTechnology]
+
+
+class _VariantSectorPerSector(Sector):
+    name = "test_variant_per_sector"
+    variant_group = "test_variant"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.elements = [TemplateTransportTechnology]
+
+
+class _VariantOtherSector(Sector):
+    """Declares the same element as the variant group but is not part of it."""
+
+    name = "test_variant_other"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.elements = [TemplateTransportTechnology]
+
+
 def test_initialize_sectors_raises_on_missing_required_sector(model: Model) -> None:
     """Selecting a sector without its required sector raises ValueError."""
     with pytest.raises(ValueError, match="test_root"):
@@ -92,6 +127,32 @@ def test_and_membership_is_order_independent(model: Model) -> None:
 
     model.add_sector_by_name("test_shared_a")
     assert TemplateConversionTechnology.name in model.elements
+
+
+@pytest.mark.parametrize("variant", ["test_variant_pooled", "test_variant_per_sector"])
+def test_variants_of_a_group_satisfy_shared_element_alone(
+    model: Model, variant: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An element shared only by variants of one group is added with either variant."""
+    monkeypatch.delitem(Sector._sector_registry, "test_variant_other")
+    model.add_sector_by_name(variant)
+    assert TemplateTransportTechnology.name in model.elements
+
+
+def test_variant_group_still_ands_with_other_sectors(model: Model) -> None:
+    """A group counts as one slot: an element also declared outside the group still
+    needs that other sector."""
+    model.add_sector_by_name("test_variant_per_sector")
+    assert TemplateTransportTechnology.name not in model.elements
+
+    model.add_sector_by_name("test_variant_other")
+    assert TemplateTransportTechnology.name in model.elements
+
+
+def test_two_variants_of_one_group_cannot_be_active_together(model: Model) -> None:
+    model.add_sector_by_name("test_variant_pooled")
+    with pytest.raises(ValueError, match="only one variant"):
+        model.add_sector_by_name("test_variant_per_sector")
 
 
 def test_remove_sector_by_name(model: Model) -> None:

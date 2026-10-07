@@ -13,8 +13,8 @@ from zen_creator.utils.attribute import Attribute
 from .energy_system import EnergySystem
 
 
-class CrystalBallIndustryEnergySystem(EnergySystem):
-    """Energy system for the Crystal Ball model extended with industry sectors.
+class ZenEuropeIndustryEnergySystem(EnergySystem):
+    """Energy system for the zen-europe model extended with industry sectors.
 
     Behaves like `GenericEnergySystem` (set_nodes/set_edges pass through the values
     loaded via `Model.from_existing`), except `carbon_emissions_budget` is extended
@@ -23,7 +23,7 @@ class CrystalBallIndustryEnergySystem(EnergySystem):
     emissions budget") for the full derivation.
     """
 
-    name: str = "crystal_ball_industry_energy_system"
+    name: str = "zen_europe_industry_energy_system"
 
     def __init__(self, model: Model):
         super().__init__(model=model)

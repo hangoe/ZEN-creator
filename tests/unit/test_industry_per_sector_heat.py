@@ -193,11 +193,16 @@ def test_hp_seed_total_over_all_variants_equals_dh_snapshot(model: Model):
 
 
 @pytest.mark.parametrize("level", HEAT_TEMP_LEVELS)
-def test_waste_heat_limit_sums_to_pooled(level, model: Model):
+def test_waste_heat_limit_sums_to_pooled(level, model: Model, register_attribute):
     param = ProcessParametrizationDataset()
     element = HeatPumpIndustry150200WasteHeat(model=model)
-    pooled = param.get_waste_heat_capacity_limit(element, level).df["capacity_limit"]
-    parts = [param.get_waste_heat_capacity_limit(element, level, s).df["capacity_limit"] for s in INDUSTRY_HEAT_SECTORS]
+
+    def limit(sector=None):
+        attr = param.get_waste_heat_capacity_limit(element, level, sector)
+        return register_attribute(attr).df["capacity_limit"].copy()
+
+    pooled = limit()
+    parts = [limit(s) for s in INDUSTRY_HEAT_SECTORS]
     pd.testing.assert_series_equal(sum(parts), pooled, check_names=False, rtol=1e-9)
     # a sector's waste heat can only be used by its own heat pumps, so each part is below the pool
     for part in parts:

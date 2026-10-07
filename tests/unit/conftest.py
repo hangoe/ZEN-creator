@@ -41,3 +41,23 @@ def model(tmp_path: Path, request: pytest.FixtureRequest) -> Model:
     model.output_folder = tmp_path / "outputs"
     model.source_path = tmp_path
     return model
+
+
+@pytest.fixture
+def register_attribute():
+    """Register a standalone dataset-built Attribute on its element as already built.
+
+    ``Attribute`` data reads (``.df``, ``.default_value``) are redirected to the attribute
+    currently registered on the element (auto-building the element's own ``_set_<name>``
+    first). A test that calls a dataset method directly, with a non-default argument, would
+    otherwise read the element's own value instead of the returned one. In production
+    ``Element._build_attribute`` does exactly this registration.
+    """
+
+    def _register(attribute):
+        element = attribute.element
+        setattr(element, attribute.name, attribute)
+        element._built_attribute_names.add(attribute.name)
+        return attribute
+
+    return _register

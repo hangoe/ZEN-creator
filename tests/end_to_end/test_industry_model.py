@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-import zen_creator.elements.energy_systems.crystal_ball_industry as crystal_ball_industry
+import zen_creator.elements.energy_systems.zen_europe_industry as zen_europe_industry
 from zen_creator.datasets.datasets._industry_heat_utils import INDUSTRY_HEAT_SECTORS
 from zen_creator.model import Model
 from zen_creator.utils.config import Config
@@ -38,15 +38,15 @@ PER_SECTOR_MAIN_SECTORS = [
 
 def _build_industry_model(tmp_path: Path, sectors: list[str] = MAIN_SECTORS) -> Model:
     # reset_element_registry (conftest.py) clears Registry._registry before this
-    # test runs, which also wipes CrystalBallIndustryEnergySystem's registration
-    # under "crystal_ball_industry_energy_system" -- reload to re-trigger
+    # test runs, which also wipes ZenEuropeIndustryEnergySystem's registration
+    # under "zen_europe_industry_energy_system" -- reload to re-trigger
     # __init_subclass__ and restore it, the same pattern test_from_existing_with_config
     # uses for existing_model_elements.
-    importlib.reload(crystal_ball_industry)
+    importlib.reload(zen_europe_industry)
 
     existing_model_path = Path(".//tests//end_to_end//fixtures//crystal_ball")
     config = Config.load_from_existing_model(existing_model_path)
-    config.elements.insert.energy_system = "crystal_ball_industry_energy_system"
+    config.elements.insert.energy_system = "zen_europe_industry_energy_system"
 
     model = Model.from_existing(existing_model_path=existing_model_path, config=config)
     for sector_name in sectors:
@@ -63,8 +63,8 @@ def test_full_industry_model_builds_and_writes(tmp_path: Path):
 
     # the custom energy system was actually used, and its carbon budget was
     # extended beyond the base fixture's value (see carbon_budget_allocation.py)
-    assert model.energy_system.__class__.__name__ == "CrystalBallIndustryEnergySystem"
-    assert model.energy_system.carbon_emissions_budget.default_value > 23.152036605496253
+    assert model.energy_system.__class__.__name__ == "ZenEuropeIndustryEnergySystem"
+    assert model.energy_system.carbon_emissions_budget.default_value > 22.586810231692006
 
     # every carrier/technology from all four sectors is present, alongside the
     # base fixture's own elements (e.g. photovoltaics, natural_gas)
@@ -80,20 +80,20 @@ def test_full_industry_model_builds_and_writes(tmp_path: Path):
 
     model.write()
     written = model.output_folder / model.name
-    assert (written / "system.json").exists()
-    assert (written / "set_carriers" / "glass" / "attributes.json").exists()
-    assert (written / "set_technologies" / "set_conversion_technologies" / "glass_production" / "attributes.json").exists()
-    assert (written / "set_technologies" / "set_storage_technologies" / "industry_TES_water_0_100" / "attributes.json").exists()
+    assert (written / "system.yaml").exists()
+    assert (written / "set_carriers" / "glass" / "attributes.yaml").exists()
+    assert (written / "set_technologies" / "set_conversion_technologies" / "glass_production" / "attributes.yaml").exists()
+    assert (written / "set_technologies" / "set_storage_technologies" / "industry_TES_water_0_100" / "attributes.yaml").exists()
 
 
 def test_single_temp_scenario_omits_low_temp_heat_pumps(tmp_path: Path):
     """The single_temp scenario variant (my_scripts/my_model.py) drops
     industry_low_temp_heat -- confirm that composition also works, and that
     the 0-100/100-150 heat pumps are then genuinely absent."""
-    importlib.reload(crystal_ball_industry)
+    importlib.reload(zen_europe_industry)
     existing_model_path = Path(".//tests//end_to_end//fixtures//crystal_ball")
     config = Config.load_from_existing_model(existing_model_path)
-    config.elements.insert.energy_system = "crystal_ball_industry_energy_system"
+    config.elements.insert.energy_system = "zen_europe_industry_energy_system"
 
     model = Model.from_existing(existing_model_path=existing_model_path, config=config)
     for sector_name in ("industry_heat", "industry_tes", "industry_dsm_optimistic"):
@@ -138,8 +138,8 @@ def test_full_industry_model_per_sector_heat_builds_and_writes(tmp_path: Path):
     model.write()
     written = model.output_folder / model.name
     techs = written / "set_technologies" / "set_conversion_technologies"
-    assert (techs / "natural_gas_boiler_industry_paper" / "attributes.json").exists()
-    assert (written / "set_carriers" / "heat_industry_150_200_food" / "attributes.json").exists()
+    assert (techs / "natural_gas_boiler_industry_paper" / "attributes.yaml").exists()
+    assert (written / "set_carriers" / "heat_industry_150_200_food" / "attributes.yaml").exists()
     assert not (written / "set_carriers" / "heat_industry_150_200").exists()
 
 

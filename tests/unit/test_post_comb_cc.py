@@ -59,9 +59,10 @@ def test_get_retrofit_flow_coupling_factor_matches_formula(dataset, model):
     from zen_creator.elements.conversion_technologies.industry_ccs import CeramicPostComb
 
     element = CeramicPostComb(model=model)
+    # raw value: .default_value would redirect to the retrofit's own (zero) intensity
     base_intensity = ProcessParametrizationDataset().get_carbon_intensity_technology(
         element, "ceramic"
-    ).default_value
+    )._default_value
     attr = dataset.get_retrofit_flow_coupling_factor(element, "ceramic")
 
     capture_rate = attr.default_value * 1000.0 / base_intensity if base_intensity else 0.0

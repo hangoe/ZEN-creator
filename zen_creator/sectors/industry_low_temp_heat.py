@@ -25,6 +25,7 @@ from zen_creator.elements.conversion_technologies.industry_heat_supply import (
 
 class IndustryLowTempHeat(Sector):
     name = "industry_low_temp_heat"
+    variant_group = "industry_low_temp_heat"
 
     def __init__(self):
         super().__init__()
@@ -39,6 +40,7 @@ class IndustryLowTempHeatPerSector(Sector):
     once per sector, on that sector's heat carriers. Requires industry_heat_per_sector."""
 
     name = "industry_low_temp_heat_per_sector"
+    variant_group = "industry_low_temp_heat"
 
     def __init__(self):
         super().__init__()

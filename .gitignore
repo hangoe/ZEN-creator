@@ -1,6 +1,7 @@
 raw_data/
 test.py
 tests/end_to_end/outputs
+outputs/zen_europe_ind_heat_v1_no_flexibility/
 
 # generated model output, regenerate via my_scripts/my_model.py
 # temporarily tracked in git, see outputs/ commit
