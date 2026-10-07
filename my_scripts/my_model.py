@@ -4,6 +4,7 @@ import os
 import shutil
 from pathlib import Path
 
+from zen_creator.datasets.datasets._industry_heat_utils import MODEL_NODES
 from zen_creator.model import Model
 from zen_creator.utils.attribute import Attribute
 from zen_creator.utils.default_config import Config
@@ -56,6 +57,7 @@ RUN_SUFFIXES: set[str] | None = {
     "_no_flexibility",
     "_no_flexibility_nodiffusion",
     "_no_flexibility_diff_debug",
+    "_no_flexibility_diff_debug2",
 }
 
 # Case-study scenarios: which sectors are active for each run.
@@ -87,13 +89,18 @@ ALL_SCENARIOS = [
     # for the industry heat pumps/boilers (scale_heat_capacity_addition_unbounded
     # below), to test whether more diffusion headroom fixes the 2a-interval infeasibility
     ("_no_flexibility_diff_debug", ["industry_heat", "industry_low_temp_heat"]),
+    # run 46: diff_debug plus capacity_addition_unbounded seeded for the industry boilers
+    # (seed_industry_boiler_capacity_addition_unbounded below)
+    ("_no_flexibility_diff_debug2", ["industry_heat", "industry_low_temp_heat"]),
     # combines _no_flexibility and _single_temp: no TES/DSM flexibility, and
     # only the highest (150-200) temperature band (no industry_low_temp_heat)
     ("_no_flex_single_temp", ["industry_heat"]),
 ]
 
 DIFFUSION_DISABLED_SUFFIXES = {"_nodiffusion", "_no_flexibility_nodiffusion"}
-DIFFUSION_DEBUG_SUFFIXES = {"_no_flexibility_diff_debug"}
+DIFFUSION_DEBUG_SUFFIXES = {"_no_flexibility_diff_debug", "_no_flexibility_diff_debug2"}
+BOILER_SEED_SUFFIXES = {"_no_flexibility_diff_debug2"}
+BOILER_SEED_REFERENCE_YEAR = 2020
 DIFFUSION_DEBUG_UNBOUNDED_FACTOR = 5.0
 
 # pooled industry heat sector -> its per-sector (V11) variant; DSM sectors are shared
@@ -140,6 +147,28 @@ def scale_heat_capacity_addition_unbounded(model: Model, factor: float) -> None:
             continue
         attribute = technology.capacity_addition_unbounded
         attribute.default_value = attribute.default_value * factor
+
+
+def seed_industry_boiler_capacity_addition_unbounded(model: Model) -> None:
+    """Seed capacity_addition_unbounded for the per-sector industry boilers, in place,
+    in the same pattern as the industry heat pumps (GW per node, same value at every
+    node): capacity_existing still alive in BOILER_SEED_REFERENCE_YEAR (EU total) /
+    lifetime / number of nodes, i.e. the fleet's natural replacement rate. Boilers
+    with no existing capacity stay at 0. Must run after model.build() and before
+    model.write().
+    """
+    sectors = ("paper", "glass", "ceramic", "food")
+    for name, technology in model.technologies.items():
+        if not name.endswith(tuple(f"_{sector}" for sector in sectors)) or "_boiler_industry_" not in name:
+            continue
+        existing = technology.capacity_existing.df
+        if existing is None:
+            continue
+        existing = existing.iloc[:, 0] if hasattr(existing, "columns") else existing
+        lifetime = technology.lifetime.default_value
+        vintages = existing.index.get_level_values("year_construction")
+        alive_gw = float(existing[vintages + lifetime > BOILER_SEED_REFERENCE_YEAR].sum())
+        technology.capacity_addition_unbounded.default_value = alive_gw / lifetime / len(MODEL_NODES)
 
 
 def delete_old_outputs(path: Path, keep_names: set[str], prefix: str) -> None:
@@ -192,6 +221,8 @@ for suffix, sectors in SCENARIOS:
         disable_diffusion_limits(model)
     if suffix in DIFFUSION_DEBUG_SUFFIXES:
         scale_heat_capacity_addition_unbounded(model, DIFFUSION_DEBUG_UNBOUNDED_FACTOR)
+    if suffix in BOILER_SEED_SUFFIXES:
+        seed_industry_boiler_capacity_addition_unbounded(model)
     model.name = f"{VERSION}{suffix}"
     model.output_folder = output_path
     model.write()
