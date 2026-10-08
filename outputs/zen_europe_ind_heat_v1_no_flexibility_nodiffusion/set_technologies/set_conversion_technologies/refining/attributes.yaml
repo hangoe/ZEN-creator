@@ -1,0 +1,68 @@
+reference_carrier:
+  default_value:
+  - oil
+lifetime:
+  default_value: 30.0
+  unit: '1'
+construction_time:
+  default_value: 0.0
+  unit: '1'
+capacity_addition_min:
+  default_value: 0.0
+  unit: MW
+capacity_addition_max:
+  default_value: inf
+  unit: MW
+capacity_addition_unbounded:
+  default_value: 0.0
+  unit: MW
+capacity_existing:
+  default_value: 0.0
+  unit: GW
+capacity_limit:
+  default_value: inf
+  unit: MW
+capacity_lower_limit:
+  default_value: 0.0
+  unit: MW
+min_load:
+  default_value: 0.0
+  unit: '1'
+max_load:
+  default_value: 1.0
+  unit: '1'
+opex_specific_variable:
+  default_value: 0.6086519818992968
+  unit: Euro/MWh
+opex_specific_fixed:
+  default_value: 0.00013679618519693958
+  unit: Euro/MW
+carbon_intensity_technology:
+  default_value: 0.0
+  unit: kilotons/MWh
+capacity_investment_existing:
+  default_value: 0.0
+  unit: MW
+max_diffusion_rate:
+  default_value: inf
+  unit: '1'
+input_carrier:
+  default_value:
+  - crude_oil
+  - hydrogen
+output_carrier:
+  default_value:
+  - oil
+capex_specific_conversion:
+  default_value: 0.006985337116439467
+  unit: Euro/MW
+conversion_factor:
+- crude_oil:
+    default_value: 1.0
+    unit: GW/GW
+  hydrogen:
+    default_value: 0.044196033
+    unit: GW/GW
+min_full_load_hours_fraction:
+  default_value: 0.0
+  unit: '1'

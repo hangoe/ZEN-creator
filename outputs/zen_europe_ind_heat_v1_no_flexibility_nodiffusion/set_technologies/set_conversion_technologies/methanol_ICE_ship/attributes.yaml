@@ -1,0 +1,64 @@
+reference_carrier:
+  default_value:
+  - shipping
+lifetime:
+  default_value: 30.0
+  unit: '1'
+construction_time:
+  default_value: 0.0
+  unit: '1'
+capacity_addition_min:
+  default_value: 0.0
+  unit: MW
+capacity_addition_max:
+  default_value: inf
+  unit: MW
+capacity_addition_unbounded:
+  default_value: 0.0
+  unit: MW
+capacity_existing:
+  default_value: 0.0
+  unit: MW
+capacity_limit:
+  default_value: inf
+  unit: MW
+capacity_lower_limit:
+  default_value: 0.0
+  unit: MW
+min_load:
+  default_value: 0.0
+  unit: '1'
+max_load:
+  default_value: 0.4520547945205479
+  unit: '1'
+opex_specific_variable:
+  default_value: 4.924342355925936
+  unit: Euro/MWh
+opex_specific_fixed:
+  default_value: 15.388569862268552
+  unit: Euro/kW
+carbon_intensity_technology:
+  default_value: 0.0
+  unit: kilotons/MWh
+capacity_investment_existing:
+  default_value: 0.0
+  unit: MW
+max_diffusion_rate:
+  default_value: inf
+  unit: '1'
+input_carrier:
+  default_value:
+  - methanol
+output_carrier:
+  default_value:
+  - shipping
+capex_specific_conversion:
+  default_value: 615.542794490742
+  unit: Euro/kW
+conversion_factor:
+- methanol:
+    default_value: 2.2222222222222223
+    unit: GWh/GWh
+min_full_load_hours_fraction:
+  default_value: 0.0
+  unit: '1'
