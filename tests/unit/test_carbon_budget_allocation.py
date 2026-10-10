@@ -16,7 +16,8 @@ from zen_creator.elements.energy_systems.zen_europe_industry import (
 from zen_creator.model import Model
 from zen_creator.utils.attribute import Attribute
 
-OLD_BUDGET_VALUE = 23.152036605496253
+# zen-europe base budget (energy_system/attributes.yaml of the zen-europe dataset)
+OLD_BUDGET_VALUE = 22.586810231692006
 
 
 def _old_budget(energy_system) -> SimpleNamespace:
@@ -56,29 +57,29 @@ def test_old_and_new_sector_emissions_from_real_data():
 
 
 def test_get_carbon_emissions_budget_variant_b(model: Model):
-    """Variant B (chosen default) extends the budget to ~24.5869 Gt."""
+    """Variant B (chosen default) extends the budget to ~23.9867 Gt."""
     energy_system = ZenEuropeIndustryEnergySystem(model=model)
     dataset = Mannhardt2026CarbonBudgetDataset()
 
     new_budget = _extend_budget(dataset, energy_system, "B")
 
-    assert new_budget.default_value == pytest.approx(24.5869, abs=1e-3)
+    assert new_budget.default_value == pytest.approx(23.9867, abs=1e-3)
     assert new_budget.unit == "gigatons"
     assert len(new_budget.sources) == 1
 
 
 def test_get_carbon_emissions_budget_variant_a(model: Model):
-    """Variant A (zero increment for glass/ceramics) extends the budget to ~23.7352 Gt."""
+    """Variant A (zero increment for glass/ceramics) extends the budget to ~23.1557 Gt."""
     energy_system = ZenEuropeIndustryEnergySystem(model=model)
     dataset = Mannhardt2026CarbonBudgetDataset()
 
     new_budget = _extend_budget(dataset, energy_system, "A")
 
-    assert new_budget.default_value == pytest.approx(23.7352, abs=1e-3)
+    assert new_budget.default_value == pytest.approx(23.1557, abs=1e-3)
 
 
 def test_get_carbon_emissions_budget_variant_c(model: Model):
-    """Variant C (process-only for glass/ceramics) extends the budget to ~23.8691 Gt,
+    """Variant C (process-only for glass/ceramics) extends the budget to ~23.2864 Gt,
     via the actual code path used when variant C is selected (unlike
     test_old_and_new_sector_emissions_from_real_data, which checks
     get_new_sector_emissions("C") in isolation).
@@ -88,7 +89,7 @@ def test_get_carbon_emissions_budget_variant_c(model: Model):
 
     new_budget = _extend_budget(dataset, energy_system, "C")
 
-    assert new_budget.default_value == pytest.approx(23.8691, abs=1e-3)
+    assert new_budget.default_value == pytest.approx(23.2864, abs=1e-3)
 
 
 def test_get_carbon_emissions_budget_zero_new_sectors_is_a_noop(model: Model):

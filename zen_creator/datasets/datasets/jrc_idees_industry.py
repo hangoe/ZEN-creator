@@ -97,7 +97,7 @@ class JrcIdeesIndustryDataset(Dataset[pd.DataFrame]):
     def get_ceramic_demand_as_capacity_existing(self, element: Element, year: int) -> Attribute:
         """Ceramic demand set equal to capacity_existing (FEC-derived production volume)."""
         df = ceramic_demand_from_fec_df(year)
-        demand_series = df.set_index("node")["kt_yr"] * 1000 / OPERATING_HOURS
+        demand_series = (df.set_index("node")["kt_yr"] * 1000 / OPERATING_HOURS).rename("demand")
         attr = Attribute("demand", default_value=0.0, unit="tonproduct/hour", element=element)
         attr.set_data(
             df=demand_series,

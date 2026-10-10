@@ -581,7 +581,7 @@ def _apply_population_proxy(values: dict[str, float]) -> dict[str, float]:
 # Lifetimes (years) used to spread existing capacity across vintage cohorts.
 # Production tech lifetimes from process_parametrization.xlsx / JRC-EU-TIMES (see ASSUMPTIONS.md).
 # Boiler lifetimes from heat_tech_parametrization.xlsx (Crystal Ball values).
-SECTOR_LIFETIMES: dict[str, int] = {"glass": 28, "ceramic": 20, "paper": 25, "food": 20}
+SECTOR_LIFETIMES: dict[str, int] = {"glass": 28, "ceramic": 25, "paper": 25, "food": 20}
 BOILER_LIFETIMES: dict[str, int] = {
     "biomass_boiler_industry": 25,
     "natural_gas_boiler_industry": 25,

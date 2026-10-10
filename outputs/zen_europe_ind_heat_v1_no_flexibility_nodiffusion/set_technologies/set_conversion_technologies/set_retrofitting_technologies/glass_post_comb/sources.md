@@ -15,7 +15,7 @@ capacity_addition_unbounded
 ---------------------------
 
 Step 1
-glass_post_comb capacity_addition_unbounded carried forward unchanged from cement_post_comb (same underlying DEA 'typical plant' capture-unit spec).
+glass_post_comb capacity_addition_unbounded carried forward from cement_post_comb (97.03196347 tCO2/h = 0.09703196 kilotCO2/hour; same underlying DEA 'typical plant' capture-unit spec).
 
 **Citation**
 

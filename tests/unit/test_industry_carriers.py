@@ -84,6 +84,17 @@ def test_product_carrier_demand_is_non_negative_for_every_node(carrier_cls, mode
     assert set(demand.index) == set(MODEL_NODES)
 
 
+@pytest.mark.parametrize("carrier_cls", PRODUCT_CARRIERS)
+def test_product_carrier_demand_column_is_named_demand(carrier_cls, model: Model):
+    """The written demand.csv header must be `demand` (ceramic previously wrote `kt_yr`)."""
+    carrier = carrier_cls(model=model)
+    carrier.build()
+
+    df = carrier.demand.df
+    names = list(df.columns) if hasattr(df, "columns") else [df.name]
+    assert names == ["demand"]
+
+
 def test_heat_industry_100_150_and_150_200_share_the_same_energy_carrier_template():
     """industry_carrier_data.get_carrier_dict gives every energy carrier a
     deepcopy of the same ENERGY_CARRIER_TEMPLATE -- confirm

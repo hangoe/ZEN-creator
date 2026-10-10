@@ -36,7 +36,7 @@ _TES_E2P_SOURCE = SourceInformation(
 _TES_COST_SOURCE = SourceInformation(
     description=(
         "opex_specific_variable = 1 EUR/GWh (small friction to prevent spurious cycling). "
-        "self_discharge = 0.95 (standing thermal loss per time step; Mayer2024 does not "
+        "self_discharge = 0.05 (5 % standing thermal loss per hour; Mayer2024 does not "
         "report self-discharge rates, so this internal assumption is used)."
     ),
     metadata=MetaData(
@@ -115,7 +115,7 @@ class _IndustryTESTechnology:
 
     def _set_self_discharge(self) -> Attribute:
         attr = Attribute("self_discharge", element=self)
-        attr.set_data(default_value=0.95, unit="1", source=_TES_COST_SOURCE)
+        attr.set_data(default_value=0.05, unit="1", source=_TES_COST_SOURCE)
         return attr
 
     def _set_energy_to_power_ratio_min(self) -> Attribute:

@@ -179,7 +179,8 @@ def test_hp_seed_is_split_over_sectors_not_multiplied(level, model: Model):
 
 
 def test_hp_seed_total_over_all_variants_equals_dh_snapshot(model: Model):
-    """Σ over 3 bands × 2 variants × 4 sectors × nodes = DH_HEAT_PUMP_EXISTING_EU_GW."""
+    """Σ over 3 bands × 2 variants × 4 sectors × nodes = 6 × DH_HEAT_PUMP_EXISTING_EU_GW:
+    each of the 6 variants gets the full DH fleet as its seed."""
     param = ProcessParametrizationDataset()
     total = 0.0
     for level in HEAT_TEMP_LEVELS:
@@ -189,7 +190,7 @@ def test_hp_seed_total_over_all_variants_equals_dh_snapshot(model: Model):
                 total += param.get_industry_hp_capacity_addition_unbounded(
                     cls(model=model), level, s
                 ).default_value * len(MODEL_NODES)
-    assert total == pytest.approx(DH_HEAT_PUMP_EXISTING_EU_GW)
+    assert total == pytest.approx(6 * DH_HEAT_PUMP_EXISTING_EU_GW)
 
 
 @pytest.mark.parametrize("level", HEAT_TEMP_LEVELS)

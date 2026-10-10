@@ -53,7 +53,7 @@ def _post_comb_methods(sector: str):
             return PostCombCCDataset().get_opex_specific_variable(self, sector)
 
         def _set_carbon_intensity_technology(self) -> Attribute:
-            return Attribute("carbon_intensity_technology", default_value=0.0, unit="ton/tCO2eq", element=self)
+            return Attribute("carbon_intensity_technology", default_value=0.0, unit="ton/tCO2", element=self)
 
         def _set_max_diffusion_rate(self) -> Attribute:
             return PostCombCCDataset().get_max_diffusion_rate(self, sector)
@@ -76,7 +76,7 @@ class CeramicPostComb(_post_comb_methods("ceramic"), RetrofittingTechnology):
     name = "ceramic_post_comb"
 
     def __init__(self, model: Model):
-        super().__init__(model=model, power_unit="kilotCO2eq/hour")
+        super().__init__(model=model, power_unit="kilotCO2/hour")
 
 
 class GlassPostComb(_post_comb_methods("glass"), RetrofittingTechnology):
@@ -85,4 +85,4 @@ class GlassPostComb(_post_comb_methods("glass"), RetrofittingTechnology):
     name = "glass_post_comb"
 
     def __init__(self, model: Model):
-        super().__init__(model=model, power_unit="kilotCO2eq/hour")
+        super().__init__(model=model, power_unit="kilotCO2/hour")

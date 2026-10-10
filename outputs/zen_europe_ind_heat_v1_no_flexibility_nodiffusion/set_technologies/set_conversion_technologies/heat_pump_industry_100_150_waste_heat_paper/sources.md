@@ -15,11 +15,16 @@ capacity_addition_unbounded
 ---------------------------
 
 Step 1
-heat_pump_industry_100_150_waste_heat_paper capacity_addition_unbounded: Crystal Ball heat_pump_DH installed capacity (1.875 GW EU) / 6 industry HP variants × paper share of band 100_150 heat demand (0.8122) / 28 nodes = 0.00906 GW per node, same value at every node, applied once per investment period. See ASSUMPTIONS.md, 'Technology diffusion'.
+heat_pump_industry_100_150_waste_heat_paper capacity_addition_unbounded: Crystal Ball heat_pump_DH installed capacity (1.875 GW EU) / 1 industry HP variants × paper share of band 100_150 heat demand (0.8122) / 28 nodes = 0.05437 GW per node, same value at every node, applied once per investment period. See ASSUMPTIONS.md, 'Technology diffusion'.
 
 **Citation**
 
 ZEN Creator (2024). Industry process technology parametrization. Internal parametrization workbook.
+
+----
+
+Step 2
+Scaled by 2.5881 for the zen-europe base: zen-europe heat_pump_DH fleet (2.426 GW) / Crystal Ball fleet (1.875 GW) x 4/2 (seed is applied once per investment period). Result 0.14073 GW per node. See ASSUMPTIONS.md, 'Technology diffusion'.
 
 capacity_existing
 -----------------

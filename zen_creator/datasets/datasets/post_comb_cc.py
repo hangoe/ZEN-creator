@@ -60,15 +60,18 @@ _OPEX_FIXED_LABEL = "Fixed O&M [mill €/[tCO2/hour]] (CO2 output)"
 _OPEX_VARIABLE_LABEL = "Variable O&M [€/tCO2] (CO2 output)"
 _LIFETIME_LABEL = "Technical lifetime [years]"
 
-# EUR million per (tCO2/hour) -> EUR per (tCO2eq/hour)
-_MILL_EUR_PER_TCO2H_TO_EUR_PER_TCO2EQH = 1e6
+# EUR million per (tCO2/hour) -> EUR per (kilotCO2/hour): x1e6 (mill EUR -> EUR) x1e3 (per t -> per kt)
+_MILL_EUR_PER_TCO2H_TO_EUR_PER_KTCO2H = 1e9
 
 # Retrofit-specific technology-instance parameters that aren't in the DEA
 # sheet in a directly usable form: carried forward unchanged from
 # cement_post_comb, since it's the same underlying DEA "typical plant"
 # capture-unit spec, just bolted onto a different base technology. See
 # ASSUMPTIONS.md.
-CAPACITY_ADDITION_UNBOUNDED = 0.0114155
+# cement_post_comb's capacity_addition_unbounded in the zen-europe base is 97.03196347 tCO2/h;
+# converted to this model's kilotCO2/hour capacity unit (/1000) so glass/ceramic carry the
+# same physical seed as cement instead of the old Crystal Ball number (0.0114155 kilotCO2/hour).
+CAPACITY_ADDITION_UNBOUNDED = 97.03196347031962 / 1000
 MAX_DIFFUSION_RATE = 0.13
 
 # Fuels supplying the capture unit's own auxiliary heat demand (natural_gas +
@@ -135,11 +138,11 @@ class PostCombCCDataset(Dataset[pd.DataFrame]):
         split = self._ng_coal_split(sector)
 
         entries = [
-            {carrier: {"default_value": round(heat_input * share, 12), "unit": "GW/(kilotCO2eq/hour)"}}
+            {carrier: {"default_value": round(heat_input * share, 12), "unit": "GW/(kilotCO2/hour)"}}
             for carrier, share in split.items()
         ]
-        entries.append({"electricity": {"default_value": electricity, "unit": "GW/(kilotCO2eq/hour)"}})
-        entries.append({"district_heat": {"default_value": heat_output, "unit": "GW/(kilotCO2eq/hour)"}})
+        entries.append({"electricity": {"default_value": electricity, "unit": "GW/(kilotCO2/hour)"}})
+        entries.append({"district_heat": {"default_value": heat_output, "unit": "GW/(kilotCO2/hour)"}})
 
         attr = Attribute("conversion_factor", element=element)
         attr.set_data(
@@ -156,11 +159,11 @@ class PostCombCCDataset(Dataset[pd.DataFrame]):
     def _get_interpolated_attr(
         self, element: Element, sector: str, attr_name: str, label: str, description_noun: str,
     ) -> Attribute:
-        year_values = {y: v * _MILL_EUR_PER_TCO2H_TO_EUR_PER_TCO2EQH for y, v in _year_values(label).items()}
+        year_values = {y: v * _MILL_EUR_PER_TCO2H_TO_EUR_PER_KTCO2H for y, v in _year_values(label).items()}
         series = _interpolate_to_model_years(year_values)
         attr = Attribute(attr_name, element=element)
         attr.set_data(
-            default_value=float(series.loc[MODEL_FIRST_YEAR]), unit="Euro/(kilotCO2eq/hour)",
+            default_value=float(series.loc[MODEL_FIRST_YEAR]), unit="Euro/(kilotCO2/hour)",
             df=None if _is_constant(series) else series.to_frame(attr_name),
             source=self._source_info(
                 f"{description_noun} for {sector}_post_comb from DEA sheet {_WS!r}, "
@@ -179,7 +182,7 @@ class PostCombCCDataset(Dataset[pd.DataFrame]):
         val = _value_2020(_OPEX_VARIABLE_LABEL)
         attr = Attribute("opex_specific_variable", element=element)
         attr.set_data(
-            default_value=val, unit="Euro/tCO2eq",
+            default_value=val, unit="Euro/tCO2",
             source=self._source_info(f"Variable O&M for {sector}_post_comb from DEA sheet {_WS!r} (2020 Est)."),
         )
         return attr
@@ -212,7 +215,7 @@ class PostCombCCDataset(Dataset[pd.DataFrame]):
         factor = round(base_intensity * capture_rate / 1000.0, 12)  # ton/tonproduct -> kiloton/tonproduct
         attr = Attribute("retrofit_flow_coupling_factor", element=element)
         attr.set_data(
-            default_value=factor, unit="kilotCO2eq/tonproduct",
+            default_value=factor, unit="kilotCO2/tonproduct",
             source=self._source_info(
                 f"{sector}_post_comb retrofit_flow_coupling_factor = {sector}_production."
                 f"carbon_intensity_technology ({base_intensity} ton/tonproduct) x DEA capture rate "
@@ -225,10 +228,10 @@ class PostCombCCDataset(Dataset[pd.DataFrame]):
     def get_capacity_addition_unbounded(self, element: Element, sector: str) -> Attribute:
         attr = Attribute("capacity_addition_unbounded", element=element)
         attr.set_data(
-            default_value=CAPACITY_ADDITION_UNBOUNDED, unit="kilotCO2eq/hour",
+            default_value=CAPACITY_ADDITION_UNBOUNDED, unit="kilotCO2/hour",
             source=self._source_info(
-                f"{sector}_post_comb capacity_addition_unbounded carried forward unchanged from "
-                "cement_post_comb (same underlying DEA 'typical plant' capture-unit spec)."
+                f"{sector}_post_comb capacity_addition_unbounded carried forward from "
+                "cement_post_comb (97.03196347 tCO2/h = 0.09703196 kilotCO2/hour; same underlying DEA 'typical plant' capture-unit spec)."
             ),
         )
         return attr

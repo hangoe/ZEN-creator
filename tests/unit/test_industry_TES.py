@@ -50,6 +50,15 @@ def test_efficiency_is_lossless(model: Model):
         assert technology.efficiency_discharge.default_value == pytest.approx(1.0)
 
 
+def test_self_discharge_is_loss_fraction(model: Model):
+    """ZEN-garden keeps (1 - self_discharge)^h of the storage level, so self_discharge
+    is the hourly loss: 5 %, not 95 %."""
+    for technology_cls in TES_CLASSES:
+        technology = technology_cls(model=model)
+        technology.build()
+        assert technology.self_discharge.default_value == pytest.approx(0.05)
+
+
 def test_water_tanks_allow_longer_duration_than_steam_accumulator(model: Model):
     """Water tanks (intraday buffer) must have a wider energy-to-power ratio
     range than the steam accumulator (inherently short-duration) -- see

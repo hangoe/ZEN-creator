@@ -21,6 +21,11 @@ from zen_creator.utils.attribute import Attribute
 
 _EUROSTAT_FILE = INPUT_DATA / "Eurostat" / "Eurostat_EB_GWh.xlsx"
 
+# Per-node existing capacity (summed over vintages) below this is set to zero:
+# such small fleets (down to ~1e-10 GW) only add tiny RHS values that hurt the
+# solver's numerics. See ASSUMPTIONS.md, "Boiler (industry) capacity".
+MIN_BOILER_CAPACITY_EXISTING_GW = 0.005
+
 # tech_name -> (fuel_key into _demand_based_boiler_capacity_gw, display label
 # for the source description)
 _BOILER_FUEL_CONFIG: dict[str, tuple[str, str]] = {
@@ -69,6 +74,8 @@ class EurostatBoilerDataset(Dataset[pd.DataFrame]):
             fuel_key, year, lifetime=BOILER_LIFETIMES[tech_name], year_construction=year_construction,
             sector=sector,
         )
+        node_total = df.groupby("node")["capacity_existing"].transform("sum")
+        df.loc[node_total < MIN_BOILER_CAPACITY_EXISTING_GW, "capacity_existing"] = 0.0
         attr = Attribute("capacity_existing", default_value=0.0, unit="GW", element=element)
         attr.set_data(
             df=df.set_index(["node", "year_construction"]),

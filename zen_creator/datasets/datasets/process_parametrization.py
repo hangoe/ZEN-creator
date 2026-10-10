@@ -109,12 +109,13 @@ ZERO_COST_CAPACITY_LIMIT_MARGIN = 2.0
 # heat_pump_DH capacity_existing summed over nodes (1.8745 GW; present in only 8 nodes,
 # hence redistributed by industrial heat demand below). DH and industry HPs are the same
 # technology with a different heat sink; the DH fleet is the market's observed build-out
-# so far. Shared equally across the INDUSTRY_HP_SEED_N_TECHS industry HP variants
-# (3 bands x water/waste heat). With per-sector heat (V11) each variant exists once per
+# so far. Shared equally across the INDUSTRY_HP_SEED_N_TECHS industry HP variants;
+# it is 1, i.e. every variant (3 bands x water/waste heat) gets the full DH fleet as its seed
+# (previously split over 6 variants, giving ~1e-3 GW seeds and badly scaled diffusion rows). With per-sector heat (V11) each variant exists once per
 # sector and its seed is further split by the sector's share of the band's heat demand,
 # so the total over all sectors x variants is unchanged. See ASSUMPTIONS.md, "Technology diffusion".
 DH_HEAT_PUMP_EXISTING_EU_GW = 1.8745402241776512
-INDUSTRY_HP_SEED_N_TECHS = 6
+INDUSTRY_HP_SEED_N_TECHS = 1
 
 # natural_gas_to_kilnfuel/hydrogen_to_kilnfuel/electricity_to_kilnfuel conversion_factor
 # (GW input per GW fuel_to_kiln output). AIDRES2023-derived from glass's own container/

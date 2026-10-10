@@ -6,6 +6,7 @@ from pathlib import Path
 
 from zen_creator.datasets.datasets._industry_heat_utils import MODEL_NODES
 from zen_creator.datasets.datasets.process_parametrization import DH_HEAT_PUMP_EXISTING_EU_GW
+from zen_creator.datasets.datasets.metadata import AssumptionInformation
 from zen_creator.model import Model
 from zen_creator.utils.attribute import Attribute
 from zen_creator.utils.config import Config
@@ -148,6 +149,13 @@ def scale_heat_pump_seed(model: Model, factor: float) -> None:
         if name.startswith("heat_pump_industry_"):
             attribute = technology.capacity_addition_unbounded
             attribute.default_value = attribute.default_value * factor
+            attribute.add_source(AssumptionInformation(description=(
+                f"Scaled by {factor:.4f} for the zen-europe base: zen-europe heat_pump_DH fleet "
+                f"({ZEN_EUROPE_DH_HEAT_PUMP_EXISTING_EU_GW:.3f} GW) / Crystal Ball fleet "
+                f"({DH_HEAT_PUMP_EXISTING_EU_GW:.3f} GW) x {INTERVAL_BETWEEN_YEARS}/{SEED_TUNED_INTERVAL} "
+                "(seed is applied once per investment period). Result "
+                f"{attribute.default_value:.5f} GW per node. See ASSUMPTIONS.md, 'Technology diffusion'."
+            )))
 
 
 def scale_heat_capacity_addition_unbounded(model: Model, factor: float) -> None:
