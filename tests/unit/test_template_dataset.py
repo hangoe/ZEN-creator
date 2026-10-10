@@ -34,7 +34,7 @@ def test_template_dataset_metadata_construction(tmp_path: Path) -> None:
     """Construction exposes metadata with expected template values."""
     dataset = TemplateDataset(source_path=tmp_path)
 
-    assert dataset.metadata.model_dump() == {
+    assert dataset.metadata.to_dict() == {
         "name": "template_dataset",
         "title": (
             "Technology lifetimes and availability data for energy " "system modeling"
